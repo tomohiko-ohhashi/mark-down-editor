@@ -59,6 +59,8 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+GitHub の Actions タブから「Release」ワークフローを手動実行 (Run workflow) し、タグ名を入力して起動することもできます。手動実行は release.yml がデフォルトブランチ (main) に含まれている必要があります。
+
 ### コード署名
 
 署名用の Secrets が設定されていない場合は未署名でビルドされます。その場合、macOS では初回起動時に Gatekeeper の警告が出るため、アプリを右クリック →「開く」で起動してください。Windows では SmartScreen の警告が出る場合があります（「詳細情報」→「実行」）。
