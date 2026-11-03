@@ -74,3 +74,116 @@ mod tests {
         assert!(read_file("/nonexistent/__none__.md".into()).is_err());
     }
 }
+
+#[derive(Serialize)]
+pub struct DirEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+}
+
+const TEXT_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "txt"];
+
+/// List a directory for the workspace tree: sub-directories and Markdown/text files,
+/// sorted with directories first. Hidden entries (dot files) are skipped.
+#[tauri::command]
+pub fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
+    let mut entries: Vec<DirEntry> = fs::read_dir(&path)
+        .map_err(|e| format!("フォルダを読み込めません: {e}"))?
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.starts_with('.') {
+                return None;
+            }
+            let p = e.path();
+            let is_dir = p.is_dir();
+            if !is_dir {
+                let ext = p.extension()?.to_str()?.to_ascii_lowercase();
+                if !TEXT_EXTENSIONS.contains(&ext.as_str()) {
+                    return None;
+                }
+            }
+            Some(DirEntry {
+                name,
+                path: p.to_string_lossy().into_owned(),
+                is_dir,
+            })
+        })
+        .collect();
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+    Ok(entries)
+}
+
+/// Save pasted/dropped image bytes next to the document (in an `assets` folder)
+/// and return the path relative to the document, for use in Markdown.
+#[tauri::command]
+pub fn save_image(doc_path: String, bytes: Vec<u8>, ext: String) -> Result<String, String> {
+    let doc = Path::new(&doc_path);
+    let dir = doc
+        .parent()
+        .ok_or_else(|| "保存先のフォルダが分かりません".to_string())?;
+    let assets = dir.join("assets");
+    fs::create_dir_all(&assets).map_err(|e| format!("assets フォルダを作成できません: {e}"))?;
+
+    let ext = ext.trim_start_matches('.').to_ascii_lowercase();
+    let ext = if ext.is_empty() {
+        "png".to_string()
+    } else {
+        ext
+    };
+    let stem = doc
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("image")
+        .replace(' ', "_");
+    let stamp = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let file_name = format!("{stem}-{stamp}.{ext}");
+    let target = assets.join(&file_name);
+    fs::write(&target, &bytes).map_err(|e| format!("画像を保存できません: {e}"))?;
+    Ok(format!("assets/{file_name}"))
+}
+
+#[cfg(test)]
+mod more_tests {
+    use super::*;
+
+    #[test]
+    fn read_dir_filters_and_sorts() {
+        let dir = std::env::temp_dir().join(format!("mde-dir-{}", std::process::id()));
+        fs::create_dir_all(dir.join("zeta")).unwrap();
+        fs::create_dir_all(dir.join(".hidden")).unwrap();
+        fs::write(dir.join("b.md"), "").unwrap();
+        fs::write(dir.join("a.txt"), "").unwrap();
+        fs::write(dir.join("c.png"), "").unwrap();
+        let entries = read_dir(dir.to_string_lossy().to_string()).unwrap();
+        let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, vec!["zeta", "a.txt", "b.md"]);
+        assert!(entries[0].is_dir);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn save_image_writes_into_assets() {
+        let dir = std::env::temp_dir().join(format!("mde-img-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let doc = dir.join("my doc.md");
+        let rel = save_image(
+            doc.to_string_lossy().to_string(),
+            vec![1, 2, 3],
+            "PNG".into(),
+        )
+        .unwrap();
+        assert!(rel.starts_with("assets/my_doc-"));
+        assert!(rel.ends_with(".png"));
+        assert_eq!(fs::read(dir.join(&rel)).unwrap(), vec![1, 2, 3]);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+}

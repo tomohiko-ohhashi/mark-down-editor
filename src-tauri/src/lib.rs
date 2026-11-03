@@ -22,11 +22,60 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(StartupFiles(std::sync::Mutex::new(startup)))
+        .setup(|app| {
+            // macOS needs an application menu for Edit shortcuts (copy/paste) to work.
+            // We build our own without "Close Window" so Cmd+W can close a tab instead.
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::menu::{AboutMetadata, MenuBuilder, SubmenuBuilder};
+                let app_menu = SubmenuBuilder::new(app, "Markdown Editor")
+                    .about(Some(AboutMetadata::default()))
+                    .separator()
+                    .services()
+                    .separator()
+                    .hide()
+                    .hide_others()
+                    .show_all()
+                    .separator()
+                    .quit()
+                    .build()?;
+                let edit_menu = SubmenuBuilder::new(app, "Edit")
+                    .undo()
+                    .redo()
+                    .separator()
+                    .cut()
+                    .copy()
+                    .paste()
+                    .select_all()
+                    .build()?;
+                let window_menu = SubmenuBuilder::new(app, "Window")
+                    .minimize()
+                    .maximize()
+                    .separator()
+                    .fullscreen()
+                    .build()?;
+                let menu = MenuBuilder::new(app)
+                    .items(&[&app_menu, &edit_menu, &window_menu])
+                    .build()?;
+                app.set_menu(menu)?;
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                let _ = app;
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::read_file,
             commands::write_file,
             commands::file_mtime,
+            commands::read_dir,
+            commands::save_image,
             take_startup_files,
         ])
         .build(tauri::generate_context!())

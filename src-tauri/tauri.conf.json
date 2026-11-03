@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Markdown Editor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "dev.tomohiko-ohhashi.markdown-editor",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -20,7 +20,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**"
+        ]
+      }
     }
   },
   "bundle": {
@@ -35,11 +41,23 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["md", "markdown"],
+        "ext": [
+          "md",
+          "markdown"
+        ],
         "name": "Markdown",
         "description": "Markdown document",
         "role": "Editor"
       }
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENGRDdDRjU1NEQ1NkJCMEYKUldRUHUxWk5WYy9YejFheERJOXUyK3lhTEg5N2FTMlJDTGVEZjlzTWhVMWozRVNDUG9aRTdRTmoK",
+      "endpoints": [
+        "https://github.com/tomohiko-ohhashi/mark-down-editor/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

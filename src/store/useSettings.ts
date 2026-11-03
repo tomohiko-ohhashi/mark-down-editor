@@ -1,0 +1,130 @@
+import { create } from "zustand";
+
+export type Theme = "system" | "light" | "dark";
+
+export interface Settings {
+  theme: Theme;
+  editorFontSize: number;
+  editorFontFamily: string;
+  previewFontSize: number;
+  tabSize: number;
+  lineWrap: boolean;
+  /** Seconds between autosaves of dirty documents that have a path; 0 disables. */
+  autosaveSeconds: number;
+  reopenLastFiles: boolean;
+  checkUpdatesOnStartup: boolean;
+  recentFiles: string[];
+  lastOpenFiles: string[];
+  lastWorkspace: string | null;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  theme: "system",
+  editorFontSize: 14,
+  editorFontFamily: "",
+  previewFontSize: 15,
+  tabSize: 2,
+  lineWrap: true,
+  autosaveSeconds: 0,
+  reopenLastFiles: true,
+  checkUpdatesOnStartup: true,
+  recentFiles: [],
+  lastOpenFiles: [],
+  lastWorkspace: null,
+};
+
+const MAX_RECENT = 12;
+const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+interface Backend {
+  load(): Promise<Partial<Settings>>;
+  save(s: Settings): Promise<void>;
+}
+
+const localBackend: Backend = {
+  async load() {
+    try {
+      return JSON.parse(localStorage.getItem("settings") ?? "{}");
+    } catch {
+      return {};
+    }
+  },
+  async save(s) {
+    try {
+      localStorage.setItem("settings", JSON.stringify(s));
+    } catch {
+      /* ignore */
+    }
+  },
+};
+
+async function tauriBackend(): Promise<Backend> {
+  const { load } = await import("@tauri-apps/plugin-store");
+  const store = await load("settings.json", { autoSave: 300, defaults: {} });
+  return {
+    async load() {
+      return (await store.get<Settings>("settings")) ?? {};
+    },
+    async save(s) {
+      await store.set("settings", s);
+    },
+  };
+}
+
+let backend: Backend | null = null;
+
+interface SettingsState extends Settings {
+  loaded: boolean;
+  update: (patch: Partial<Settings>) => void;
+  addRecent: (path: string) => void;
+  clearRecent: () => void;
+}
+
+export const useSettings = create<SettingsState>((set, get) => ({
+  ...DEFAULT_SETTINGS,
+  loaded: false,
+  update: (patch) => {
+    set(patch);
+    void persist(get());
+  },
+  addRecent: (path) => {
+    const recent = [path, ...get().recentFiles.filter((p) => p !== path)].slice(0, MAX_RECENT);
+    set({ recentFiles: recent });
+    void persist(get());
+  },
+  clearRecent: () => {
+    set({ recentFiles: [] });
+    void persist(get());
+  },
+}));
+
+function pick(s: SettingsState): Settings {
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(DEFAULT_SETTINGS)) out[k] = s[k as keyof Settings];
+  return out as unknown as Settings;
+}
+
+async function persist(s: SettingsState) {
+  if (!backend) return;
+  await backend.save(pick(s));
+}
+
+export async function loadSettings(): Promise<void> {
+  backend = inTauri ? await tauriBackend() : localBackend;
+  const saved = await backend.load();
+  useSettings.setState({ ...DEFAULT_SETTINGS, ...saved, loaded: true });
+}
+
+/** Apply the theme preference to the document root; "system" follows the OS. */
+export function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  if (theme === "system") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", theme);
+}
+
+export function isDarkTheme(): boolean {
+  const t = document.documentElement.getAttribute("data-theme");
+  if (t === "dark") return true;
+  if (t === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}

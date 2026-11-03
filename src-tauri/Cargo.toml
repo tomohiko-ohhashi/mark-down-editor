@@ -1,6 +1,6 @@
 [package]
 name = "markdown-editor"
-version = "0.1.0"
+version = "0.2.0"
 description = "A cross-platform Markdown editor"
 authors = ["tomohiko-ohhashi"]
 edition = "2024"
@@ -13,10 +13,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tauri-plugin-store = "2.5.0"
+tauri-plugin-updater = "2.14.1"
+tauri-plugin-process = "2.4.0"
+tauri-plugin-opener = "2.7.2"
 
 [profile.release]
 codegen-units = 1

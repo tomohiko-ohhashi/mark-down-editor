@@ -85,13 +85,31 @@ jobs:
             echo "APPLE_TEAM_ID=$APPLE_TEAM_ID" >> "$GITHUB_ENV"
           fi
 
+      # Updater artifacts are signed with TAURI_SIGNING_PRIVATE_KEY. Without the
+      # secret the build still succeeds, but the auto-updater cannot verify it.
+      - name: Configure updater signing
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "No TAURI_SIGNING_PRIVATE_KEY secret; building without updater artifacts."
+            echo '{"bundle":{"createUpdaterArtifacts":false}}' > "$GITHUB_WORKSPACE/src-tauri/tauri.no-updater.json"
+            echo "TAURI_EXTRA_ARGS=--config $GITHUB_WORKSPACE/src-tauri/tauri.no-updater.json" >> "$GITHUB_ENV"
+          else
+            echo "TAURI_EXTRA_ARGS=" >> "$GITHUB_ENV"
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ inputs.tag || github.ref_name }}
           releaseName: "Markdown Editor ${{ inputs.tag || github.ref_name }}"
           releaseBody: "See the assets below to download and install this version."
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          includeUpdaterJson: true
+          args: ${{ matrix.args }} ${{ env.TAURI_EXTRA_ARGS }}

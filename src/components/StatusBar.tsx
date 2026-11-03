@@ -1,4 +1,4 @@
-import { useDocStore } from "../store/useDocStore";
+import { useDocStore, selectActiveDoc } from "../store/useDocStore";
 
 function countStats(text: string) {
   const lines = text.length === 0 ? 0 : text.split("\n").length;
@@ -11,12 +11,13 @@ function countStats(text: string) {
 }
 
 export function StatusBar() {
-  const content = useDocStore((s) => s.content);
-  const path = useDocStore((s) => s.path);
-  const { lines, chars, words } = countStats(content);
+  const doc = useDocStore(selectActiveDoc);
+  const typewriter = useDocStore((s) => s.typewriterMode);
+  const { lines, chars, words } = countStats(doc.content);
   return (
     <footer className="statusbar">
-      <span className="statusbar-path">{path ?? "未保存のドキュメント"}</span>
+      <span className="statusbar-path">{doc.path ?? "未保存のドキュメント"}</span>
+      {typewriter && <span>タイプライター</span>}
       <span>{lines} 行</span>
       <span>{words} 語</span>
       <span>{chars} 文字</span>
