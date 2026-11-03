@@ -114,7 +114,15 @@ docs/
 - 設定の保存場所 (Tauri の app config dir を使用)
 - i18n を初期から入れるか (日本語 / 英語)
 
-## 8. 最初の一歩 (M0 の具体タスク)
+## 8. 進捗
+
+- [x] M0 環境構築 (Tauri 2 + React/TS 雛形、3 OS CI、release ワークフロー)
+- [x] M1 エディタ + プレビュー + ファイル開閉保存
+- [x] M2 検索置換、表示モード、テーマ、ショートカット、未保存確認、外部変更検知
+- [ ] M3 アイコン差し替え、3 OS 実機での動作確認、v0.1 タグ付け
+- [ ] M4 以降
+
+## 9. 最初の一歩 (M0 の具体タスク、参考)
 
 ```bash
 pnpm create tauri-app@latest . --template react-ts --manager pnpm
