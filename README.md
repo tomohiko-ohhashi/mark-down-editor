@@ -59,7 +59,21 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-現在のビルドはコード署名をしていないため、macOS では初回起動時に Gatekeeper の警告が出ます。アプリを右クリック →「開く」で起動できます。Windows では SmartScreen の警告が出る場合があります。
+### コード署名
+
+署名用の Secrets が設定されていない場合は未署名でビルドされます。その場合、macOS では初回起動時に Gatekeeper の警告が出るため、アプリを右クリック →「開く」で起動してください。Windows では SmartScreen の警告が出る場合があります（「詳細情報」→「実行」）。
+
+macOS で署名・公証するには、Apple Developer Program に加入し、リポジトリの Secrets に次を登録します。
+
+| Secret | 内容 |
+| --- | --- |
+| `APPLE_CERTIFICATE` | Developer ID Application 証明書 (.p12) を base64 化した文字列 |
+| `APPLE_CERTIFICATE_PASSWORD` | .p12 のパスワード |
+| `KEYCHAIN_PASSWORD` | CI 用キーチェーンの任意のパスワード |
+| `APPLE_SIGNING_IDENTITY` | 例: `Developer ID Application: Your Name (TEAMID)` |
+| `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` | 公証用の Apple ID、App 用パスワード、Team ID |
+
+Windows の署名は任意です。必要になった場合は Tauri のドキュメント (https://tauri.app/distribute/sign/windows/) に従って `tauri.conf.json` の `bundle.windows` に設定を追加してください。
 
 ## 構成
 
