@@ -70,15 +70,21 @@ export async function openDocument(presetPath?: string): Promise<void> {
     (await open({ multiple: false, directory: false, filters: MD_FILTERS }));
   if (!path) return;
 
-  const state = useDocStore.getState();
-  const existing = state.docs.find((d) => d.path === path);
+  const existing = useDocStore.getState().docs.find((d) => d.path === path);
   if (existing) {
-    state.setActive(existing.id);
+    useDocStore.getState().setActive(existing.id);
     return;
   }
 
   try {
     const file = await readFile(path);
+    // Re-read the store: another open may have finished (or the user typed) while reading.
+    const state = useDocStore.getState();
+    const already = state.docs.find((d) => d.path === path);
+    if (already) {
+      state.setActive(already.id);
+      return;
+    }
     const active = selectActiveDoc(state);
     if (!active.path && active.content === "" && !isDirty(active)) {
       state.loadInto(active.id, path, file.content, file.mtime);
@@ -122,9 +128,10 @@ export async function saveDocumentAs(id?: string): Promise<boolean> {
 async function writeTo(id: string, path: string): Promise<boolean> {
   const doc = docById(id);
   if (!doc) return false;
+  const written = doc.content;
   try {
-    const mtime = await writeFile(path, doc.content);
-    useDocStore.getState().markSaved(id, path, mtime);
+    const mtime = await writeFile(path, written);
+    useDocStore.getState().markSaved(id, path, mtime, written);
     useSettings.getState().addRecent(path);
     flashStatus("保存しました");
     return true;
@@ -138,9 +145,10 @@ async function writeTo(id: string, path: string): Promise<boolean> {
 export async function autosaveAll(): Promise<void> {
   for (const doc of useDocStore.getState().docs) {
     if (doc.path && isDirty(doc)) {
+      const written = doc.content;
       try {
-        const mtime = await writeFile(doc.path, doc.content);
-        useDocStore.getState().markSaved(doc.id, doc.path, mtime);
+        const mtime = await writeFile(doc.path, written);
+        useDocStore.getState().markSaved(doc.id, doc.path, mtime, written);
       } catch {
         /* reported on the next manual save */
       }

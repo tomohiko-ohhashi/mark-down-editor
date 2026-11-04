@@ -131,6 +131,15 @@ export function Editor() {
     const saved = states.get(doc.id);
     if (saved && saved.doc.toString() === doc.content) {
       view.setState(saved);
+      // The stashed state carries the settings from when it was put away.
+      const s = useSettings.getState();
+      view.dispatch({
+        effects: [
+          lineWrap.reconfigure(s.lineWrap ? EditorView.lineWrapping : []),
+          tabSize.reconfigure([tabSizeExt(s.tabSize), indentUnit.of(" ".repeat(s.tabSize))]),
+          typewriter.reconfigure(useDocStore.getState().typewriterMode ? typewriterScrolling : []),
+        ],
+      });
     } else {
       view.setState(createState(doc.content));
     }

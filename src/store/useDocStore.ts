@@ -31,7 +31,8 @@ interface DocState {
   setActive: (id: string) => void;
   setContent: (id: string, content: string) => void;
   loadInto: (id: string, path: string | null, content: string, mtime: number | null) => void;
-  markSaved: (id: string, path: string, mtime: number) => void;
+  /** Record a successful write. `written` is the exact text that went to disk. */
+  markSaved: (id: string, path: string, mtime: number, written: string) => void;
   setViewMode: (mode: ViewMode) => void;
   setStatus: (status: string | null) => void;
   toggle: (key: "showSidebar" | "showOutline" | "focusMode" | "typewriterMode" | "settingsOpen" | "cheatSheetOpen") => void;
@@ -95,9 +96,9 @@ export const useDocStore = create<DocState>((set, get) => ({
       docs: s.docs.map((d) => (d.id === id ? { ...d, path, content, savedContent: content, mtime } : d)),
       status: null,
     })),
-  markSaved: (id, path, mtime) =>
+  markSaved: (id, path, mtime, written) =>
     set((s) => ({
-      docs: s.docs.map((d) => (d.id === id ? { ...d, path, mtime, savedContent: d.content } : d)),
+      docs: s.docs.map((d) => (d.id === id ? { ...d, path, mtime, savedContent: written } : d)),
     })),
   setViewMode: (viewMode) => set({ viewMode }),
   setStatus: (status) => set({ status }),

@@ -48,7 +48,13 @@ const rehypeLocalImages: Plugin<[{ docDir: string | null | undefined }], Root> =
       if (node.tagName !== "img") return;
       const src = node.properties?.src;
       if (typeof src !== "string" || isExternalUrl(src)) return;
-      const abs = isAbsolutePath(src) ? src : joinPath(docDir, decodeURIComponent(src));
+      let decoded = src;
+      try {
+        decoded = decodeURIComponent(src);
+      } catch {
+        /* keep the raw path for inputs like "100%.png" */
+      }
+      const abs = isAbsolutePath(decoded) ? decoded : joinPath(docDir, decoded);
       node.properties.src = convertFileSrc(abs);
     });
   };

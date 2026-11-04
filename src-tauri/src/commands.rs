@@ -121,9 +121,56 @@ pub fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
 
 /// Save pasted/dropped image bytes next to the document (in an `assets` folder)
 /// and return the path relative to the document, for use in Markdown.
+///
+/// The image is sent as the raw request body (not a JSON number array);
+/// `doc-path` (percent-encoded) and `ext` come in as headers.
 #[tauri::command]
-pub fn save_image(doc_path: String, bytes: Vec<u8>, ext: String) -> Result<String, String> {
-    let doc = Path::new(&doc_path);
+pub fn save_image(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(b) => b.clone(),
+        tauri::ipc::InvokeBody::Json(_) => {
+            return Err("画像データの形式が不正です".to_string());
+        }
+    };
+    let header = |name: &str| -> Result<String, String> {
+        request
+            .headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.to_string())
+            .ok_or_else(|| format!("ヘッダー {name} がありません"))
+    };
+    let doc_path = percent_decode(&header("doc-path")?);
+    let ext = header("ext")?;
+    save_image_to(&doc_path, &bytes, &ext)
+}
+
+/// Decode %XX escapes (as produced by JavaScript's encodeURIComponent).
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let decoded = (bytes[i] == b'%' && i + 2 < bytes.len())
+            .then(|| std::str::from_utf8(&bytes[i + 1..i + 3]).ok())
+            .flatten()
+            .and_then(|h| u8::from_str_radix(h, 16).ok());
+        match decoded {
+            Some(v) => {
+                out.push(v);
+                i += 3;
+            }
+            None => {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+pub fn save_image_to(doc_path: &str, bytes: &[u8], ext: &str) -> Result<String, String> {
+    let doc = Path::new(doc_path);
     let dir = doc
         .parent()
         .ok_or_else(|| "保存先のフォルダが分かりません".to_string())?;
@@ -147,7 +194,7 @@ pub fn save_image(doc_path: String, bytes: Vec<u8>, ext: String) -> Result<Strin
         .unwrap_or(0);
     let file_name = format!("{stem}-{stamp}.{ext}");
     let target = assets.join(&file_name);
-    fs::write(&target, &bytes).map_err(|e| format!("画像を保存できません: {e}"))?;
+    fs::write(&target, bytes).map_err(|e| format!("画像を保存できません: {e}"))?;
     Ok(format!("assets/{file_name}"))
 }
 
@@ -171,16 +218,21 @@ mod more_tests {
     }
 
     #[test]
+    fn percent_decode_handles_utf8_and_literals() {
+        assert_eq!(
+            percent_decode("%2Fhome%2F%E3%83%A1%E3%83%A2.md"),
+            "/home/メモ.md"
+        );
+        assert_eq!(percent_decode("100%.png"), "100%.png");
+        assert_eq!(percent_decode("a%2"), "a%2");
+    }
+
+    #[test]
     fn save_image_writes_into_assets() {
         let dir = std::env::temp_dir().join(format!("mde-img-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let doc = dir.join("my doc.md");
-        let rel = save_image(
-            doc.to_string_lossy().to_string(),
-            vec![1, 2, 3],
-            "PNG".into(),
-        )
-        .unwrap();
+        let rel = save_image_to(&doc.to_string_lossy(), &[1, 2, 3], "PNG").unwrap();
         assert!(rel.starts_with("assets/my_doc-"));
         assert!(rel.ends_with(".png"));
         assert_eq!(fs::read(dir.join(&rel)).unwrap(), vec![1, 2, 3]);

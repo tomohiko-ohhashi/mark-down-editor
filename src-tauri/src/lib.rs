@@ -32,7 +32,13 @@ pub fn run() {
             // We build our own without "Close Window" so Cmd+W can close a tab instead.
             #[cfg(target_os = "macos")]
             {
-                use tauri::menu::{AboutMetadata, MenuBuilder, SubmenuBuilder};
+                use tauri::Emitter;
+                use tauri::menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+                // A custom Quit item (instead of the predefined one, which terminates the
+                // process directly) so the frontend can ask about unsaved changes first.
+                let quit = MenuItemBuilder::with_id("quit", "Quit Markdown Editor")
+                    .accelerator("CmdOrCtrl+Q")
+                    .build(app)?;
                 let app_menu = SubmenuBuilder::new(app, "Markdown Editor")
                     .about(Some(AboutMetadata::default()))
                     .separator()
@@ -42,7 +48,7 @@ pub fn run() {
                     .hide_others()
                     .show_all()
                     .separator()
-                    .quit()
+                    .item(&quit)
                     .build()?;
                 let edit_menu = SubmenuBuilder::new(app, "Edit")
                     .undo()
@@ -63,6 +69,11 @@ pub fn run() {
                     .items(&[&app_menu, &edit_menu, &window_menu])
                     .build()?;
                 app.set_menu(menu)?;
+                app.on_menu_event(|app, event| {
+                    if event.id() == "quit" {
+                        let _ = app.emit("quit-requested", ());
+                    }
+                });
             }
             #[cfg(not(target_os = "macos"))]
             {
@@ -91,10 +102,16 @@ pub fn run() {
                     .collect();
                 if !paths.is_empty() {
                     use tauri::{Emitter, Manager};
+                    // The window may exist before the frontend has registered its
+                    // listener, so always queue the paths for `take_startup_files`
+                    // as well as emitting; the frontend de-duplicates by path.
+                    app.state::<StartupFiles>()
+                        .0
+                        .lock()
+                        .unwrap()
+                        .extend(paths.clone());
                     if let Some(win) = app.get_webview_window("main") {
                         let _ = win.emit("open-files", paths);
-                    } else {
-                        app.state::<StartupFiles>().0.lock().unwrap().extend(paths);
                     }
                 }
             }

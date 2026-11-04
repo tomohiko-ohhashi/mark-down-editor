@@ -95,7 +95,7 @@ export function Toolbar() {
             <>
               <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}>名前を付けて保存… <kbd>{mod}{shift}S</kbd></button>
               <button className="menu-item" onClick={() => { close(); void exportHtml(); }}>HTML として書き出す… <kbd>{mod}{shift}H</kbd></button>
-              <button className="menu-item" onClick={() => { close(); exportPdf(); }}>印刷 / PDF… <kbd>{mod}P</kbd></button>
+              <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>印刷 / PDF… <kbd>{mod}P</kbd></button>
             </>
           )}
         </Dropdown>

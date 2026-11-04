@@ -125,7 +125,7 @@ export default function App() {
       if (code === "KeyO") return run(() => void openDocument());
       if (code === "KeyN") return run(() => newDocument());
       if (code === "KeyW") return run(() => void closeDocument());
-      if (code === "KeyP") return run(() => exportPdf());
+      if (code === "KeyP") return run(() => void exportPdf());
       if (code === "Comma") return run(() => toggle("settingsOpen"));
     };
     window.addEventListener("keydown", onKey);
@@ -146,11 +146,26 @@ export default function App() {
     };
   }, []);
 
-  // Files opened via the OS while running (macOS).
+  // Files opened via the OS while running (macOS). Registered before the startup
+  // drain below runs so an early Opened event is not missed.
   useEffect(() => {
     if (!inTauri) return;
-    const unlisten = listen<string[]>("open-files", (e) => {
-      for (const f of e.payload) void openDocument(f);
+    const unlisten = listen<string[]>("open-files", async (e) => {
+      for (const f of e.payload) await openDocument(f);
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+
+  // Quit from the macOS menu (Cmd+Q) goes through the same unsaved-changes check.
+  useEffect(() => {
+    if (!inTauri) return;
+    const unlisten = listen("quit-requested", async () => {
+      if (await confirmDiscardAll()) {
+        const { exit } = await import("@tauri-apps/plugin-process");
+        await exit(0);
+      }
     });
     return () => {
       unlisten.then((f) => f());

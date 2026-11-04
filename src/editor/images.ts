@@ -30,9 +30,12 @@ export async function insertImages(view: EditorView, files: File[]): Promise<boo
   const links: string[] = [];
   for (const file of files) {
     const ext = (file.name.split(".").pop() || file.type.split("/")[1] || "png").toLowerCase();
-    const bytes = Array.from(new Uint8Array(await file.arrayBuffer()));
+    const bytes = new Uint8Array(await file.arrayBuffer());
     try {
-      const rel = await invoke<string>("save_image", { docPath: doc.path, bytes, ext });
+      // Raw body avoids JSON-encoding every byte; metadata travels in headers.
+      const rel = await invoke<string>("save_image", bytes, {
+        headers: { "doc-path": encodeURIComponent(doc.path), ext },
+      });
       const alt = file.name && !/^image\.\w+$/i.test(file.name) ? file.name.replace(/\.\w+$/, "") : "image";
       links.push(`![${alt}](${encodeURI(rel)})`);
     } catch (e) {

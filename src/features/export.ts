@@ -4,7 +4,10 @@ import { renderMarkdown } from "../preview/markdown";
 import { writeFile } from "./files/fileOps";
 import previewCss from "../preview/preview.css?raw";
 
-const KATEX_CSS = "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css";
+import katex from "katex";
+
+// Same KaTeX version as the one that rendered the markup.
+const KATEX_CSS = `https://cdn.jsdelivr.net/npm/katex@${katex.version}/dist/katex.min.css`;
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -57,15 +60,20 @@ export async function exportHtml(): Promise<void> {
 
 /**
  * PDF export uses the OS print dialog (choose "Save as PDF" there). The print
- * stylesheet shows only the preview pane.
+ * stylesheet shows only the preview pane. On macOS, where WKWebView has no
+ * native window.print, Tauri replaces window.print with its webview print
+ * command; that needs the `core:webview:allow-print` permission (granted in
+ * src-tauri/capabilities/default.json).
  */
-export function exportPdf(): void {
+export async function exportPdf(): Promise<void> {
   const state = useDocStore.getState();
   const prevMode = state.viewMode;
   if (prevMode === "editor") state.setViewMode("preview");
   // Give the preview a frame to render before printing.
-  setTimeout(() => {
-    window.print();
+  await new Promise((r) => setTimeout(r, 150));
+  try {
+    await Promise.resolve(window.print());
+  } finally {
     if (prevMode === "editor") useDocStore.getState().setViewMode(prevMode);
-  }, 150);
+  }
 }
