@@ -1,6 +1,10 @@
 import { create } from "zustand";
 
 export type Theme = "system" | "light" | "dark";
+/** How Enter behaves inside lists and quotes. */
+export type ListContinuation = "shift" | "enter" | "off";
+/** What to do when a URL is pasted over selected text. */
+export type SmartPaste = "always" | "ask" | "off";
 
 export interface Settings {
   theme: Theme;
@@ -9,6 +13,10 @@ export interface Settings {
   previewFontSize: number;
   tabSize: number;
   lineWrap: boolean;
+  listContinuation: ListContinuation;
+  /** Hide Markdown markup on lines the cursor is not on. */
+  livePreview: boolean;
+  smartPaste: SmartPaste;
   /** Seconds between autosaves of dirty documents that have a path; 0 disables. */
   autosaveSeconds: number;
   reopenLastFiles: boolean;
@@ -25,6 +33,9 @@ export const DEFAULT_SETTINGS: Settings = {
   previewFontSize: 15,
   tabSize: 2,
   lineWrap: true,
+  listContinuation: "shift",
+  livePreview: false,
+  smartPaste: "ask",
   autosaveSeconds: 0,
   reopenLastFiles: true,
   checkUpdatesOnStartup: true,

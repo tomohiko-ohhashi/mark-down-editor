@@ -16,6 +16,7 @@ export const tauriPlatform: Platform = {
   writeFile: (path, content) => invoke("write_file", { path, content }),
   fileMtime: (path) => invoke("file_mtime", { path }),
   readDir: (path) => invoke("read_dir", { path }),
+  searchWorkspace: (root, query) => invoke("search_workspace", { root, query }),
   saveImage: (docPath, bytes, ext) =>
     // Raw body avoids JSON-encoding every byte; metadata travels in headers.
     invoke("save_image", bytes, { headers: { "doc-path": encodeURIComponent(docPath), ext } }),

@@ -15,6 +15,13 @@ export interface DirEntry {
   is_dir: boolean;
 }
 
+export interface SearchHit {
+  path: string;
+  /** 1-based line number. */
+  line: number;
+  text: string;
+}
+
 export interface AskOptions {
   title?: string;
   kind?: "info" | "warning" | "error";
@@ -29,6 +36,8 @@ export interface Platform {
   writeFile(path: string, content: string): Promise<number>;
   fileMtime(path: string): Promise<number>;
   readDir(path: string): Promise<DirEntry[]>;
+  /** Case-insensitive full-text search of Markdown/text files under `root`. */
+  searchWorkspace(root: string, query: string): Promise<SearchHit[]>;
   /** Save image bytes next to `docPath`; returns the Markdown-relative path. */
   saveImage(docPath: string, bytes: Uint8Array, ext: string): Promise<string>;
 

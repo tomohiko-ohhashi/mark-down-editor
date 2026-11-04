@@ -1,0 +1,30 @@
+# systemd unit for the Markdown Editor web server.
+# Installed by deploy/install-service.sh, which fills in __USER__ and __ROOT__
+# and writes /etc/markdown-editor.env (MDE_TOKEN, MDE_ROOT, MDE_PORT).
+
+[Unit]
+Description=Markdown Editor web server
+Documentation=https://github.com/tomohiko-ohhashi/mark-down-editor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+EnvironmentFile=/etc/markdown-editor.env
+ExecStart=/usr/local/bin/markdown-editor-server --root ${MDE_ROOT} --port ${MDE_PORT}
+Restart=on-failure
+RestartSec=3
+
+# Hardening: the process can only write inside the notes folder.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__ROOT__
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

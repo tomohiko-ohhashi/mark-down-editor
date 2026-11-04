@@ -73,9 +73,10 @@ Linux のビルドには次のパッケージが必要: `libwebkit2gtk-4.1-dev l
 
 ## 6. 検証状況
 
-- CI: macOS / Linux / Windows でビルド、vitest 21 件、rustfmt、clippy、cargo test 5 件が合格
-- Linux: 仮想ディスプレイ上で実際のアプリを操作し、ファイルを開く、タブ、サイドバー、アウトライン、数式、Mermaid、ローカル画像、表の Tab 移動、フォーカスモード、ダークテーマ、外部変更の再読込、リンク動作をスクリーンショットで確認
-- macOS: v0.1 は実機で起動確認済み。v0.2 の機能 (⌘W、画像貼り付け、印刷) は未確認
+- CI: macOS / Linux / Windows でビルド、vitest 23 件、rustfmt、clippy、cargo test 10 件 (ワークスペース全体)、Web サーバーのビルドが合格
+- Linux (デスクトップ): 仮想ディスプレイ上で実際のアプリを操作し、ファイルを開く、タブ、サイドバー、アウトライン、数式、Mermaid、ローカル画像、表の Tab 移動、フォーカスモード、ダークテーマ、外部変更の再読込、リンク動作をスクリーンショットで確認
+- Linux (Web モード): 自宅サーバー (Ubuntu) でビルドして起動し、Tailscale 経由で iPhone 実機の Safari から開けることを確認。iPhone 14 エミュレーターでは一連の操作 (ログイン、ファイル一覧、プレビュー、編集と保存、名前を付けて保存) を確認
+- macOS: v0.1 は実機で起動確認済み。v0.2 以降の機能 (⌘W、画像貼り付け、印刷、⌘Q の確認) は未確認
 - Windows: CI のみ
 
 ## 7. Web モード (v0.3.0)
@@ -88,6 +89,13 @@ Linux のビルドには次のパッケージが必要: `libwebkit2gtk-4.1-dev l
 - `FilePicker`: OS ダイアログの代わりになるアプリ内ファイル選択 (開く / 名前を付けて保存)
 - スマホ幅のレイアウト: 下部バー (フォルダ、アウトライン、表示切替、保存、メニュー)、サイドバーはオーバーレイ、分割表示は上下、PWA 用メタ情報とアイコン
 - 検証: iPhone 14 をエミュレートした Playwright で、ログイン、ファイル一覧、プレビュー (数式 / Mermaid / 画像)、編集と保存、名前を付けて保存、未認証時のログイン画面を確認
+
+## 7b. 編集機能の追加 (v0.3.0)
+
+- リスト・引用の継続 (既定: Shift+Enter。設定で Enter 継続 / オフ)。番号付きリストは自動採番、空の項目で解除
+- WYSIWYG 風表示 (既定オフ): カーソル行以外で見出し記号、強調、インラインコード、リンクの記号を非表示にする CodeMirror の装飾
+- スマートペースト (既定: 毎回確認): 選択範囲に URL を貼ると `[選択](URL)` に。設定で常に / 確認 / オフ
+- ワークスペース全文検索: `mde_core::search` (大文字小文字を区別しない部分一致、隠しフォルダと node_modules / target / dist を除外、2MB 超のファイルは対象外、500 件で打ち切り)。Tauri コマンドと `/api/search` の両方から利用。サイドバーの検索欄、Ctrl/⌘+Shift+F。フォーカスモードは Ctrl/⌘+Shift+D に移動
 
 ## 8. 残っている作業・候補
 
@@ -107,13 +115,14 @@ cd ~/dev/mark-down-editor && git checkout main && git pull origin main
 source "$HOME/.cargo/env"
 pnpm install --config.minimum-release-age=0   # pnpm 12 の公開日制限を回避
 pnpm server:build                             # target/release/markdown-editor-server ができる
-./target/release/markdown-editor-server --root ~/notes --port 8787
+./target/release/markdown-editor-server --root ~/notes --port 36660
 ```
 
-- 起動時に表示される `?token=...` 付き URL を `http://100.116.164.1:8787/?token=...` (Tailscale のアドレス) に読み替えて iPhone の Safari で開く
+- 起動時に表示される `?token=...` 付き URL を `http://100.116.164.1:36660/?token=...` (Tailscale のアドレス) に読み替えて iPhone の Safari で開く
 - 一度開けばトークンは Cookie に保存される。Safari の共有メニュー →「ホーム画面に追加」で全画面起動
-- 常駐化: README の systemd 設定例を `/etc/systemd/system/markdown-editor.service` に置き、`MDE_TOKEN` を固定の長いランダム文字列にしてから `sudo systemctl enable --now markdown-editor`
-- 更新するとき: `git pull origin main && pnpm install --config.minimum-release-age=0 && pnpm server:build && sudo systemctl restart markdown-editor`
+- 常駐化: `sudo ./deploy/install-service.sh --root ~/notes` (ポート 36660、トークンは `/etc/markdown-editor.env` に固定保存)。今のトークンを引き継ぐなら `--token` で渡す
+- 更新するとき: `git pull origin main && pnpm install --config.minimum-release-age=0 && pnpm server:build && sudo ./deploy/install-service.sh --root ~/notes` (トークンは保持される)
+- 状態確認: `systemctl status markdown-editor`、ログ: `journalctl -u markdown-editor -f`
 
 ### Mac で最新を動かす
 
@@ -138,7 +147,7 @@ pnpm tauri build                    # .app / .dmg を作る (src-tauri/target/re
 
 ### まだ実機で確認していないこと
 
-- iPhone 実機の Safari: 日本語 IME での入力、ホーム画面追加後の全画面表示、画像の貼り付け
+- iPhone 実機の Safari (開けることは確認済み): 日本語 IME での入力、ホーム画面追加後の全画面表示、画像の貼り付け
 - macOS 実機の v0.2 以降: ⌘W でタブが閉じる、画像の貼り付け、⌘P の印刷、⌘Q の未保存確認
 - Windows 実機: 起動と `.md` の関連付け
 

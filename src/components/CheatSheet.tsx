@@ -24,6 +24,8 @@ const SYNTAX: [string, string][] = [
   ["```mermaid\ngraph LR\n  A --> B\n```", "Mermaid 図"],
   ["脚注[^1]\n\n[^1]: 注の本文", "脚注"],
   ["行末にスペース2つ  ", "改行"],
+  ["Shift+Enter (設定で変更可)", "リスト・引用の続きの行を作る。番号は自動で増える"],
+  ["URL を貼り付け (文字を選択中)", "選択した文字をその URL へのリンクにする (設定で動作を変更可)"],
 ];
 
 const SHORTCUTS: [string, string][] = [
@@ -41,7 +43,8 @@ const SHORTCUTS: [string, string][] = [
   [k(mod, shift, "1") + " / 2 / 3", "編集 / 分割 / プレビュー表示"],
   [k(mod, shift, "E"), "サイドバー（フォルダ）"],
   [k(mod, shift, "O"), "アウトライン"],
-  [k(mod, shift, "F"), "フォーカスモード"],
+  [k(mod, shift, "F"), "ワークスペースを全文検索"],
+  [k(mod, shift, "D"), "フォーカスモード"],
   [k(mod, shift, "T"), "タイプライターモード"],
   [k(mod, shift, "H"), "HTML を書き出す"],
   [k(mod, "P"), "印刷 / PDF"],

@@ -126,6 +126,14 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .panel-actions button:hover { color: var(--fg); }
 .panel-empty { padding: 8px 12px; color: var(--fg-muted); line-height: 1.6; }
 .panel-empty .link { background: none; border: none; color: var(--link); cursor: pointer; padding: 0; text-decoration: underline; }
+.search-box { padding: 4px 8px 8px; }
+.search-box input { width: 100%; font-size: 13px; padding: 5px 8px; }
+.search-results, .search-results ul { list-style: none; margin: 0; padding: 0; }
+.search-file { padding: 6px 10px 2px; font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-count { color: var(--fg-muted); font-weight: normal; margin-left: 4px; }
+.search-results li li button { display: block; width: 100%; text-align: left; background: none; border: none; padding: 3px 10px 3px 16px; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
+.search-results li li button:hover { background: var(--line-highlight); }
+.search-line { color: var(--fg-muted); font-family: var(--mono); font-size: 11px; margin-right: 6px; }
 .tree, .tree ul, .outline ul { list-style: none; margin: 0; padding: 0; }
 .tree-dir, .tree-file, .outline li button {
   display: block; width: 100%; text-align: left; background: none; border: none; padding: 3px 8px;

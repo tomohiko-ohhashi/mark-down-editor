@@ -124,6 +124,82 @@ pub fn save_image(doc_path: &Path, bytes: &[u8], ext: &str) -> Result<String, St
     Ok(format!("assets/{file_name}"))
 }
 
+#[derive(Serialize, Debug, PartialEq)]
+pub struct SearchHit {
+    pub path: String,
+    /// 1-based line number.
+    pub line: u32,
+    pub text: String,
+}
+
+const SEARCH_MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
+const SEARCH_SKIP_DIRS: &[&str] = &["node_modules", "target", "dist"];
+
+/// Case-insensitive substring search over every Markdown/text file under
+/// `root` (hidden entries and build folders skipped). Stops after `max` hits.
+/// `display` maps an absolute path to the string handed to the UI.
+pub fn search(
+    root: &Path,
+    query: &str,
+    max: usize,
+    display: &impl Fn(&Path) -> String,
+) -> Result<Vec<SearchHit>, String> {
+    let needle = query.trim().to_lowercase();
+    if needle.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut hits = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(e) if dir == root => return Err(format!("フォルダを読み込めません: {e}")),
+            Err(_) => continue,
+        };
+        let mut children: Vec<PathBuf> = entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
+        children.sort();
+        for p in children {
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if name.starts_with('.') {
+                continue;
+            }
+            if p.is_dir() {
+                if !SEARCH_SKIP_DIRS.contains(&name) {
+                    stack.push(p);
+                }
+                continue;
+            }
+            let ext = p
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.to_ascii_lowercase())
+                .unwrap_or_default();
+            if !TEXT_EXTENSIONS.contains(&ext.as_str()) {
+                continue;
+            }
+            if fs::metadata(&p).map(|m| m.len()).unwrap_or(0) > SEARCH_MAX_FILE_BYTES {
+                continue;
+            }
+            let Ok(content) = fs::read_to_string(&p) else {
+                continue;
+            };
+            for (i, line) in content.lines().enumerate() {
+                if line.to_lowercase().contains(&needle) {
+                    hits.push(SearchHit {
+                        path: display(&p),
+                        line: (i + 1) as u32,
+                        text: line.trim().chars().take(200).collect(),
+                    });
+                    if hits.len() >= max {
+                        return Ok(hits);
+                    }
+                }
+            }
+        }
+    }
+    Ok(hits)
+}
+
 /// Resolve a user-supplied relative path against `root`, refusing anything
 /// that would escape it ("..", absolute paths, drive prefixes). Returns the
 /// absolute path; the target does not have to exist.
@@ -217,6 +293,44 @@ mod tests {
         assert!(rel.starts_with("assets/my_doc-"));
         assert!(rel.ends_with(".png"));
         assert_eq!(fs::read(dir.join(&rel)).unwrap(), vec![1, 2, 3]);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn search_finds_lines_case_insensitively() {
+        let dir = tmp("search");
+        fs::create_dir_all(dir.join("sub")).unwrap();
+        fs::create_dir_all(dir.join(".git")).unwrap();
+        fs::write(dir.join("a.md"), "# Title\nHello World\n").unwrap();
+        fs::write(dir.join("sub/b.txt"), "no match\nhello again\n").unwrap();
+        fs::write(dir.join(".git/c.md"), "hello hidden\n").unwrap();
+        fs::write(dir.join("d.png"), "hello binary").unwrap();
+        // Display paths with "/" on every OS, as the server does.
+        let rel = |p: &Path| {
+            p.strip_prefix(&dir)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+        };
+        let hits = search(&dir, "HELLO", 10, &rel).unwrap();
+        let mut got: Vec<(String, u32)> = hits.iter().map(|h| (h.path.clone(), h.line)).collect();
+        got.sort();
+        assert_eq!(
+            got,
+            vec![("a.md".to_string(), 2), ("sub/b.txt".to_string(), 2)]
+        );
+        assert_eq!(
+            search(&dir, "  ", 10, &|p| p.to_string_lossy().into_owned())
+                .unwrap()
+                .len(),
+            0
+        );
+        assert_eq!(
+            search(&dir, "hello", 1, &|p| p.to_string_lossy().into_owned())
+                .unwrap()
+                .len(),
+            1
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 

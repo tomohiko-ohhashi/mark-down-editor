@@ -8,6 +8,10 @@ macOS / Linux / Windows で動く、単独で動作する Markdown エディタ�
 - ファイルの新規作成 / 開く / 保存 / 名前を付けて保存、複数タブ、最近使ったファイル、前回開いていたファイルの復元
 - フォルダをワークスペースとして開き、サイドバーのファイルツリーから開く
 - Markdown シンタックスハイライト付きエディタ (行番号、折返し、検索・置換、Undo/Redo)
+- リスト・引用の継続: Shift+Enter で次の項目を作成 (番号は自動で増加、空の項目で解除)。設定で「Enter で継続」「しない」に変更可
+- WYSIWYG 風表示 (設定で有効化): カーソル行以外では `#` や `**`、リンクの URL などの記号を隠して表示
+- スマートペースト: 文字を選択した状態で URL を貼り付けるとリンクに変換。設定で「常に」「毎回確認」「しない」を選択
+- ワークスペースの全文検索 (サイドバーの検索欄、Ctrl/⌘+Shift+F)。結果をクリックすると該当行へ移動
 - GFM 対応のライブプレビュー (表、タスクリスト、脚注、取り消し線、コードハイライト)
 - 数式 (KaTeX: `$...$`, `$$...$$`) と Mermaid 図 (```` ```mermaid ````)、すべてオフラインで動作
 - 画像の貼り付け / ドラッグ&ドロップ: 文書と同じ場所の `assets/` に保存して相対パスで挿入。ローカル画像をプレビューに表示
@@ -38,7 +42,9 @@ macOS / Linux / Windows で動く、単独で動作する Markdown エディタ�
 | 見出し 1 / 2 / 3 | ⌘1 / ⌘2 / ⌘3 | Ctrl+1 / Ctrl+2 / Ctrl+3 |
 | 編集 / 分割 / プレビュー表示 | ⌘⇧1 / ⌘⇧2 / ⌘⇧3 | Ctrl+Shift+1 / 2 / 3 |
 | サイドバー / アウトライン | ⌘⇧E / ⌘⇧O | Ctrl+Shift+E / Ctrl+Shift+O |
-| フォーカス / タイプライターモード | ⌘⇧F / ⌘⇧T | Ctrl+Shift+F / Ctrl+Shift+T |
+| ワークスペースを全文検索 | ⌘⇧F | Ctrl+Shift+F |
+| リスト・引用の続きの行 | ⇧Enter | Shift+Enter |
+| フォーカス / タイプライターモード | ⌘⇧D / ⌘⇧T | Ctrl+Shift+D / Ctrl+Shift+T |
 | HTML 書き出し / 印刷 (PDF) | ⌘⇧H / ⌘P | Ctrl+Shift+H / Ctrl+P |
 | 設定 | ⌘, | Ctrl+, |
 | チートシート | F1 または ⌘⇧/ | F1 または Ctrl+Shift+/ |
@@ -52,37 +58,30 @@ macOS / Linux / Windows で動く、単独で動作する Markdown エディタ�
 # ビルド (UI を同梱した単一バイナリができます)
 pnpm install && pnpm server:build
 # 起動
-./target/release/markdown-editor-server --root ~/notes --port 8787
+./target/release/markdown-editor-server --root ~/notes --port 36660
 ```
 
-起動時に `http://<サーバー>:8787/?token=...` という URL が表示されるので、スマホのブラウザで開きます。トークンは Cookie に保存され、次回からは不要です。Safari の共有メニューから「ホーム画面に追加」すると、アプリのように全画面で起動します。
+起動時に `http://<サーバー>:36660/?token=...` という URL が表示されるので、スマホのブラウザで開きます。トークンは Cookie に保存され、次回からは不要です。Safari の共有メニューから「ホーム画面に追加」すると、アプリのように全画面で起動します。
 
 | オプション | 説明 |
 | --- | --- |
 | `--root <dir>` | 公開するフォルダ。この外のファイルには一切アクセスできません (既定: カレントディレクトリ) |
-| `--port <n>` / `--host <addr>` | 待ち受けポートとアドレス (既定: 8787 / 0.0.0.0) |
+| `--port <n>` / `--host <addr>` | 待ち受けポートとアドレス (既定: 36660 / 0.0.0.0) |
 | `--token <str>` | アクセストークン。省略時は起動ごとに生成。環境変数 `MDE_TOKEN` でも指定可 |
 | `--no-auth` | 認証を無効化 (完全に信頼できるネットワーク専用) |
 | `--dist <dir>` | UI を同梱分ではなくフォルダから配信 (開発用) |
 
 Web モードでの違い: ファイルを開く / 保存のダイアログはアプリ内のファイル選択画面になり、ワークスペースは常に `--root` のフォルダです。自動アップデートと OS のファイル関連付けはありません。スマホ幅では下部のバーからフォルダ・保存・表示切替を操作します。
 
-systemd で常駐させる例:
+systemd で常駐させる (Linux):
 
-```ini
-[Unit]
-Description=Markdown Editor web server
-After=network.target
-
-[Service]
-ExecStart=/home/USER/mark-down-editor/target/release/markdown-editor-server --root /home/USER/notes --port 8787
-Environment=MDE_TOKEN=長いランダムな文字列
-User=USER
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
+```bash
+pnpm server:build
+sudo ./deploy/install-service.sh --root ~/notes            # 初回。トークンを生成して表示します
+sudo ./deploy/install-service.sh --root ~/notes --token 既存のトークン   # 今使っている URL をそのまま使いたい場合
 ```
+
+バイナリは `/usr/local/bin/markdown-editor-server` に、設定 (トークン / フォルダ / ポート) は `/etc/markdown-editor.env` に置かれます。ユニットファイルは `deploy/markdown-editor.service` で、公開フォルダ以外に書き込めないよう制限しています。コードを更新したら `pnpm server:build` のあと同じスクリプトをもう一度実行すれば、トークンを保ったまま入れ替わります。ログは `journalctl -u markdown-editor -f` で見られます。
 
 Tailscale などの VPN 内で使うことを想定しています。インターネットに直接公開する場合は、HTTPS を終端するリバースプロキシ (Caddy など) の後ろに置いてください。
 
