@@ -31,7 +31,7 @@ export function Dropdown({ label, title, children, align = "left", up = false }:
   return (
     <div className="dropdown" ref={ref}>
       <button className={open ? "active" : ""} title={title} onClick={() => setOpen((o) => !o)}>
-        {label} ▾
+        {label === "" ? "⋯" : <>{label} ▾</>}
       </button>
       {open && (
         <div className={`dropdown-menu ${align} ${up ? "up" : ""}`}>{children(() => setOpen(false))}</div>

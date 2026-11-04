@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { platform, inTauri } from "./platform";
 import { FilePicker } from "./components/FilePicker";
+import { PromptDialog } from "./components/PromptDialog";
 import { searchBoxRef } from "./components/Sidebar";
 import { Toolbar, MobileBar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
@@ -234,6 +235,7 @@ export default function App() {
       <SettingsDialog />
       <CheatSheet />
       <FilePicker />
+      <PromptDialog />
     </div>
   );
 }

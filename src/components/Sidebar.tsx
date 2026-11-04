@@ -7,6 +7,35 @@ import { goToLine } from "../editor/Editor";
 export const searchBoxRef: { el: HTMLInputElement | null } = { el: null };
 import { useDocStore, fileName } from "../store/useDocStore";
 import { openDocument, openWorkspace } from "../features/files/fileOps";
+import { createFileIn, createFolderIn, renamePath, deletePath } from "../features/files/manage";
+import { Dropdown } from "./Dropdown";
+
+/** "⋯" menu for a folder (new file / folder inside, rename, delete) or a file (rename, delete). */
+function EntryMenu({ path, isDir, isRoot }: { path: string; isDir: boolean; isRoot?: boolean }) {
+  return (
+    <span className="tree-menu" onClick={(e) => e.stopPropagation()}>
+      <Dropdown label="" title="操作" align="right">
+        {(close) => (
+          <>
+            {isDir && (
+              <>
+                <button className="menu-item" onClick={() => { close(); void createFileIn(path); }}>新規ファイル…</button>
+                <button className="menu-item" onClick={() => { close(); void createFolderIn(path); }}>新規フォルダ…</button>
+              </>
+            )}
+            {!isRoot && (
+              <>
+                {isDir && <hr />}
+                <button className="menu-item" onClick={() => { close(); void renamePath(path, isDir); }}>名前の変更…</button>
+                <button className="menu-item danger" onClick={() => { close(); void deletePath(path, isDir); }}>削除…</button>
+              </>
+            )}
+          </>
+        )}
+      </Dropdown>
+    </span>
+  );
+}
 
 /** On phones the sidebar is an overlay; close it once a file was picked. */
 function closeIfNarrow() {
@@ -17,6 +46,7 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
   const [open, setOpen] = useState(false);
   const [children, setChildren] = useState<Entry[] | null>(null);
   const activePath = useDocStore((s) => s.docs.find((d) => d.id === s.activeId)?.path);
+  const treeVersion = useDocStore((s) => s.treeVersion);
 
   const load = useCallback(async () => {
     try {
@@ -27,15 +57,18 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
   }, [entry.path]);
 
   useEffect(() => {
-    if (open && children === null) void load();
-  }, [open, children, load]);
+    if (open) void load();
+  }, [open, load, treeVersion]);
 
   if (entry.is_dir) {
     return (
       <li>
-        <button className="tree-dir" style={{ paddingLeft: 8 + depth * 14 }} onClick={() => setOpen((o) => !o)}>
-          <span className="tree-arrow">{open ? "▾" : "▸"}</span> {entry.name}
-        </button>
+        <div className="tree-row">
+          <button className="tree-dir" style={{ paddingLeft: 8 + depth * 14 }} onClick={() => setOpen((o) => !o)}>
+            <span className="tree-arrow">{open ? "▾" : "▸"}</span> {entry.name}
+          </button>
+          <EntryMenu path={entry.path} isDir />
+        </div>
         {open && children && (
           <ul>
             {children.map((c) => (
@@ -53,17 +86,20 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
   }
   return (
     <li>
-      <button
-        className={`tree-file ${activePath === entry.path ? "active" : ""}`}
-        style={{ paddingLeft: 8 + depth * 14 + 14 }}
-        onClick={() => {
-          void openDocument(entry.path);
-          closeIfNarrow();
-        }}
-        title={entry.path}
-      >
-        {entry.name}
-      </button>
+      <div className="tree-row">
+        <button
+          className={`tree-file ${activePath === entry.path ? "active" : ""}`}
+          style={{ paddingLeft: 8 + depth * 14 + 14 }}
+          onClick={() => {
+            void openDocument(entry.path);
+            closeIfNarrow();
+          }}
+          title={entry.path}
+        >
+          {entry.name}
+        </button>
+        <EntryMenu path={entry.path} isDir={false} />
+      </div>
     </li>
   );
 }
@@ -145,6 +181,7 @@ export function Sidebar() {
   const [root, setRoot] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rootName, setRootName] = useState<string | null>(null);
+  const treeVersion = useDocStore((s) => s.treeVersion);
 
   useEffect(() => {
     platform.rootName().then(setRootName).catch(() => {});
@@ -162,9 +199,8 @@ export function Sidebar() {
   }, [workspace]);
 
   useEffect(() => {
-    setRoot(null);
     void refresh();
-  }, [refresh]);
+  }, [refresh, treeVersion]);
 
   return (
     <aside className="sidebar">
@@ -173,6 +209,7 @@ export function Sidebar() {
           {workspace == null ? "ワークスペース" : workspace === "" ? (rootName ?? "ワークスペース") : fileName(workspace)}
         </span>
         <span className="panel-actions">
+          {workspace != null && <EntryMenu path={workspace} isDir isRoot />}
           <button title="再読込" onClick={() => void refresh()} disabled={workspace == null}>↻</button>
           {platform.kind === "tauri" && (
             <button title="フォルダを開く" onClick={() => void openWorkspace()}>📂</button>

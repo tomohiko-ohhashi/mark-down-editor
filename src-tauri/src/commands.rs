@@ -46,6 +46,22 @@ pub fn save_image(request: tauri::ipc::Request<'_>) -> Result<String, String> {
     mde_core::save_image(Path::new(&doc_path), &bytes, &ext)
 }
 
+#[tauri::command]
+pub fn create_dir(path: String) -> Result<(), String> {
+    mde_core::create_dir(Path::new(&path))
+}
+
+#[tauri::command]
+pub fn rename_path(from: String, to: String) -> Result<(), String> {
+    mde_core::rename_path(Path::new(&from), Path::new(&to))
+}
+
+/// Desktop: move to the OS trash so the user can recover it.
+#[tauri::command]
+pub fn delete_path(path: String) -> Result<(), String> {
+    trash::delete(Path::new(&path)).map_err(|e| format!("ゴミ箱に移動できません: {e}"))
+}
+
 /// Full-text search under a workspace folder (absolute paths).
 #[tauri::command]
 pub fn search_workspace(root: String, query: String) -> Result<Vec<SearchHit>, String> {

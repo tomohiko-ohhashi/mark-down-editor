@@ -38,6 +38,12 @@ export interface Platform {
   readDir(path: string): Promise<DirEntry[]>;
   /** Case-insensitive full-text search of Markdown/text files under `root`. */
   searchWorkspace(root: string, query: string): Promise<SearchHit[]>;
+  createDir(path: string): Promise<void>;
+  rename(from: string, to: string): Promise<void>;
+  /** Desktop: moves to the OS trash. Web: deletes permanently. */
+  deletePath(path: string): Promise<void>;
+  /** True when deletePath is recoverable (trash) — affects the confirmation wording. */
+  readonly deleteIsTrash: boolean;
   /** Save image bytes next to `docPath`; returns the Markdown-relative path. */
   saveImage(docPath: string, bytes: Uint8Array, ext: string): Promise<string>;
 

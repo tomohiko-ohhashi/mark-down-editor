@@ -142,6 +142,16 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .tree-dir:hover, .tree-file:hover, .outline li button:hover { background: var(--line-highlight); }
 .tree-file.active { color: var(--accent); font-weight: 600; }
 .tree-arrow { display: inline-block; width: 12px; color: var(--fg-muted); }
+.tree-row { display: flex; align-items: center; }
+.tree-row > .tree-dir, .tree-row > .tree-file { flex: 1; min-width: 0; }
+.tree-menu { position: relative; flex-shrink: 0; }
+.tree-menu .dropdown > button { background: none; border: none; color: var(--fg-muted); cursor: pointer; padding: 2px 6px; border-radius: 4px; opacity: 0; }
+.tree-row:hover .tree-menu .dropdown > button, .tree-menu .dropdown > button:focus, .tree-menu .dropdown > button.active { opacity: 1; }
+.tree-menu .dropdown > button:hover { background: var(--border); color: var(--fg); }
+.tree-menu .dropdown-menu { right: 0; left: auto; min-width: 160px; }
+.panel-actions .tree-menu .dropdown > button { opacity: 1; padding: 0 4px; }
+.menu-item.danger { color: var(--code); }
+@media (hover: none) { .tree-menu .dropdown > button { opacity: 1; } }
 .outline li.h1 button { font-weight: 600; }
 .outline li.h3 button, .outline li.h4 button, .outline li.h5 button, .outline li.h6 button { color: var(--fg-muted); }
 
@@ -205,6 +215,14 @@ table.cheat kbd { margin: 0; padding: 0; font-size: 12px; color: var(--fg); }
 
 /* ---------- Mobile bottom bar (hidden on desktop) ---------- */
 .mobilebar { display: none; }
+
+/* ---------- Prompt dialog ---------- */
+.modal.prompt { width: min(420px, 92vw); }
+.modal.prompt label { flex-direction: column; align-items: stretch; gap: 6px; }
+.modal.prompt input { font-size: 15px; }
+.prompt-error { color: var(--code); font-size: 12px; margin-top: 4px; }
+.prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.prompt-actions .secondary { border: 1px solid var(--border); background: var(--bg-alt); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
 
 /* ---------- Phones / narrow windows ---------- */
 @media (max-width: 767px) {

@@ -96,6 +96,9 @@ async fn main() {
         .route("/image", post(api_save_image))
         .route("/raw", get(api_raw))
         .route("/search", get(api_search))
+        .route("/mkdir", post(api_mkdir))
+        .route("/rename", post(api_rename))
+        .route("/delete", post(api_delete))
         .layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     let app = Router::new()
@@ -394,6 +397,54 @@ async fn api_search(State(state): State<Shared>, Query(q): Query<SearchQuery>) -
         Ok(Ok(hits)) => axum::Json(hits).into_response(),
         Ok(Err(e)) => api_error(StatusCode::NOT_FOUND, &e),
         Err(_) => api_error(StatusCode::INTERNAL_SERVER_ERROR, "検索に失敗しました"),
+    }
+}
+
+async fn api_mkdir(State(state): State<Shared>, Query(q): Query<PathQuery>) -> Response {
+    let p = match resolve(&state, &q.path) {
+        Ok(p) => p,
+        Err(r) => return *r,
+    };
+    if q.path.trim().is_empty() {
+        return bad("フォルダ名が空です".into());
+    }
+    match mde_core::create_dir(&p) {
+        Ok(()) => axum::Json(json!({ "ok": true })).into_response(),
+        Err(e) => bad(e),
+    }
+}
+
+#[derive(Deserialize)]
+struct RenameQuery {
+    from: String,
+    to: String,
+}
+
+async fn api_rename(State(state): State<Shared>, Query(q): Query<RenameQuery>) -> Response {
+    let (from, to) = match (resolve(&state, &q.from), resolve(&state, &q.to)) {
+        (Ok(f), Ok(t)) => (f, t),
+        (Err(r), _) | (_, Err(r)) => return *r,
+    };
+    if q.from.trim().is_empty() || q.to.trim().is_empty() {
+        return bad("名前が空です".into());
+    }
+    match mde_core::rename_path(&from, &to) {
+        Ok(()) => axum::Json(json!({ "ok": true })).into_response(),
+        Err(e) => bad(e),
+    }
+}
+
+async fn api_delete(State(state): State<Shared>, Query(q): Query<PathQuery>) -> Response {
+    let p = match resolve(&state, &q.path) {
+        Ok(p) => p,
+        Err(r) => return *r,
+    };
+    if q.path.trim().is_empty() || p == state.root {
+        return bad("公開フォルダ自体は削除できません".into());
+    }
+    match mde_core::delete_path(&p) {
+        Ok(()) => axum::Json(json!({ "ok": true })).into_response(),
+        Err(e) => bad(e),
     }
 }
 

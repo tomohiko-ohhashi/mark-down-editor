@@ -16,11 +16,23 @@ import {
 } from "../editor/table";
 import { Dropdown } from "./Dropdown";
 import { platform } from "../platform";
+import { formatDocument } from "../editor/format";
+import { flashStatus } from "../store/useDocStore";
 import type { StateCommand } from "@codemirror/state";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl+";
 const shift = isMac ? "⇧" : "Shift+";
+const alt = isMac ? "⌥" : "Alt+";
+
+function runFormat() {
+  const view = editorRef.view;
+  if (!view) return;
+  void formatDocument(view).then((changed) => {
+    flashStatus(changed ? "ドキュメントを整形しました" : "整形の必要はありませんでした");
+    view.focus();
+  });
+}
 
 function runInEditor(cmd: StateCommand) {
   const view = editorRef.view;
@@ -110,6 +122,7 @@ export function Toolbar() {
         <button onClick={() => runInEditor(toggleItalic)} title={`斜体 (${mod}I)`}><i>I</i></button>
         <button onClick={() => runInEditor(toggleCode)} title={`コード (${mod}E)`}><code>{"<>"}</code></button>
         <button onClick={() => runInEditor(insertLink)} title={`リンク (${mod}K)`}>🔗</button>
+        <button onClick={runFormat} title={`ドキュメント全体を整形 (${shift}${alt}F)`}>整形</button>
         <Dropdown label="表" title="表の挿入と編集">
           {(close) => (
             <>
@@ -197,6 +210,7 @@ export function MobileBar() {
             <button className="menu-item" onClick={() => { close(); void exportHtml(); }}>HTML として書き出す…</button>
             <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>印刷 / PDF…</button>
             <hr />
+            <button className="menu-item" onClick={() => { close(); runFormat(); }}>ドキュメント全体を整形</button>
             <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>フォーカスモード</button>
             <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>チートシート</button>
             <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>設定…</button>

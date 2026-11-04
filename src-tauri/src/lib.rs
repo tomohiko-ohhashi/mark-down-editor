@@ -88,6 +88,9 @@ pub fn run() {
             commands::read_dir,
             commands::save_image,
             commands::search_workspace,
+            commands::create_dir,
+            commands::rename_path,
+            commands::delete_path,
             take_startup_files,
         ])
         .build(tauri::generate_context!())
