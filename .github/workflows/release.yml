@@ -85,8 +85,8 @@ jobs:
             echo "APPLE_TEAM_ID=$APPLE_TEAM_ID" >> "$GITHUB_ENV"
           fi
 
-      # Updater artifacts are signed with TAURI_SIGNING_PRIVATE_KEY. Without the
-      # secret the build still succeeds, but the auto-updater cannot verify it.
+      # Updater artifacts (signed with TAURI_SIGNING_PRIVATE_KEY) are only built
+      # when the secret exists; local builds and unsigned CI builds skip them.
       - name: Configure updater signing
         shell: bash
         env:
@@ -94,10 +94,9 @@ jobs:
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             echo "No TAURI_SIGNING_PRIVATE_KEY secret; building without updater artifacts."
-            echo '{"bundle":{"createUpdaterArtifacts":false}}' > "$GITHUB_WORKSPACE/src-tauri/tauri.no-updater.json"
-            echo "TAURI_EXTRA_ARGS=--config $GITHUB_WORKSPACE/src-tauri/tauri.no-updater.json" >> "$GITHUB_ENV"
-          else
             echo "TAURI_EXTRA_ARGS=" >> "$GITHUB_ENV"
+          else
+            echo "TAURI_EXTRA_ARGS=--config $GITHUB_WORKSPACE/src-tauri/tauri.updater.json" >> "$GITHUB_ENV"
           fi
 
       - uses: tauri-apps/tauri-action@v0
