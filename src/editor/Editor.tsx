@@ -24,6 +24,10 @@ import { publishScroll, followScroll } from "../preview/useScrollSync";
 import { handlePaste, handleDrop } from "./images";
 import { typewriterScrolling, tabSizeExt, fullWidthHeadingFix } from "./extensions";
 import { tableNextCell, tablePrevCell } from "./table";
+import { listKeymap } from "./listContinuation";
+import { livePreview } from "./livePreview";
+import { handleSmartPaste } from "./smartPaste";
+import type { ListContinuation } from "../store/useSettings";
 
 /** Shared view so toolbar buttons and the outline can reach the editor. */
 export const editorRef: { view: EditorView | null } = { view: null };
@@ -31,11 +35,19 @@ export const editorRef: { view: EditorView | null } = { view: null };
 const lineWrap = new Compartment();
 const tabSize = new Compartment();
 const typewriter = new Compartment();
+const listKeys = new Compartment();
+const preview = new Compartment();
 
 /** Editor state (undo history, selection, scroll) is kept per tab. */
 const states = new Map<string, EditorState>();
 
-function baseExtensions(opts: { lineWrap: boolean; tabSize: number; typewriter: boolean }) {
+function baseExtensions(opts: {
+  lineWrap: boolean;
+  tabSize: number;
+  typewriter: boolean;
+  listContinuation: ListContinuation;
+  livePreview: boolean;
+}) {
   return [
     lineNumbers(),
     highlightActiveLine(),
@@ -51,7 +63,12 @@ function baseExtensions(opts: { lineWrap: boolean; tabSize: number; typewriter: 
     lineWrap.of(opts.lineWrap ? EditorView.lineWrapping : []),
     tabSize.of([tabSizeExt(opts.tabSize), indentUnit.of(" ".repeat(opts.tabSize))]),
     typewriter.of(opts.typewriter ? typewriterScrolling : []),
-    markdown({ base: markdownLanguage, codeLanguages: languages }),
+    // List/quote continuation must come before the default keymap's Enter binding.
+    listKeys.of(keymap.of(listKeymap(opts.listContinuation))),
+    // addKeymap: false — lang-markdown's own Enter binding (always continues
+    // lists) would override the user's list-continuation setting.
+    markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: false }),
+    preview.of(opts.livePreview ? livePreview : []),
     fullWidthHeadingFix,
     baseTheme,
     markdownHighlight,
@@ -77,7 +94,7 @@ function baseExtensions(opts: { lineWrap: boolean; tabSize: number; typewriter: 
     }),
     EditorView.domEventHandlers({
       scroll: (_e, view) => publishScroll("editor", view.scrollDOM),
-      paste: (e, view) => handlePaste(e, view),
+      paste: (e, view) => handlePaste(e, view) || handleSmartPaste(e, view),
       drop: (e, view) => handleDrop(e, view),
     }),
   ];
@@ -90,7 +107,13 @@ function createState(content: string) {
   const tw = useDocStore.getState().typewriterMode;
   return EditorState.create({
     doc: content,
-    extensions: baseExtensions({ lineWrap: s.lineWrap, tabSize: s.tabSize, typewriter: tw }),
+    extensions: baseExtensions({
+      lineWrap: s.lineWrap,
+      tabSize: s.tabSize,
+      typewriter: tw,
+      listContinuation: s.listContinuation,
+      livePreview: s.livePreview,
+    }),
   });
 }
 
@@ -103,6 +126,8 @@ export function Editor() {
   const fontSize = useSettings((s) => s.editorFontSize);
   const fontFamily = useSettings((s) => s.editorFontFamily);
   const typewriterMode = useDocStore((s) => s.typewriterMode);
+  const listContinuation = useSettings((s) => s.listContinuation);
+  const livePreviewOn = useSettings((s) => s.livePreview);
 
   // Create the view once.
   useEffect(() => {
@@ -138,6 +163,8 @@ export function Editor() {
           lineWrap.reconfigure(s.lineWrap ? EditorView.lineWrapping : []),
           tabSize.reconfigure([tabSizeExt(s.tabSize), indentUnit.of(" ".repeat(s.tabSize))]),
           typewriter.reconfigure(useDocStore.getState().typewriterMode ? typewriterScrolling : []),
+          listKeys.reconfigure(keymap.of(listKeymap(s.listContinuation))),
+          preview.reconfigure(s.livePreview ? livePreview : []),
         ],
       });
     } else {
@@ -178,6 +205,12 @@ export function Editor() {
       effects: typewriter.reconfigure(typewriterMode ? typewriterScrolling : []),
     });
   }, [typewriterMode]);
+  useEffect(() => {
+    editorRef.view?.dispatch({ effects: listKeys.reconfigure(keymap.of(listKeymap(listContinuation))) });
+  }, [listContinuation]);
+  useEffect(() => {
+    editorRef.view?.dispatch({ effects: preview.reconfigure(livePreviewOn ? livePreview : []) });
+  }, [livePreviewOn]);
 
   const style = {
     "--editor-font-size": `${fontSize}px`,

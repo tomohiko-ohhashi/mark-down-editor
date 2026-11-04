@@ -1,6 +1,6 @@
 //! Tauri commands: thin wrappers over `mde_core` that take absolute paths.
 
-use mde_core::{DirEntry, FileContent};
+use mde_core::{DirEntry, FileContent, SearchHit};
 use std::path::Path;
 
 #[tauri::command]
@@ -44,4 +44,12 @@ pub fn save_image(request: tauri::ipc::Request<'_>) -> Result<String, String> {
     let doc_path = mde_core::percent_decode(&header("doc-path")?);
     let ext = header("ext")?;
     mde_core::save_image(Path::new(&doc_path), &bytes, &ext)
+}
+
+/// Full-text search under a workspace folder (absolute paths).
+#[tauri::command]
+pub fn search_workspace(root: String, query: String) -> Result<Vec<SearchHit>, String> {
+    mde_core::search(Path::new(&root), &query, 500, &|p| {
+        p.to_string_lossy().into_owned()
+    })
 }

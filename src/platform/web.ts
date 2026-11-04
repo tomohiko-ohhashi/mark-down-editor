@@ -1,4 +1,4 @@
-import type { Platform, FileContent, DirEntry } from "./types";
+import type { Platform, FileContent, DirEntry, SearchHit } from "./types";
 import { openPicker } from "../components/FilePicker";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -36,6 +36,7 @@ export const webPlatform: Platform = {
     })).mtime,
   fileMtime: async (path) => (await api<{ mtime: number }>(`/mtime${q({ path })}`)).mtime,
   readDir: (path) => api<DirEntry[]>(`/dir${q({ path })}`),
+  searchWorkspace: (root, query) => api<SearchHit[]>(`/search${q({ path: root, q: query })}`),
   saveImage: async (docPath, bytes, ext) =>
     (await api<{ path: string }>(`/image${q({ doc: docPath, ext })}`, {
       method: "POST",

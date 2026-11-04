@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { platform } from "../platform";
-import type { DirEntry as Entry } from "../platform";
+import type { DirEntry as Entry, SearchHit } from "../platform";
+import { goToLine } from "../editor/Editor";
+
+/** Focus the workspace search box (Mod+Shift+F). */
+export const searchBoxRef: { el: HTMLInputElement | null } = { el: null };
 import { useDocStore, fileName } from "../store/useDocStore";
 import { openDocument, openWorkspace } from "../features/files/fileOps";
 
@@ -64,8 +68,80 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
   );
 }
 
+function SearchResults({ workspace, query }: { workspace: string; query: string }) {
+  const [hits, setHits] = useState<SearchHit[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setHits(null);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      platform
+        .searchWorkspace(workspace, query)
+        .then((h) => {
+          if (!cancelled) {
+            setHits(h);
+            setError(null);
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            setHits([]);
+            setError(String(e));
+          }
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [workspace, query]);
+
+  if (query.trim().length < 2) return <div className="panel-empty">2 文字以上で検索します</div>;
+  if (hits === null) return <div className="panel-empty">検索中…</div>;
+  if (error) return <div className="panel-empty">{error}</div>;
+  if (hits.length === 0) return <div className="panel-empty">見つかりませんでした</div>;
+
+  const groups = new Map<string, SearchHit[]>();
+  for (const h of hits) (groups.get(h.path) ?? groups.set(h.path, []).get(h.path)!).push(h);
+  const open = async (h: SearchHit) => {
+    await openDocument(h.path);
+    goToLine(h.line);
+    closeIfNarrow();
+  };
+  return (
+    <ul className="search-results">
+      {Array.from(groups.entries()).map(([path, items]) => (
+        <li key={path}>
+          <div className="search-file" title={path}>{fileName(path)} <span className="search-count">{items.length}</span></div>
+          <ul>
+            {items.map((h) => (
+              <li key={h.line}>
+                <button onClick={() => void open(h)} title={`${h.line} 行目`}>
+                  <span className="search-line">{h.line}</span> {h.text}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+      {hits.length >= 500 && <li className="panel-empty">500 件で打ち切りました</li>}
+    </ul>
+  );
+}
+
 export function Sidebar() {
   const workspace = useDocStore((s) => s.workspace);
+  const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    searchBoxRef.el = inputRef.current;
+    return () => {
+      searchBoxRef.el = null;
+    };
+  }, []);
   const [root, setRoot] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rootName, setRootName] = useState<string | null>(null);
@@ -103,7 +179,24 @@ export function Sidebar() {
           )}
         </span>
       </div>
-      {workspace == null ? (
+      {workspace != null && (
+        <div className="search-box">
+          <input
+            ref={inputRef}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setQuery("");
+            }}
+            placeholder="ワークスペースを検索"
+            aria-label="ワークスペースを検索"
+          />
+        </div>
+      )}
+      {workspace != null && query ? (
+        <SearchResults workspace={workspace} query={query} />
+      ) : workspace == null ? (
         <div className="panel-empty">
           フォルダを開くと、Markdown ファイルの一覧が表示されます。
           <br />

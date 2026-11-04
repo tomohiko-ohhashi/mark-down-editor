@@ -1,5 +1,5 @@
 import { useDocStore } from "../store/useDocStore";
-import { useSettings, type Theme } from "../store/useSettings";
+import { useSettings, type Theme, type ListContinuation, type SmartPaste } from "../store/useSettings";
 import { checkForUpdates } from "../features/updater";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
@@ -66,6 +66,26 @@ export function SettingsDialog() {
             <label className="check">
               <input type="checkbox" checked={s.lineWrap} onChange={(e) => s.update({ lineWrap: e.target.checked })} />
               行を折り返す
+            </label>
+            <label>
+              リスト・引用の継続
+              <select value={s.listContinuation} onChange={(e) => s.update({ listContinuation: e.target.value as ListContinuation })}>
+                <option value="shift">Shift+Enter で継続 (Enter は通常の改行)</option>
+                <option value="enter">Enter で継続 (空の項目で解除)</option>
+                <option value="off">しない</option>
+              </select>
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={s.livePreview} onChange={(e) => s.update({ livePreview: e.target.checked })} />
+              カーソル行以外で Markdown 記号を隠す (WYSIWYG 風)
+            </label>
+            <label>
+              URL を選択範囲に貼り付けたとき
+              <select value={s.smartPaste} onChange={(e) => s.update({ smartPaste: e.target.value as SmartPaste })}>
+                <option value="always">常にリンクにする</option>
+                <option value="ask">毎回確認する</option>
+                <option value="off">そのまま貼り付ける</option>
+              </select>
             </label>
             <label>
               自動保存

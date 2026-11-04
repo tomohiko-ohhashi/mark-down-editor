@@ -6,4 +6,4 @@ export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in
 
 export const platform: Platform = inTauri ? tauriPlatform : webPlatform;
 
-export type { Platform, FileContent, DirEntry, AskOptions } from "./types";
+export type { Platform, FileContent, DirEntry, AskOptions, SearchHit } from "./types";

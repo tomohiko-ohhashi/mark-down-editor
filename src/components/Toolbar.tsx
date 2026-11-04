@@ -152,7 +152,7 @@ export function Toolbar() {
         <Dropdown label="⋯" title="その他" align="right">
           {(close) => (
             <>
-              <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>フォーカスモード <kbd>{mod}{shift}F</kbd></button>
+              <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>フォーカスモード <kbd>{mod}{shift}D</kbd></button>
               <button className="menu-item" onClick={() => { close(); toggle("typewriterMode"); }}>タイプライターモード <kbd>{mod}{shift}T</kbd></button>
               <hr />
               <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>チートシート <kbd>F1</kbd></button>

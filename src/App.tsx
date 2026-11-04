@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { platform, inTauri } from "./platform";
 import { FilePicker } from "./components/FilePicker";
+import { searchBoxRef } from "./components/Sidebar";
 import { Toolbar, MobileBar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
 import { StatusBar } from "./components/StatusBar";
@@ -118,7 +119,12 @@ export default function App() {
         if (code === "KeyH") return run(() => void exportHtml());
         if (code === "KeyE") return run(() => toggle("showSidebar"));
         if (code === "KeyO") return run(() => toggle("showOutline"));
-        if (code === "KeyF") return run(() => toggle("focusMode"));
+        if (code === "KeyD") return run(() => toggle("focusMode"));
+        if (code === "KeyF")
+          return run(() => {
+            if (!state.showSidebar) toggle("showSidebar");
+            setTimeout(() => searchBoxRef.el?.focus(), 50);
+          });
         if (code === "KeyT") return run(() => toggle("typewriterMode"));
         if (code === "Slash") return run(() => toggle("cheatSheetOpen"));
         if (code === "Digit1") return run(() => setViewMode("editor"));
