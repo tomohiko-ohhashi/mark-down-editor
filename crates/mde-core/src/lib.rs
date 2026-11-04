@@ -305,10 +305,14 @@ mod tests {
         fs::write(dir.join("sub/b.txt"), "no match\nhello again\n").unwrap();
         fs::write(dir.join(".git/c.md"), "hello hidden\n").unwrap();
         fs::write(dir.join("d.png"), "hello binary").unwrap();
-        let hits = search(&dir, "HELLO", 10, &|p| {
-            p.strip_prefix(&dir).unwrap().to_string_lossy().into_owned()
-        })
-        .unwrap();
+        // Display paths with "/" on every OS, as the server does.
+        let rel = |p: &Path| {
+            p.strip_prefix(&dir)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+        };
+        let hits = search(&dir, "HELLO", 10, &rel).unwrap();
         let mut got: Vec<(String, u32)> = hits.iter().map(|h| (h.path.clone(), h.line)).collect();
         got.sort();
         assert_eq!(
