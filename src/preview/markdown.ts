@@ -9,10 +9,8 @@ import rehypeSanitize, { defaultSchema, type Options as SanitizeSchema } from "r
 import rehypeStringify from "rehype-stringify";
 import { visit } from "unist-util-visit";
 import type { Root, Element } from "hast";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { platform } from "../platform";
 import { isAbsolutePath, isExternalUrl, joinPath } from "./paths";
-
-const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 // Allow the class names rehype-highlight / remark-math emit, GFM task-list
 // checkboxes, and heading ids used by the outline.
@@ -43,7 +41,7 @@ const rehypeLocalImages: Plugin<[{ docDir: string | null | undefined }], Root> =
   { docDir },
 ) {
   return (tree: Root) => {
-    if (!docDir || !inTauri) return;
+    if (docDir == null) return;
     visit(tree, "element", (node: Element) => {
       if (node.tagName !== "img") return;
       const src = node.properties?.src;
@@ -55,7 +53,7 @@ const rehypeLocalImages: Plugin<[{ docDir: string | null | undefined }], Root> =
         /* keep the raw path for inputs like "100%.png" */
       }
       const abs = isAbsolutePath(decoded) ? decoded : joinPath(docDir, decoded);
-      node.properties.src = convertFileSrc(abs);
+      node.properties.src = platform.assetUrl(abs);
     });
   };
 };

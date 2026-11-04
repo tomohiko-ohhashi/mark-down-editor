@@ -1,7 +1,7 @@
-import { ask, message } from "@tauri-apps/plugin-dialog";
 import { flashStatus } from "../store/useDocStore";
+import { platform, inTauri } from "../platform";
 
-const inTauri = "__TAURI_INTERNALS__" in window;
+const { ask, message } = platform;
 
 /**
  * Check GitHub Releases for a newer version. When `silent` is true (startup

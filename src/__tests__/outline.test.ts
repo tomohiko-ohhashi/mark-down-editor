@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractHeadings } from "../components/Outline";
+import { dirName, fileName } from "../store/useDocStore";
 
 describe("extractHeadings", () => {
   it("collects ATX headings with levels and line numbers", () => {
@@ -16,5 +17,17 @@ describe("extractHeadings", () => {
   });
   it("requires a space after the hashes", () => {
     expect(extractHeadings("#nope")).toEqual([]);
+  });
+});
+
+describe("dirName / fileName", () => {
+  it("handles absolute, relative and bare paths", () => {
+    expect(dirName("/home/u/a.md")).toBe("/home/u");
+    expect(dirName("/a.md")).toBe("/");
+    expect(dirName("notes/a.md")).toBe("notes");
+    expect(dirName("a.md")).toBe("");
+    expect(dirName("C:\\x\\a.md")).toBe("C:\\x");
+    expect(fileName("notes/a.md")).toBe("a.md");
+    expect(fileName(null)).toBe("無題");
   });
 });

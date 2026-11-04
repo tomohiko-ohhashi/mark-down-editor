@@ -5,10 +5,12 @@ interface Props {
   title?: string;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
+  /** Open upwards (for a bar at the bottom of the screen). */
+  up?: boolean;
 }
 
 /** Minimal toolbar dropdown; closes on outside click or Escape. */
-export function Dropdown({ label, title, children, align = "left" }: Props) {
+export function Dropdown({ label, title, children, align = "left", up = false }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -32,7 +34,7 @@ export function Dropdown({ label, title, children, align = "left" }: Props) {
         {label} ▾
       </button>
       {open && (
-        <div className={`dropdown-menu ${align}`}>{children(() => setOpen(false))}</div>
+        <div className={`dropdown-menu ${align} ${up ? "up" : ""}`}>{children(() => setOpen(false))}</div>
       )}
     </div>
   );

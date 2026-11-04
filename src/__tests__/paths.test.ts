@@ -7,6 +7,11 @@ describe("paths", () => {
     expect(joinPath("/home/u/docs", "../img/b.png")).toBe("/home/u/img/b.png");
     expect(joinPath("/home/u/docs", "./c.png")).toBe("/home/u/docs/c.png");
   });
+  it("joins relative (web mode) paths from the root", () => {
+    expect(joinPath("", "a.png")).toBe("a.png");
+    expect(joinPath("", "assets/a.png")).toBe("assets/a.png");
+    expect(joinPath("docs", "../a.png")).toBe("a.png");
+  });
   it("joins windows paths", () => {
     expect(joinPath("C:\\Users\\u\\docs", "assets\\a.png")).toBe("C:\\Users\\u\\docs\\assets\\a.png");
     expect(joinPath("C:\\Users\\u\\docs", "../b.png")).toBe("C:\\Users\\u\\b.png");

@@ -1,0 +1,9 @@
+[package]
+name = "mde-core"
+description = "File operations shared by the Markdown Editor desktop app and web server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

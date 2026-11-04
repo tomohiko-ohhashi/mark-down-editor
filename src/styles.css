@@ -43,7 +43,7 @@
 * { box-sizing: border-box; }
 
 html, body, #root {
-  margin: 0; height: 100%; overflow: hidden;
+  margin: 0; height: 100%; height: 100dvh; overflow: hidden;
   background: var(--bg); color: var(--fg);
   font-family: var(--sans); font-size: 13px;
 }
@@ -80,6 +80,7 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--fg-muted); margin-
   border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 .dropdown-menu.right { left: auto; right: 0; }
+.dropdown-menu.up { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 6px; }
 .dropdown-menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
 .menu-item {
   display: flex; align-items: center; width: 100%; text-align: left; background: none; border: none;
@@ -180,4 +181,58 @@ table.cheat kbd { margin: 0; padding: 0; font-size: 12px; color: var(--fg); }
   .app, .workbench, .panes, .pane { display: block; height: auto; overflow: visible; }
   .pane-preview { display: block !important; }
   .preview { height: auto; overflow: visible; padding: 0; }
+}
+
+/* ---------- File picker (web mode) ---------- */
+.modal.picker { width: min(560px, 94vw); max-height: 80vh; }
+.picker-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.picker-crumbs button { background: none; border: none; color: var(--link); cursor: pointer; padding: 4px 4px; }
+.picker-crumbs .sep { color: var(--fg-muted); }
+.picker-list { list-style: none; margin: 0; padding: 4px 0; overflow: auto; flex: 1; min-height: 160px; }
+.picker-list li button { display: block; width: 100%; text-align: left; background: none; border: none; padding: 10px 16px; cursor: pointer; font-size: 14px; }
+.picker-list li button:hover { background: var(--bg-alt); }
+.picker-save { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+.picker-save input { flex: 1; font-size: 16px; }
+.picker-save button.primary, .modal button.primary { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 6px 16px; cursor: pointer; }
+
+/* ---------- Mobile bottom bar (hidden on desktop) ---------- */
+.mobilebar { display: none; }
+
+/* ---------- Phones / narrow windows ---------- */
+@media (max-width: 767px) {
+  .statusbar, .tg-panels, .tg-view, .tg-more { display: none !important; }
+  .app.focus .mobilebar { display: none; }
+  .mobilebar {
+    display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    background: var(--bg-alt); border-top: 1px solid var(--border); flex-shrink: 0; user-select: none;
+  }
+  .mobilebar > button, .mobilebar .dropdown > button {
+    background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 8px 10px; cursor: pointer; font-size: 14px;
+  }
+  .mobilebar > button.active { background: var(--accent); color: #fff; }
+  .mobilebar > button.attention { color: var(--accent); font-weight: 600; }
+  .mobilebar .segmented { flex: 1; justify-content: center; }
+  .mobilebar .segmented button { flex: 1; padding: 8px 4px; font-size: 13px; background: transparent; }
+  .mobilebar .segmented button.active { background: var(--accent); color: #fff; }
+  .mobilebar .dropdown { position: relative; }
+  .toolbar { flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding: 4px 6px; scrollbar-width: none; }
+  .toolbar::-webkit-scrollbar { display: none; }
+  .toolbar-title { display: none; }
+  /* Files, save and view switch first; formatting last (reachable by scrolling). */
+  .tg-panels { order: 1; } .tg-file { order: 2; } .tg-view { order: 3; } .tg-more { order: 4; } .tg-format { order: 5; }
+  .toolbar button, .dropdown > button { padding: 6px 8px; }
+  .workbench { position: relative; }
+  .sidebar, .outline { position: absolute; top: 0; bottom: 0; z-index: 40; width: min(82vw, 320px); box-shadow: 0 0 24px rgba(0, 0, 0, 0.25); }
+  .sidebar { left: 0; }
+  .outline { right: 0; }
+  .mode-split .panes { flex-direction: column; }
+  .mode-split .pane-editor { border-right: none; border-bottom: 1px solid var(--border); }
+  .preview { padding: 16px 16px 40vh; }
+  .editor .cm-line { padding: 0 12px; }
+  input, select, textarea { font-size: 16px; } /* prevents iOS zoom on focus */
+  .statusbar { font-size: 11px; gap: 10px; }
+  .statusbar-path { display: none; }
+  .dropdown-menu { max-width: 90vw; }
+  .modal { width: 94vw; max-height: 90vh; }
 }

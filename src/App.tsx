@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Toolbar } from "./components/Toolbar";
+import { platform, inTauri } from "./platform";
+import { FilePicker } from "./components/FilePicker";
+import { Toolbar, MobileBar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
 import { StatusBar } from "./components/StatusBar";
 import { Sidebar } from "./components/Sidebar";
@@ -26,8 +27,6 @@ import {
 import { exportHtml, exportPdf } from "./features/export";
 import { checkForUpdates } from "./features/updater";
 
-const inTauri = "__TAURI_INTERNALS__" in window;
-
 export default function App() {
   const viewMode = useDocStore((s) => s.viewMode);
   const setViewMode = useDocStore((s) => s.setViewMode);
@@ -48,16 +47,22 @@ export default function App() {
       await loadSettings();
       if (cancelled) return;
       const s = useSettings.getState();
-      if (inTauri) {
-        const startup = await invoke<string[]>("take_startup_files").catch(() => [] as string[]);
-        if (startup.length > 0) {
-          for (const f of startup) await openDocument(f);
-        } else if (s.reopenLastFiles) {
-          for (const f of s.lastOpenFiles) await openDocument(f);
-        }
-        if (s.lastWorkspace) useDocStore.getState().set({ workspace: s.lastWorkspace });
-        if (s.checkUpdatesOnStartup) setTimeout(() => void checkForUpdates(true), 3000);
+      const startup = await platform.takeStartupFiles();
+      if (startup.length > 0) {
+        for (const f of startup) await openDocument(f);
+      } else if (s.reopenLastFiles) {
+        for (const f of s.lastOpenFiles) await openDocument(f);
       }
+      if (platform.kind === "web") {
+        // The server exposes one folder; show it right away on wide screens.
+        useDocStore.getState().set({ workspace: "", showSidebar: window.innerWidth >= 768 });
+        if (window.innerWidth < 768 && useDocStore.getState().viewMode === "split") {
+          useDocStore.getState().setViewMode("editor");
+        }
+      } else if (s.lastWorkspace) {
+        useDocStore.getState().set({ workspace: s.lastWorkspace });
+      }
+      if (inTauri && s.checkUpdatesOnStartup) setTimeout(() => void checkForUpdates(true), 3000);
     })();
     return () => {
       cancelled = true;
@@ -132,6 +137,16 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [setViewMode, toggle]);
 
+  // Browser: warn before leaving the page with unsaved changes.
+  useEffect(() => {
+    if (inTauri) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (useDocStore.getState().docs.some((d) => d.content !== d.savedContent)) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
   // Ask before closing the window with unsaved changes.
   useEffect(() => {
     if (!inTauri) return;
@@ -174,8 +189,7 @@ export default function App() {
 
   // Detect changes made to open files by other programs.
   useEffect(() => {
-    if (!inTauri) return;
-    const id = setInterval(() => void checkExternalChanges(), 2000);
+    const id = setInterval(() => void checkExternalChanges(), platform.pollIntervalMs);
     const onFocus = () => void checkExternalChanges();
     window.addEventListener("focus", onFocus);
     return () => {
@@ -186,7 +200,7 @@ export default function App() {
 
   // Autosave.
   useEffect(() => {
-    if (!inTauri || autosaveSeconds <= 0) return;
+    if (autosaveSeconds <= 0) return;
     const id = setInterval(() => void autosaveAll(), autosaveSeconds * 1000);
     return () => clearInterval(id);
   }, [autosaveSeconds]);
@@ -210,8 +224,10 @@ export default function App() {
         {showOutline && !focusMode && <Outline />}
       </div>
       <StatusBar />
+      <MobileBar />
       <SettingsDialog />
       <CheatSheet />
+      <FilePicker />
     </div>
   );
 }

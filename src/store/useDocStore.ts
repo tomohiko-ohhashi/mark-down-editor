@@ -117,9 +117,12 @@ export function fileName(path: string | null): string {
   return parts[parts.length - 1] || path;
 }
 
+/** Directory part of a path: "" for a bare file name, "/" for a root-level POSIX file. */
 export function dirName(path: string): string {
   const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return i > 0 ? path.slice(0, i) : path;
+  if (i < 0) return "";
+  if (i === 0) return path[0];
+  return path.slice(0, i);
 }
 
 /** Flash a status message in the toolbar for a short time. */

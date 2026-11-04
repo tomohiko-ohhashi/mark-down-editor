@@ -1,10 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
-import { message } from "@tauri-apps/plugin-dialog";
 import type { EditorView } from "@codemirror/view";
+import { platform } from "../platform";
 import { useDocStore, selectActiveDoc } from "../store/useDocStore";
 import { saveDocument } from "../features/files/fileOps";
-
-const inTauri = "__TAURI_INTERNALS__" in window;
 
 function imageFiles(list: DataTransfer | null): File[] {
   if (!list) return [];
@@ -16,10 +13,10 @@ function imageFiles(list: DataTransfer | null): File[] {
  * image links at the cursor. Returns true when the event was handled.
  */
 export async function insertImages(view: EditorView, files: File[]): Promise<boolean> {
-  if (files.length === 0 || !inTauri) return false;
+  if (files.length === 0) return false;
   let doc = selectActiveDoc(useDocStore.getState());
   if (!doc.path) {
-    await message("画像を保存するには、先にこのドキュメントを保存してください。", {
+    await platform.message("画像を保存するには、先にこのドキュメントを保存してください。", {
       title: "画像の挿入",
       kind: "info",
     });
@@ -32,14 +29,11 @@ export async function insertImages(view: EditorView, files: File[]): Promise<boo
     const ext = (file.name.split(".").pop() || file.type.split("/")[1] || "png").toLowerCase();
     const bytes = new Uint8Array(await file.arrayBuffer());
     try {
-      // Raw body avoids JSON-encoding every byte; metadata travels in headers.
-      const rel = await invoke<string>("save_image", bytes, {
-        headers: { "doc-path": encodeURIComponent(doc.path), ext },
-      });
+      const rel = await platform.saveImage(doc.path, bytes, ext);
       const alt = file.name && !/^image\.\w+$/i.test(file.name) ? file.name.replace(/\.\w+$/, "") : "image";
       links.push(`![${alt}](${encodeURI(rel)})`);
     } catch (e) {
-      await message(String(e), { title: "画像を保存できませんでした", kind: "error" });
+      await platform.message(String(e), { title: "画像を保存できませんでした", kind: "error" });
     }
   }
   if (links.length === 0) return true;
