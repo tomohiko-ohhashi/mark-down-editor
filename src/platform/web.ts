@@ -37,6 +37,16 @@ export const webPlatform: Platform = {
   fileMtime: async (path) => (await api<{ mtime: number }>(`/mtime${q({ path })}`)).mtime,
   readDir: (path) => api<DirEntry[]>(`/dir${q({ path })}`),
   searchWorkspace: (root, query) => api<SearchHit[]>(`/search${q({ path: root, q: query })}`),
+  createDir: async (path) => {
+    await api(`/mkdir${q({ path })}`, { method: "POST" });
+  },
+  rename: async (from, to) => {
+    await api(`/rename${q({ from, to })}`, { method: "POST" });
+  },
+  deletePath: async (path) => {
+    await api(`/delete${q({ path })}`, { method: "POST" });
+  },
+  deleteIsTrash: false,
   saveImage: async (docPath, bytes, ext) =>
     (await api<{ path: string }>(`/image${q({ doc: docPath, ext })}`, {
       method: "POST",

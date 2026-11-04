@@ -25,6 +25,8 @@ interface DocState {
   settingsOpen: boolean;
   cheatSheetOpen: boolean;
   workspace: string | null;
+  /** Bumped whenever files are created / renamed / deleted so tree views reload. */
+  treeVersion: number;
 
   addDoc: (doc?: Partial<Omit<Doc, "id">>) => string;
   removeDoc: (id: string) => void;
@@ -67,6 +69,7 @@ export const useDocStore = create<DocState>((set, get) => ({
   settingsOpen: false,
   cheatSheetOpen: false,
   workspace: null,
+  treeVersion: 0,
 
   addDoc: (partial) => {
     const doc = makeDoc(partial);

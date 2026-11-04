@@ -16,7 +16,7 @@ import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
-import { useDocStore, selectActiveDoc } from "../store/useDocStore";
+import { useDocStore, selectActiveDoc, flashStatus } from "../store/useDocStore";
 import { useSettings } from "../store/useSettings";
 import { baseTheme, markdownHighlight } from "./theme";
 import { toggleBold, toggleItalic, toggleCode, insertLink, setHeading } from "./formatting";
@@ -25,6 +25,7 @@ import { handlePaste, handleDrop } from "./images";
 import { typewriterScrolling, tabSizeExt, fullWidthHeadingFix } from "./extensions";
 import { tableNextCell, tablePrevCell } from "./table";
 import { listKeymap } from "./listContinuation";
+import { formatDocument } from "./format";
 import { livePreview } from "./livePreview";
 import { handleSmartPaste } from "./smartPaste";
 import type { ListContinuation } from "../store/useSettings";
@@ -80,6 +81,15 @@ function baseExtensions(opts: {
       { key: "Mod-1", run: setHeading(1) },
       { key: "Mod-2", run: setHeading(2) },
       { key: "Mod-3", run: setHeading(3) },
+      {
+        key: "Shift-Alt-f",
+        run: (view) => {
+          void formatDocument(view).then((changed) => {
+            if (changed) flashStatus("ドキュメントを整形しました");
+          });
+          return true;
+        },
+      },
       { key: "Tab", run: tableNextCell, shift: tablePrevCell },
       indentWithTab,
       ...searchKeymap,

@@ -200,6 +200,39 @@ pub fn search(
     Ok(hits)
 }
 
+/// Create a folder (and missing parents).
+pub fn create_dir(path: &Path) -> Result<(), String> {
+    if path.exists() {
+        return Err("同じ名前のフォルダかファイルが既にあります".to_string());
+    }
+    fs::create_dir_all(path).map_err(|e| format!("フォルダを作成できません: {e}"))
+}
+
+/// Rename or move a file / folder. Refuses to overwrite an existing target.
+pub fn rename_path(from: &Path, to: &Path) -> Result<(), String> {
+    if !from.exists() {
+        return Err("元のファイルがありません".to_string());
+    }
+    if to.exists() {
+        return Err("同じ名前のフォルダかファイルが既にあります".to_string());
+    }
+    if let Some(parent) = to.parent().filter(|p| !p.as_os_str().is_empty()) {
+        fs::create_dir_all(parent).map_err(|e| format!("フォルダを作成できません: {e}"))?;
+    }
+    fs::rename(from, to).map_err(|e| format!("名前を変更できません: {e}"))
+}
+
+/// Permanently delete a file or a folder (recursively). Callers confirm first.
+pub fn delete_path(path: &Path) -> Result<(), String> {
+    let meta = fs::symlink_metadata(path).map_err(|e| format!("削除できません: {e}"))?;
+    let r = if meta.is_dir() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
+    };
+    r.map_err(|e| format!("削除できません: {e}"))
+}
+
 /// Resolve a user-supplied relative path against `root`, refusing anything
 /// that would escape it ("..", absolute paths, drive prefixes). Returns the
 /// absolute path; the target does not have to exist.
@@ -331,6 +364,27 @@ mod tests {
                 .len(),
             1
         );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn create_rename_delete() {
+        let dir = tmp("crd");
+        let d = dir.join("docs");
+        create_dir(&d).unwrap();
+        assert!(create_dir(&d).is_err());
+        let f = d.join("a.md");
+        write_file(&f, "x").unwrap();
+        let g = d.join("b.md");
+        rename_path(&f, &g).unwrap();
+        assert!(!f.exists() && g.exists());
+        assert!(rename_path(&g, &g).is_err());
+        assert!(rename_path(&f, &d.join("c.md")).is_err());
+        delete_path(&g).unwrap();
+        assert!(!g.exists());
+        delete_path(&d).unwrap();
+        assert!(!d.exists());
+        assert!(delete_path(&d).is_err());
         fs::remove_dir_all(&dir).unwrap();
     }
 
