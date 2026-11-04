@@ -93,7 +93,7 @@ macOS で署名・公証するには、Apple Developer Program に加入し、�
 
 ### 自動アップデート
 
-アプリは起動時に GitHub Releases の `latest.json` を確認します (設定でオフにできます)。更新パッケージは minisign 鍵で署名されている必要があり、対応する公開鍵は `src-tauri/tauri.conf.json` の `plugins.updater.pubkey` に入っています。リポジトリの Secrets に `TAURI_SIGNING_PRIVATE_KEY` (秘密鍵の内容) と、パスワード付きの場合は `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` を登録すると、リリース時に署名済みの更新パッケージと `latest.json` が生成されます。未設定の場合は通常のインストーラだけが作られ、自動更新は動きません (鍵を作り直す場合は `pnpm tauri signer generate` で生成し、公開鍵を設定に貼り替えてください)。
+アプリは起動時に GitHub Releases の `latest.json` を確認します (設定でオフにできます)。更新パッケージは minisign 鍵で署名されている必要があり、対応する公開鍵は `src-tauri/tauri.conf.json` の `plugins.updater.pubkey` に入っています。リポジトリの Secrets に `TAURI_SIGNING_PRIVATE_KEY` (秘密鍵の内容) と、パスワード付きの場合は `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` を登録すると、リリース時に署名済みの更新パッケージと `latest.json` が生成されます。未設定の場合は通常のインストーラだけが作られ、自動更新は動きません (鍵を作り直す場合は `pnpm tauri signer generate` で生成し、公開鍵を設定に貼り替えてください)。ローカルで `pnpm tauri build` するときは署名ファイルを作りません。作る場合は `TAURI_SIGNING_PRIVATE_KEY` を設定したうえで `pnpm tauri build --config src-tauri/tauri.updater.json` を実行してください。
 
 Windows の署名は任意です。必要になった場合は Tauri のドキュメント (https://tauri.app/distribute/sign/windows/) に従って `tauri.conf.json` の `bundle.windows` に設定を追加してください。
 
@@ -109,4 +109,5 @@ src/                 フロントエンド (React + TypeScript)
   __tests__/         ユニットテスト (vitest)
 src-tauri/           Rust バックエンド (ファイル読み書き、ディレクトリ一覧、画像保存、メニュー)
 docs/PLAN.md         開発計画
+docs/SUMMARY.md      経緯、環境構築のトラブル対処、リリース手順、レビュー結果のまとめ
 ```
