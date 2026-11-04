@@ -113,8 +113,9 @@ pnpm server:build                             # target/release/markdown-editor-s
 
 - 起動時に表示される `?token=...` 付き URL を `http://100.116.164.1:36660/?token=...` (Tailscale のアドレス) に読み替えて iPhone の Safari で開く
 - 一度開けばトークンは Cookie に保存される。Safari の共有メニュー →「ホーム画面に追加」で全画面起動
-- 常駐化: README の systemd 設定例を `/etc/systemd/system/markdown-editor.service` に置き、`MDE_TOKEN` を固定の長いランダム文字列にしてから `sudo systemctl enable --now markdown-editor`
-- 更新するとき: `git pull origin main && pnpm install --config.minimum-release-age=0 && pnpm server:build && sudo systemctl restart markdown-editor`
+- 常駐化: `sudo ./deploy/install-service.sh --root ~/notes` (ポート 36660、トークンは `/etc/markdown-editor.env` に固定保存)。今のトークンを引き継ぐなら `--token` で渡す
+- 更新するとき: `git pull origin main && pnpm install --config.minimum-release-age=0 && pnpm server:build && sudo ./deploy/install-service.sh --root ~/notes` (トークンは保持される)
+- 状態確認: `systemctl status markdown-editor`、ログ: `journalctl -u markdown-editor -f`
 
 ### Mac で最新を動かす
 

@@ -67,22 +67,15 @@ pnpm install && pnpm server:build
 
 Web モードでの違い: ファイルを開く / 保存のダイアログはアプリ内のファイル選択画面になり、ワークスペースは常に `--root` のフォルダです。自動アップデートと OS のファイル関連付けはありません。スマホ幅では下部のバーからフォルダ・保存・表示切替を操作します。
 
-systemd で常駐させる例:
+systemd で常駐させる (Linux):
 
-```ini
-[Unit]
-Description=Markdown Editor web server
-After=network.target
-
-[Service]
-ExecStart=/home/USER/mark-down-editor/target/release/markdown-editor-server --root /home/USER/notes --port 36660
-Environment=MDE_TOKEN=長いランダムな文字列
-User=USER
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
+```bash
+pnpm server:build
+sudo ./deploy/install-service.sh --root ~/notes            # 初回。トークンを生成して表示します
+sudo ./deploy/install-service.sh --root ~/notes --token 既存のトークン   # 今使っている URL をそのまま使いたい場合
 ```
+
+バイナリは `/usr/local/bin/markdown-editor-server` に、設定 (トークン / フォルダ / ポート) は `/etc/markdown-editor.env` に置かれます。ユニットファイルは `deploy/markdown-editor.service` で、公開フォルダ以外に書き込めないよう制限しています。コードを更新したら `pnpm server:build` のあと同じスクリプトをもう一度実行すれば、トークンを保ったまま入れ替わります。ログは `journalctl -u markdown-editor -f` で見られます。
 
 Tailscale などの VPN 内で使うことを想定しています。インターネットに直接公開する場合は、HTTPS を終端するリバースプロキシ (Caddy など) の後ろに置いてください。
 
