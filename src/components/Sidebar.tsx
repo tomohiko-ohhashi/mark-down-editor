@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { platform } from "../platform";
+import type { DirEntry as Entry } from "../platform";
 import { useDocStore, fileName } from "../store/useDocStore";
 import { openDocument, openWorkspace } from "../features/files/fileOps";
 
-interface Entry {
-  name: string;
-  path: string;
-  is_dir: boolean;
+/** On phones the sidebar is an overlay; close it once a file was picked. */
+function closeIfNarrow() {
+  if (window.innerWidth < 768) useDocStore.getState().set({ showSidebar: false });
 }
 
 function Node({ entry, depth }: { entry: Entry; depth: number }) {
@@ -16,7 +16,7 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
 
   const load = useCallback(async () => {
     try {
-      setChildren(await invoke<Entry[]>("read_dir", { path: entry.path }));
+      setChildren(await platform.readDir(entry.path));
     } catch {
       setChildren([]);
     }
@@ -52,7 +52,10 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
       <button
         className={`tree-file ${activePath === entry.path ? "active" : ""}`}
         style={{ paddingLeft: 8 + depth * 14 + 14 }}
-        onClick={() => void openDocument(entry.path)}
+        onClick={() => {
+          void openDocument(entry.path);
+          closeIfNarrow();
+        }}
         title={entry.path}
       >
         {entry.name}
@@ -65,11 +68,16 @@ export function Sidebar() {
   const workspace = useDocStore((s) => s.workspace);
   const [root, setRoot] = useState<Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rootName, setRootName] = useState<string | null>(null);
+
+  useEffect(() => {
+    platform.rootName().then(setRootName).catch(() => {});
+  }, []);
 
   const refresh = useCallback(async () => {
-    if (!workspace) return;
+    if (workspace == null) return;
     try {
-      setRoot(await invoke<Entry[]>("read_dir", { path: workspace }));
+      setRoot(await platform.readDir(workspace));
       setError(null);
     } catch (e) {
       setRoot([]);
@@ -85,13 +93,17 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="panel-title">
-        <span title={workspace ?? ""}>{workspace ? fileName(workspace) : "ワークスペース"}</span>
+        <span title={workspace ?? ""}>
+          {workspace == null ? "ワークスペース" : workspace === "" ? (rootName ?? "ワークスペース") : fileName(workspace)}
+        </span>
         <span className="panel-actions">
-          <button title="再読込" onClick={() => void refresh()} disabled={!workspace}>↻</button>
-          <button title="フォルダを開く" onClick={() => void openWorkspace()}>📂</button>
+          <button title="再読込" onClick={() => void refresh()} disabled={workspace == null}>↻</button>
+          {platform.kind === "tauri" && (
+            <button title="フォルダを開く" onClick={() => void openWorkspace()}>📂</button>
+          )}
         </span>
       </div>
-      {!workspace ? (
+      {workspace == null ? (
         <div className="panel-empty">
           フォルダを開くと、Markdown ファイルの一覧が表示されます。
           <br />

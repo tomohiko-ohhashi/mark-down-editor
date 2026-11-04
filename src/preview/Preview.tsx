@@ -5,8 +5,7 @@ import { useSettings, isDarkTheme } from "../store/useSettings";
 import { useScrollSync } from "./useScrollSync";
 import { openDocument } from "../features/files/fileOps";
 import { joinPath, isAbsolutePath } from "./paths";
-
-const inTauri = "__TAURI_INTERNALS__" in window;
+import { platform } from "../platform";
 
 /**
  * Links in the rendered HTML must not navigate the webview itself:
@@ -25,15 +24,10 @@ async function onPreviewClick(e: React.MouseEvent<HTMLDivElement>, docPath: stri
     return;
   }
   if (/^(https?:|mailto:)/i.test(href)) {
-    if (inTauri) {
-      const { openUrl } = await import("@tauri-apps/plugin-opener");
-      await openUrl(href).catch(() => {});
-    } else {
-      window.open(href, "_blank", "noopener");
-    }
+    await platform.openExternal(href).catch(() => {});
     return;
   }
-  if (/\.(md|markdown|mdown|mkd|txt)(#.*)?$/i.test(href) && inTauri) {
+  if (/\.(md|markdown|mdown|mkd|txt)(#.*)?$/i.test(href)) {
     const rel = href.replace(/#.*$/, "");
     let decoded = rel;
     try {
@@ -41,7 +35,7 @@ async function onPreviewClick(e: React.MouseEvent<HTMLDivElement>, docPath: stri
     } catch {
       /* use raw */
     }
-    const abs = isAbsolutePath(decoded) ? decoded : docPath ? joinPath(dirName(docPath), decoded) : null;
+    const abs = isAbsolutePath(decoded) ? decoded : docPath != null ? joinPath(dirName(docPath), decoded) : null;
     if (abs) void openDocument(abs);
   }
 }
@@ -67,7 +61,7 @@ export function Preview() {
     let cancelled = false;
     const t = setTimeout(() => {
       renderMarkdown(doc.content, {
-        docDir: doc.path ? dirName(doc.path) : null,
+        docDir: doc.path != null ? dirName(doc.path) : null,
         mermaid: true,
         dark: isDarkTheme(),
       }).then((h) => {

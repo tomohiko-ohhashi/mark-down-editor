@@ -112,3 +112,28 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: ${{ matrix.args }} ${{ env.TAURI_EXTRA_ARGS }}
+
+  # Web mode: the HTTP server binary (UI embedded) for Linux servers.
+  server:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: cargo build -p markdown-editor-server --release
+      - run: cp target/release/markdown-editor-server markdown-editor-server-linux-x86_64
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          draft: true
+          files: markdown-editor-server-linux-x86_64

@@ -44,6 +44,48 @@ macOS / Linux / Windows で動く、単独で動作する Markdown エディタ�
 | チートシート | F1 または ⌘⇧/ | F1 または Ctrl+Shift+/ |
 | 表の中でセル移動 | Tab / ⇧Tab | Tab / Shift+Tab |
 
+## Web モード (ブラウザ / スマホから使う)
+
+デスクトップ版と同じ画面を HTTP サーバーから配信し、サーバー上のフォルダにある Markdown をブラウザ (iPhone の Safari など) から編集できます。デスクトップ版はそのまま単独で動き、Web モードはそれに加えて使える別の入れ物です。
+
+```bash
+# ビルド (UI を同梱した単一バイナリができます)
+pnpm install && pnpm server:build
+# 起動
+./target/release/markdown-editor-server --root ~/notes --port 8787
+```
+
+起動時に `http://<サーバー>:8787/?token=...` という URL が表示されるので、スマホのブラウザで開きます。トークンは Cookie に保存され、次回からは不要です。Safari の共有メニューから「ホーム画面に追加」すると、アプリのように全画面で起動します。
+
+| オプション | 説明 |
+| --- | --- |
+| `--root <dir>` | 公開するフォルダ。この外のファイルには一切アクセスできません (既定: カレントディレクトリ) |
+| `--port <n>` / `--host <addr>` | 待ち受けポートとアドレス (既定: 8787 / 0.0.0.0) |
+| `--token <str>` | アクセストークン。省略時は起動ごとに生成。環境変数 `MDE_TOKEN` でも指定可 |
+| `--no-auth` | 認証を無効化 (完全に信頼できるネットワーク専用) |
+| `--dist <dir>` | UI を同梱分ではなくフォルダから配信 (開発用) |
+
+Web モードでの違い: ファイルを開く / 保存のダイアログはアプリ内のファイル選択画面になり、ワークスペースは常に `--root` のフォルダです。自動アップデートと OS のファイル関連付けはありません。スマホ幅では下部のバーからフォルダ・保存・表示切替を操作します。
+
+systemd で常駐させる例:
+
+```ini
+[Unit]
+Description=Markdown Editor web server
+After=network.target
+
+[Service]
+ExecStart=/home/USER/mark-down-editor/target/release/markdown-editor-server --root /home/USER/notes --port 8787
+Environment=MDE_TOKEN=長いランダムな文字列
+User=USER
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Tailscale などの VPN 内で使うことを想定しています。インターネットに直接公開する場合は、HTTPS を終端するリバースプロキシ (Caddy など) の後ろに置いてください。
+
 ## 開発
 
 ### 必要なもの
@@ -63,7 +105,9 @@ pnpm tauri dev      # 開発モードで起動
 pnpm tauri build    # 配布用パッケージを作成 (src-tauri/target/release/bundle/)
 pnpm build          # フロントエンドのみビルド (型チェック含む)
 pnpm test           # フロントエンドのユニットテスト (vitest)
-cargo test --manifest-path src-tauri/Cargo.toml
+pnpm server:build   # Web モードのサーバーをビルド
+pnpm server:dev     # Web モードを開発用に起動 (dist/ を配信、認証なし)
+cargo test --workspace
 ```
 
 ## リリース
@@ -101,13 +145,16 @@ Windows の署名は任意です。必要になった場合は Tauri のドキ�
 
 ```
 src/                 フロントエンド (React + TypeScript)
+  platform/          ホスト抽象化 (Tauri IPC / HTTP API) — ファイル操作、ダイアログ、リンクを開く
   editor/            CodeMirror 6 のラッパー、テーマ、書式コマンド、表編集、画像挿入
   preview/           unified (remark/rehype) による Markdown 変換、KaTeX / Mermaid、スクロール同期
   features/          ファイル操作、書き出し、アップデータ
   components/        ツールバー、タブ、サイドバー、アウトライン、設定、チートシート
   store/             アプリ状態と設定 (zustand、tauri-plugin-store)
   __tests__/         ユニットテスト (vitest)
-src-tauri/           Rust バックエンド (ファイル読み書き、ディレクトリ一覧、画像保存、メニュー)
+src-tauri/           Tauri アプリ (IPC コマンド、macOS メニュー、起動ファイル)
+crates/mde-core/     デスクトップ版と Web サーバーで共有するファイル操作
+crates/mde-server/   Web モードの HTTP サーバー (axum、UI を同梱)
 docs/PLAN.md         開発計画
 docs/SUMMARY.md      経緯、環境構築のトラブル対処、リリース手順、レビュー結果のまとめ
 ```

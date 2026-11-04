@@ -1,5 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
-import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
+import { platform } from "../../platform";
 import {
   useDocStore,
   isDirty,
@@ -10,21 +9,8 @@ import {
 } from "../../store/useDocStore";
 import { useSettings } from "../../store/useSettings";
 
-interface FileContent {
-  content: string;
-  mtime: number;
-}
-
-export const MD_FILTERS = [
-  { name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd"] },
-  { name: "テキスト", extensions: ["txt"] },
-  { name: "すべてのファイル", extensions: ["*"] },
-];
-
-export const readFile = (path: string) => invoke<FileContent>("read_file", { path });
-export const writeFile = (path: string, content: string) =>
-  invoke<number>("write_file", { path, content });
-export const fileMtime = (path: string) => invoke<number>("file_mtime", { path });
+const { readFile, writeFile, fileMtime, ask, message } = platform;
+export { readFile, writeFile, fileMtime };
 
 function docById(id: string): Doc | undefined {
   return useDocStore.getState().docs.find((d) => d.id === id);
@@ -65,9 +51,7 @@ export function newDocument(): void {
 
 /** Open a file into a tab. Reuses the active tab when it is an empty, untitled, clean document. */
 export async function openDocument(presetPath?: string): Promise<void> {
-  const path =
-    presetPath ??
-    (await open({ multiple: false, directory: false, filters: MD_FILTERS }));
+  const path = presetPath ?? (await platform.pickOpenPath());
   if (!path) return;
 
   const existing = useDocStore.getState().docs.find((d) => d.path === path);
@@ -120,7 +104,7 @@ export async function saveDocument(id?: string): Promise<boolean> {
 export async function saveDocumentAs(id?: string): Promise<boolean> {
   const doc = id ? docById(id) : selectActiveDoc(useDocStore.getState());
   if (!doc) return false;
-  const path = await save({ defaultPath: doc.path ?? "untitled.md", filters: MD_FILTERS });
+  const path = await platform.pickSavePath(doc.path ?? "untitled.md");
   if (!path) return false;
   return writeTo(doc.id, path);
 }
@@ -200,8 +184,8 @@ export async function checkExternalChanges(): Promise<void> {
 }
 
 export async function openWorkspace(presetPath?: string): Promise<void> {
-  const path = presetPath ?? (await open({ directory: true, multiple: false }));
-  if (!path) return;
+  const path = presetPath ?? (await platform.pickDirectory());
+  if (path == null) return;
   useDocStore.getState().set({ workspace: path, showSidebar: true });
   useSettings.getState().update({ lastWorkspace: path });
 }

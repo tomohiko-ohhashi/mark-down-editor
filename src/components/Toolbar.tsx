@@ -15,6 +15,7 @@ import {
   tableCycleAlign,
 } from "../editor/table";
 import { Dropdown } from "./Dropdown";
+import { platform } from "../platform";
 import type { StateCommand } from "@codemirror/state";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -67,7 +68,7 @@ export function Toolbar() {
 
   return (
     <header className="toolbar">
-      <div className="toolbar-group">
+      <div className="toolbar-group tg-file">
         <button onClick={() => newDocument()} title={`新規 (${mod}N)`}>新規</button>
         <button onClick={() => openDocument()} title={`開く (${mod}O)`}>開く</button>
         <Dropdown label="最近" title="最近使ったファイル">
@@ -101,7 +102,7 @@ export function Toolbar() {
         </Dropdown>
       </div>
 
-      <div className="toolbar-group">
+      <div className="toolbar-group tg-format">
         <button onClick={() => runInEditor(setHeading(1))} title={`見出し1 (${mod}1)`}>H1</button>
         <button onClick={() => runInEditor(setHeading(2))} title={`見出し2 (${mod}2)`}>H2</button>
         <button onClick={() => runInEditor(setHeading(3))} title={`見出し3 (${mod}3)`}>H3</button>
@@ -133,19 +134,21 @@ export function Toolbar() {
         {status && <span className="toolbar-status">{status}</span>}
       </div>
 
-      <div className="toolbar-group">
+      <div className="toolbar-group tg-panels">
         <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={`フォルダ (${mod}${shift}E)`}>📁</button>
         <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={`アウトライン (${mod}${shift}O)`}>☰</button>
-        <button onClick={() => openWorkspace()} title="フォルダを開く…">📂</button>
+        {platform.kind === "tauri" && (
+          <button onClick={() => openWorkspace()} title="フォルダを開く…">📂</button>
+        )}
       </div>
-      <div className="toolbar-group segmented">
+      <div className="toolbar-group segmented tg-view">
         {VIEW_MODES.map((v) => (
           <button key={v.mode} className={viewMode === v.mode ? "active" : ""} onClick={() => setViewMode(v.mode)} title={v.title}>
             {v.label}
           </button>
         ))}
       </div>
-      <div className="toolbar-group">
+      <div className="toolbar-group tg-more">
         <Dropdown label="⋯" title="その他" align="right">
           {(close) => (
             <>
@@ -159,5 +162,47 @@ export function Toolbar() {
         </Dropdown>
       </div>
     </header>
+  );
+}
+
+/**
+ * Bottom bar shown instead of the status bar on phones: the controls that
+ * must stay reachable without scrolling the (overflowing) toolbar.
+ */
+export function MobileBar() {
+  const viewMode = useDocStore((s) => s.viewMode);
+  const setViewMode = useDocStore((s) => s.setViewMode);
+  const toggle = useDocStore((s) => s.toggle);
+  const showSidebar = useDocStore((s) => s.showSidebar);
+  const showOutline = useDocStore((s) => s.showOutline);
+  const dirty = useDocStore(selectActiveIsDirty);
+  return (
+    <nav className="mobilebar">
+      <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title="フォルダ">📁</button>
+      <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title="アウトライン">☰</button>
+      <div className="segmented">
+        {VIEW_MODES.map((v) => (
+          <button key={v.mode} className={viewMode === v.mode ? "active" : ""} onClick={() => setViewMode(v.mode)} title={v.title}>
+            {v.mode === "preview" ? "閲覧" : v.label}
+          </button>
+        ))}
+      </div>
+      <button className={dirty ? "attention" : ""} onClick={() => saveDocument()} title="保存">
+        {dirty ? "● 保存" : "保存"}
+      </button>
+      <Dropdown label="⋯" title="その他" align="right" up>
+        {(close) => (
+          <>
+            <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}>名前を付けて保存…</button>
+            <button className="menu-item" onClick={() => { close(); void exportHtml(); }}>HTML として書き出す…</button>
+            <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>印刷 / PDF…</button>
+            <hr />
+            <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>フォーカスモード</button>
+            <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>チートシート</button>
+            <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>設定…</button>
+          </>
+        )}
+      </Dropdown>
+    </nav>
   );
 }

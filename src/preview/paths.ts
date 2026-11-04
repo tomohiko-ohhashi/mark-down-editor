@@ -11,12 +11,12 @@ export function isExternalUrl(src: string): boolean {
 /** Join a directory and a relative path, resolving "." and ".." segments. */
 export function joinPath(dir: string, rel: string): string {
   const sep = dir.includes("\\") && !dir.includes("/") ? "\\" : "/";
-  const parts = dir.split(/[\\/]/);
+  const parts = dir === "" ? [] : dir.split(/[\\/]/);
   const leadingSlash = dir.startsWith("/");
   for (const seg of rel.split(/[\\/]/)) {
     if (seg === "" || seg === ".") continue;
     if (seg === "..") {
-      if (parts.length > 1) parts.pop();
+      if (parts.length > (leadingSlash ? 1 : 0)) parts.pop();
       continue;
     }
     parts.push(seg);

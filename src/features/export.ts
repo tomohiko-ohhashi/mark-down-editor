@@ -1,4 +1,4 @@
-import { save, message } from "@tauri-apps/plugin-dialog";
+import { platform } from "../platform";
 import { useDocStore, selectActiveDoc, fileName, flashStatus } from "../store/useDocStore";
 import { renderMarkdown } from "../preview/markdown";
 import { writeFile } from "./files/fileOps";
@@ -48,13 +48,13 @@ ${body}
 export async function exportHtml(): Promise<void> {
   const doc = selectActiveDoc(useDocStore.getState());
   const defaultPath = (doc.path ?? "untitled.md").replace(/\.\w+$/, "") + ".html";
-  const path = await save({ defaultPath, filters: [{ name: "HTML", extensions: ["html"] }] });
+  const path = await platform.pickSavePath(defaultPath, [{ name: "HTML", extensions: ["html"] }]);
   if (!path) return;
   try {
     await writeFile(path, await buildStandaloneHtml());
     flashStatus("HTML を書き出しました");
   } catch (e) {
-    await message(String(e), { title: "書き出せませんでした", kind: "error" });
+    await platform.message(String(e), { title: "書き出せませんでした", kind: "error" });
   }
 }
 
