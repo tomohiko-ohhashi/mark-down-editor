@@ -97,3 +97,56 @@ Linux のビルドには次のパッケージが必要: `libwebkit2gtk-4.1-dev l
 - Web モードの実機 (iPhone Safari) での確認。IME 入力と「ホーム画面に追加」の動作
 - Web モードの HTTPS 化 (リバースプロキシ) と、複数の公開フォルダ対応
 - 候補機能: WYSIWYG 的なインライン表示、Git 連携、プラグイン / カスタム CSS、i18n (英語 UI)
+
+## 9. 運用メモ (次にやることのチェックリスト)
+
+### おうちサーバー (Ubuntu) で Web モードを動かす
+
+```bash
+cd ~/dev/mark-down-editor && git checkout main && git pull origin main
+source "$HOME/.cargo/env"
+pnpm install --config.minimum-release-age=0   # pnpm 12 の公開日制限を回避
+pnpm server:build                             # target/release/markdown-editor-server ができる
+./target/release/markdown-editor-server --root ~/notes --port 8787
+```
+
+- 起動時に表示される `?token=...` 付き URL を `http://100.116.164.1:8787/?token=...` (Tailscale のアドレス) に読み替えて iPhone の Safari で開く
+- 一度開けばトークンは Cookie に保存される。Safari の共有メニュー →「ホーム画面に追加」で全画面起動
+- 常駐化: README の systemd 設定例を `/etc/systemd/system/markdown-editor.service` に置き、`MDE_TOKEN` を固定の長いランダム文字列にしてから `sudo systemctl enable --now markdown-editor`
+- 更新するとき: `git pull origin main && pnpm install --config.minimum-release-age=0 && pnpm server:build && sudo systemctl restart markdown-editor`
+
+### Mac で最新を動かす
+
+```bash
+cd ~/dev/mark-down-editor && git checkout main && git pull origin main
+pnpm install && pnpm tauri dev      # 開発モード
+pnpm tauri build                    # .app / .dmg を作る (src-tauri/target/release/bundle/)
+```
+
+### v0.3.0 をリリースする
+
+1. GitHub の Actions タブ → Release → Run workflow → tag に `v0.3.0` を入力 (または `git tag v0.3.0 && git push origin v0.3.0`)
+2. 4 OS 分のインストーラと `markdown-editor-server-linux-x86_64` 付きのドラフトリリースができる
+3. ブラウザ (スマホアプリ不可) で Releases → 鉛筆アイコン → Publish release
+
+### GitHub Secrets に登録すると有効になるもの
+
+| Secret | 効果 | 状態 |
+| --- | --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | 自動アップデート用の署名。秘密鍵はこのセッションの作業フォルダにしか無いので、紛失していれば `pnpm tauri signer generate` で作り直し、`src-tauri/tauri.conf.json` の `pubkey` を貼り替える | 未登録 |
+| `APPLE_CERTIFICATE` ほか (README 参照) | macOS の署名と公証。無い間はアドホック署名 (初回は右クリック → 開く) | 未登録 |
+
+### まだ実機で確認していないこと
+
+- iPhone 実機の Safari: 日本語 IME での入力、ホーム画面追加後の全画面表示、画像の貼り付け
+- macOS 実機の v0.2 以降: ⌘W でタブが閉じる、画像の貼り付け、⌘P の印刷、⌘Q の未保存確認
+- Windows 実機: 起動と `.md` の関連付け
+
+### 困ったとき
+
+- `pnpm` が見つからない (Mac): `brew install pnpm`。Node 26 以降は corepack が無い
+- `cargo` が見つからない: `source "$HOME/.cargo/env"`
+- `minimumReleaseAge cutoff` で pnpm install が失敗: `--config.minimum-release-age=0` を付ける
+- Web モードで 401 になる: Cookie が消えている。`?token=...` 付き URL を開き直す
+- Web モードで画像が出ない: 画像が `--root` の外にある。フォルダ内に置く
+- develop ブランチは PR マージ時に GitHub 側で削除される設定。次の作業は `git checkout -B develop origin/main` で作り直す
