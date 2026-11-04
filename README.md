@@ -109,4 +109,5 @@ src/                 フロントエンド (React + TypeScript)
   __tests__/         ユニットテスト (vitest)
 src-tauri/           Rust バックエンド (ファイル読み書き、ディレクトリ一覧、画像保存、メニュー)
 docs/PLAN.md         開発計画
+docs/SUMMARY.md      経緯、環境構築のトラブル対処、リリース手順、レビュー結果のまとめ
 ```
