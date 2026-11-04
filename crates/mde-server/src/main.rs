@@ -40,7 +40,7 @@ struct Args {
     /// Address to listen on. Use 127.0.0.1 to allow only this machine.
     #[arg(long, default_value = "0.0.0.0")]
     host: String,
-    #[arg(long, default_value_t = 8787)]
+    #[arg(long, default_value_t = 36660)]
     port: u16,
     /// Access token. Generated and printed at startup when omitted.
     #[arg(long, env = "MDE_TOKEN")]

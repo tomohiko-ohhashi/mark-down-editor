@@ -107,10 +107,10 @@ cd ~/dev/mark-down-editor && git checkout main && git pull origin main
 source "$HOME/.cargo/env"
 pnpm install --config.minimum-release-age=0   # pnpm 12 の公開日制限を回避
 pnpm server:build                             # target/release/markdown-editor-server ができる
-./target/release/markdown-editor-server --root ~/notes --port 8787
+./target/release/markdown-editor-server --root ~/notes --port 36660
 ```
 
-- 起動時に表示される `?token=...` 付き URL を `http://100.116.164.1:8787/?token=...` (Tailscale のアドレス) に読み替えて iPhone の Safari で開く
+- 起動時に表示される `?token=...` 付き URL を `http://100.116.164.1:36660/?token=...` (Tailscale のアドレス) に読み替えて iPhone の Safari で開く
 - 一度開けばトークンは Cookie に保存される。Safari の共有メニュー →「ホーム画面に追加」で全画面起動
 - 常駐化: README の systemd 設定例を `/etc/systemd/system/markdown-editor.service` に置き、`MDE_TOKEN` を固定の長いランダム文字列にしてから `sudo systemctl enable --now markdown-editor`
 - 更新するとき: `git pull origin main && pnpm install --config.minimum-release-age=0 && pnpm server:build && sudo systemctl restart markdown-editor`

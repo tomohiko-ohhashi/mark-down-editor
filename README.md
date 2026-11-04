@@ -52,15 +52,15 @@ macOS / Linux / Windows で動く、単独で動作する Markdown エディタ�
 # ビルド (UI を同梱した単一バイナリができます)
 pnpm install && pnpm server:build
 # 起動
-./target/release/markdown-editor-server --root ~/notes --port 8787
+./target/release/markdown-editor-server --root ~/notes --port 36660
 ```
 
-起動時に `http://<サーバー>:8787/?token=...` という URL が表示されるので、スマホのブラウザで開きます。トークンは Cookie に保存され、次回からは不要です。Safari の共有メニューから「ホーム画面に追加」すると、アプリのように全画面で起動します。
+起動時に `http://<サーバー>:36660/?token=...` という URL が表示されるので、スマホのブラウザで開きます。トークンは Cookie に保存され、次回からは不要です。Safari の共有メニューから「ホーム画面に追加」すると、アプリのように全画面で起動します。
 
 | オプション | 説明 |
 | --- | --- |
 | `--root <dir>` | 公開するフォルダ。この外のファイルには一切アクセスできません (既定: カレントディレクトリ) |
-| `--port <n>` / `--host <addr>` | 待ち受けポートとアドレス (既定: 8787 / 0.0.0.0) |
+| `--port <n>` / `--host <addr>` | 待ち受けポートとアドレス (既定: 36660 / 0.0.0.0) |
 | `--token <str>` | アクセストークン。省略時は起動ごとに生成。環境変数 `MDE_TOKEN` でも指定可 |
 | `--no-auth` | 認証を無効化 (完全に信頼できるネットワーク専用) |
 | `--dist <dir>` | UI を同梱分ではなくフォルダから配信 (開発用) |
@@ -75,7 +75,7 @@ Description=Markdown Editor web server
 After=network.target
 
 [Service]
-ExecStart=/home/USER/mark-down-editor/target/release/markdown-editor-server --root /home/USER/notes --port 8787
+ExecStart=/home/USER/mark-down-editor/target/release/markdown-editor-server --root /home/USER/notes --port 36660
 Environment=MDE_TOKEN=長いランダムな文字列
 User=USER
 Restart=on-failure
