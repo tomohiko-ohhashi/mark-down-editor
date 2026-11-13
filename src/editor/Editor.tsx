@@ -24,7 +24,7 @@ import { toggleBold, toggleItalic, toggleCode, insertLink, setHeading } from "./
 import { publishScroll, followScroll, pauseScrollSync } from "../preview/useScrollSync";
 import { handlePaste, handleDrop } from "./images";
 import { inTauri } from "../platform";
-import { typewriterScrolling, tabSizeExt, fullWidthHeadingFix } from "./extensions";
+import { typewriterScrolling, tabSizeExt, fullWidthHeadingFix, plainHtmlTags } from "./extensions";
 import { tableNextCell, tablePrevCell } from "./table";
 import { listKeymap } from "./listContinuation";
 import { formatDocument } from "./format";
@@ -107,7 +107,7 @@ function baseExtensions(opts: {
     // lists) would override the user's list-continuation setting.
     // pasteURLAsLink off: the Markdown package would turn every URL pasted over a selection into a link
     // before our own handler runs, so the "ask / always / off" setting never had a say.
-    markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: false, pasteURLAsLink: false }),
+    markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: false, pasteURLAsLink: false, htmlTagLanguage: plainHtmlTags }),
     preview.of(opts.livePreview ? livePreview : []),
     fullWidthHeadingFix,
     baseTheme,

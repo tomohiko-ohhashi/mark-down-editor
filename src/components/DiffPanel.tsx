@@ -9,6 +9,7 @@ import { editorRef, goToLine } from "../editor/Editor";
 import { baseTheme, markdownHighlight } from "../editor/theme";
 import { Splitter } from "./Splitter";
 import { handleSmartPaste } from "../editor/smartPaste";
+import { plainHtmlTags } from "../editor/extensions";
 import { t } from "../i18n";
 import { IconClose, IconUp, IconDown, ARROW_RIGHT_SVG } from "./icons";
 
@@ -27,7 +28,7 @@ function useNarrowScreen(): boolean {
 
 type Base = "opened" | "saved";
 
-const shared = [lineNumbers(), drawSelection(), EditorView.lineWrapping, markdown({ base: markdownLanguage, addKeymap: false, pasteURLAsLink: false }), baseTheme, markdownHighlight];
+const shared = [lineNumbers(), drawSelection(), EditorView.lineWrapping, markdown({ base: markdownLanguage, addKeymap: false, pasteURLAsLink: false, htmlTagLanguage: plainHtmlTags }), baseTheme, markdownHighlight];
 
 /**
  * Side-by-side view of what changed in the active document, like a merge

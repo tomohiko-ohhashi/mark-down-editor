@@ -94,7 +94,7 @@ describe("formatMarkdown keeps the meaning", () => {
 
 describe("formatMarkdown does not add markup the author did not write", () => {
   it("no backslashes before brackets, tildes, sharps or parentheses that are plain text", async () => {
-    const src = "[要確認] あとで見る。営業時間は 9:00~18:00。C# と F#。\n\n約10~20人 (1 行に ~ が 1 つ)\n\n# C# と F#\n\n[wiki](https://ja.wikipedia.org/wiki/消費税_(日本))\n";
+    const src = "[要確認] あとで見る。営業時間は 9:00~18:00。C# と F#。\n\n約10~20人 (1 つの段落に ~ が 1 つ)\n\n# C# と F#\n\n[wiki](https://ja.wikipedia.org/wiki/消費税_(日本))\n";
     expect(await formatMarkdown(src)).toBe(src);
   });
   it("keeps the backslashes that are needed", async () => {

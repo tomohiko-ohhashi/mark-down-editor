@@ -111,6 +111,20 @@ export async function saveDocument(id?: string): Promise<boolean> {
   const doc = id ? docById(id) : selectActiveDoc(useDocStore.getState());
   if (!doc) return false;
   if (!doc.path) return saveDocumentAs(doc.id);
+  // Nothing changed: leave the file alone. Writing it again could still alter it
+  // (a file with mixed line endings is written back with one kind).
+  if (!isDirty(doc)) {
+    let onDisk = true;
+    try {
+      await fileMtime(doc.path);
+    } catch {
+      onDisk = false; // deleted meanwhile: saving puts it back
+    }
+    if (onDisk) {
+      flashStatus(t("変更はありません"));
+      return true;
+    }
+  }
   return writeTo(doc.id, doc.path);
 }
 

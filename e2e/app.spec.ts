@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const workspace = process.env.E2E_WORKSPACE as string;
@@ -653,4 +653,44 @@ test("a URL pasted over selected text follows the setting: ask, always a link, o
   await paste("https://example.com/c");
   await expect(page.locator(".modal.confirm")).toHaveCount(0);
   await expect(thirdLine()).toHaveText("[First](https://example.com/c) paragraph.");
+});
+
+test("what the editor writes works in Japanese text, and nothing is written that was not typed", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  const lastLine = () => page.locator(".pane-editor .cm-line").last();
+  const newLine = async (text: string) => {
+    await editor(page).click();
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type(text);
+  };
+
+  // Italic uses "*": "_" does nothing between Japanese characters.
+  await newLine("これは斜体です");
+  for (let i = 0; i < 2; i++) await page.keyboard.press("ArrowLeft");
+  for (let i = 0; i < 2; i++) await page.keyboard.press("Shift+ArrowLeft");
+  await page.keyboard.press("Control+i");
+  await expect(lastLine()).toHaveText("これは*斜体*です");
+  await expect(page.locator(".preview em")).toHaveText("斜体");
+  // ... and pressing it again takes the stars off; the stars of bold are left alone.
+  await page.keyboard.press("Control+i");
+  await expect(lastLine()).toHaveText("これは斜体です");
+  await page.keyboard.press("Control+b");
+  await page.keyboard.press("Control+i");
+  await expect(lastLine()).toHaveText("これは***斜体***です");
+
+  // An HTML tag is not closed behind the writer's back.
+  await newLine("<div>中身</div>");
+  await expect(lastLine()).toHaveText("<div>中身</div>");
+});
+
+test("saving a file that was not changed leaves it untouched", async ({ page }) => {
+  await start(page);
+  await openFile(page, "save-me.md");
+  const before = statSync(join(workspace, "save-me.md")).mtimeMs;
+  await editor(page).click();
+  await page.keyboard.press("Control+s");
+  await expect(page.locator(".toolbar-status")).toHaveText("変更はありません");
+  expect(statSync(join(workspace, "save-me.md")).mtimeMs).toBe(before);
 });

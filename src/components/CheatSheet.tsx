@@ -12,7 +12,7 @@ const k = (...keys: string[]) => keys.join(isMac ? "" : "+");
 // Built while rendering so the rows follow the UI language.
 const syntaxRows = (): [string, string][] => [
   [t("# 見出し1 / ## 見出し2 / ### 見出し3"), t("見出し（# の数でレベル、# の後に半角スペース）")],
-  [t("**太字**  _斜体_  ~~取り消し線~~"), t("強調")],
+  [t("**太字**  *斜体*  ~~取り消し線~~"), t("強調")],
   [t("`コード`"), t("インラインコード")],
   [t("```js\nコード\n```"), t("コードブロック（言語名でハイライト）")],
   [t("- 項目\n- 項目\n  - ネスト"), t("箇条書き")],

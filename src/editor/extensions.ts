@@ -1,3 +1,4 @@
+import { html } from "@codemirror/lang-html";
 import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 
@@ -37,3 +38,10 @@ export const fullWidthHeadingFix = EditorView.inputHandler.of((view, from, to, t
   });
   return true;
 });
+
+/**
+ * HTML inside Markdown, without the HTML package's habit of closing tags by
+ * itself: with it, typing "<div>" inserts "</div>", and whoever then types the
+ * closing tag by hand ends up with two. The editor writes what is typed.
+ */
+export const plainHtmlTags = html({ matchClosingTags: false, autoCloseTags: false });

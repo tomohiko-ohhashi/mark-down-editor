@@ -3,7 +3,7 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
-import remarkStringify from "remark-stringify";
+import remarkStringify, { type Options as StringifyOptions } from "remark-stringify";
 import type { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
 import { displayWidth, formatTable, splitRow, type TableInfo } from "./table";
@@ -35,8 +35,9 @@ function keepBareUrls() {
         const to = child.position?.end.offset;
         if (child.type === "link" && from != null && to != null) {
           const written = source.slice(from, to);
-          // An "html" node is written out verbatim, which is what is wanted here.
-          if (!/^[<[]/.test(written)) return { type: "html", value: written };
+          // A node of our own kind, written out verbatim by the "verbatim" handler below. (Not an "html"
+          // node: the writer joins a line break before one of those into a space.)
+          if (!/^[<[]/.test(written)) return { type: "verbatim", value: written };
         }
         // A line break made with two spaces at the end of the line stays that way (see the "break" handler).
         if (child.type === "break" && from != null && source[from] === " ") {
@@ -79,7 +80,9 @@ const processor = unified()
     handlers: {
       // Keep the author's way of breaking a line: two trailing spaces, or a backslash.
       break: (node: Node) => (node.data?.trailingSpaces ? "  \n" : "\\\n"),
-    },
+      // Text to pass through exactly as it was written (see keepBareUrls).
+      verbatim: (node: Node) => node.value ?? "",
+    } as unknown as StringifyOptions["handlers"],
   });
 
 /** The same parser without the writer, to compare what two texts mean. */

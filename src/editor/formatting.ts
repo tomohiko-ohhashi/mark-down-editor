@@ -28,8 +28,38 @@ function wrapWith(marker: string): StateCommand {
 }
 
 export const toggleBold = wrapWith("**");
-export const toggleItalic = wrapWith("_");
 export const toggleCode = wrapWith("`");
+
+/**
+ * Italic uses "*". "_" is not emphasis when it touches a letter on the outside
+ * ("これは_強調_です"), which is the normal case in Japanese, so text wrapped
+ * with it would just show the underscores. Text already wrapped in "_" or "*"
+ * is unwrapped; the stars of bold ("**") are not mistaken for italic.
+ */
+export const toggleItalic: StateCommand = ({ state, dispatch }) => {
+  const tr = state.changeByRange((range) => {
+    const before = state.sliceDoc(Math.max(0, range.from - 3), range.from);
+    const after = state.sliceDoc(range.to, range.to + 3);
+    const stars = (s: string, fromEnd: boolean) => (fromEnd ? /\**$/ : /^\**/).exec(s)?.[0].length ?? 0;
+    const starred = stars(before, true) % 2 === 1 && stars(after, false) % 2 === 1; // *x* or ***x***, not **x**
+    const underscored = before.endsWith("_") && after.startsWith("_");
+    if (starred || underscored) {
+      return {
+        changes: [
+          { from: range.from - 1, to: range.from, insert: "" },
+          { from: range.to, to: range.to + 1, insert: "" },
+        ],
+        range: EditorSelection.range(range.from - 1, range.to - 1),
+      };
+    }
+    return {
+      changes: { from: range.from, to: range.to, insert: `*${state.sliceDoc(range.from, range.to)}*` },
+      range: EditorSelection.range(range.from + 1, range.to + 1),
+    };
+  });
+  dispatch(state.update(tr, { scrollIntoView: true, userEvent: "input" }));
+  return true;
+};
 
 /** Toggle a `# ` style heading of the given level on every selected line. */
 export function setHeading(level: number): StateCommand {

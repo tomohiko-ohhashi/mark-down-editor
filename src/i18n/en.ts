@@ -19,7 +19,7 @@ export const en: Record<string, string> = {
   // ---- Cheat sheet: Markdown syntax ----
   "# 見出し1 / ## 見出し2 / ### 見出し3": "# Heading 1 / ## Heading 2 / ### Heading 3",
   "見出し（# の数でレベル、# の後に半角スペース）": "Headings (the number of # sets the level; put a space after the #)",
-  "**太字**  _斜体_  ~~取り消し線~~": "**bold**  _italic_  ~~strikethrough~~",
+  "**太字**  *斜体*  ~~取り消し線~~": "**bold**  *italic*  ~~strikethrough~~",
   "強調": "Emphasis",
   "`コード`": "`code`",
   "インラインコード": "Inline code",
@@ -70,6 +70,7 @@ export const en: Record<string, string> = {
   "文字を大きく / 小さく / 元の大きさに戻す": "Larger / smaller / default text size",
   "チートシート / ショートカット": "Cheat sheet / Shortcuts",
   "最上位のフォルダ": "Top folder",
+  "変更はありません": "No changes to save",
   "幅を変更": "Resize",
   "ドラッグで幅を変更 (ダブルクリックで元の幅に戻す)": "Drag to resize (double-click to reset)",
   "ワークスペースを全文検索": "Search the workspace",
