@@ -1,6 +1,6 @@
 import { useDocStore } from "../store/useDocStore";
 import { useSettings, hasUnsavedSettings, type Theme, type ListContinuation, type SmartPaste } from "../store/useSettings";
-import { checkForUpdates } from "../features/updater";
+import { UpdateCheck } from "./UpdateCheck";
 import { availableFonts } from "../features/fonts";
 import type { FontInfo } from "../platform/types";
 import { useEffect, useState } from "react";
@@ -184,9 +184,7 @@ export function SettingsDialog() {
               <input type="checkbox" checked={s.checkUpdatesOnStartup} onChange={(e) => s.preview({ checkUpdatesOnStartup: e.target.checked })} />
               {t("起動時にアップデートを確認する")}
             </label>
-            {inTauri && (
-              <button className="secondary" onClick={() => void checkForUpdates(false)}>{t("今すぐ更新を確認")}</button>
-            )}
+            {inTauri && <UpdateCheck />}
           </section>
         </div>
         <div className="modal-footer">

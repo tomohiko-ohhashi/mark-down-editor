@@ -1,6 +1,6 @@
 import { useDocStore } from "../store/useDocStore";
 import { platform, inTauri } from "../platform";
-import { checkForUpdates } from "../features/updater";
+import { UpdateCheck } from "./UpdateCheck";
 import { t } from "../i18n";
 import { version } from "../../package.json";
 import { useEffect, useState } from "react";
@@ -92,12 +92,7 @@ export function AboutDialog() {
           </p>
         </div>
         <div className="modal-footer">
-          {inTauri && (
-            <button className="secondary" onClick={() => void checkForUpdates(false)}>
-              {t("今すぐ更新を確認")}
-            </button>
-          )}
-          <span className="modal-footer-note" />
+          {inTauri ? <UpdateCheck /> : <span className="modal-footer-note" />}
           <button className="primary" onClick={close}>
             {t("閉じる")}
           </button>
