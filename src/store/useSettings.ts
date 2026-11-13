@@ -45,6 +45,8 @@ export interface Settings {
   /** Hide Markdown markup on lines the cursor is not on. */
   livePreview: boolean;
   smartPaste: SmartPaste;
+  /** Let the OS / browser underline spelling mistakes in the editor. */
+  spellCheck: boolean;
   /** Seconds between autosaves of dirty documents that have a path; 0 disables. */
   autosaveSeconds: number;
   /** Restore the previous session (files, folder, layout) on start. */
@@ -76,6 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   listContinuation: "shift",
   livePreview: false,
   smartPaste: "ask",
+  spellCheck: false,
   autosaveSeconds: 0,
   reopenLastFiles: true,
   checkUpdatesOnStartup: true,

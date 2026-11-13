@@ -9,8 +9,8 @@ pub fn read_file(path: String) -> Result<FileContent, String> {
 }
 
 #[tauri::command]
-pub fn write_file(path: String, content: String) -> Result<u64, String> {
-    mde_core::write_file(Path::new(&path), &content)
+pub fn write_file(path: String, content: String, encoding: Option<String>) -> Result<u64, String> {
+    mde_core::write_file(Path::new(&path), &content, encoding.as_deref())
 }
 
 #[tauri::command]

@@ -4,6 +4,7 @@ import { platform } from "../platform";
 import type { DirEntry } from "../platform";
 import { dirName, fileName } from "../store/useDocStore";
 import { t, tError } from "../i18n";
+import { isImagePath } from "../preview/paths";
 
 interface PickerRequest {
   mode: "open" | "save";
@@ -58,7 +59,8 @@ export function FilePicker() {
     platform
       .readDir(dir)
       .then((e) => {
-        if (!cancelled) setEntries(e);
+        // The tree also lists images; only folders and documents can be opened or overwritten here.
+        if (!cancelled) setEntries(e.filter((x) => x.is_dir || !isImagePath(x.path)));
       })
       .catch((e) => {
         if (!cancelled) {

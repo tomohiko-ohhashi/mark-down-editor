@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Toucan Markdown Editor: a toucan in silhouette (only the beak is coloured, in two colours) and "md". -->
+  <defs>
+    <clipPath id="beak">
+      <path d="M512 232 C650 120 880 170 930 420 C870 372 740 372 548 420 Z"/>
+    </clipPath>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="210" fill="#2470C2"/>
+  <!-- tail -->
+  <path d="M250 700 L150 930 L262 950 L372 742 Z" fill="#111417"/>
+  <!-- body -->
+  <ellipse cx="362" cy="560" rx="182" ry="250" transform="rotate(18 362 560)" fill="#111417"/>
+  <!-- head -->
+  <circle cx="430" cy="332" r="152" fill="#111417"/>
+  <!-- beak: orange, with a yellow tip -->
+  <g clip-path="url(#beak)">
+    <rect x="480" y="100" width="480" height="360" fill="#FF8A1F"/>
+    <path d="M800 100 H980 V460 H740 Z" fill="#FFD43B"/>
+  </g>
+  <!-- eye -->
+  <circle cx="452" cy="298" r="34" fill="#F4FBFA"/>
+  <circle cx="458" cy="300" r="15" fill="#111417"/>
+  <!-- "md", drawn as strokes so no font is needed -->
+  <g fill="none" stroke="#F4FBFA" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" transform="translate(-44 -18)">
+    <path d="M588 880 V716"/>
+    <path d="M588 776 C588 696 688 696 688 776 V880"/>
+    <path d="M688 776 C688 696 788 696 788 776 V880"/>
+    <circle cx="872" cy="808" r="68"/>
+    <path d="M940 880 V620"/>
+  </g>
+</svg>

@@ -11,6 +11,83 @@ use std::time::UNIX_EPOCH;
 pub struct FileContent {
     pub content: String,
     pub mtime: u64,
+    /// Character encoding the file is stored in ("UTF-8", "Shift_JIS", "EUC-JP", "UTF-16LE" ...).
+    /// The content is always handed over as Unicode; saving converts back.
+    pub encoding: String,
+}
+
+/// Said when the text has characters the file's encoding cannot store; the UI offers UTF-8 then.
+pub const CANNOT_ENCODE: &str = "この文字コードでは保存できない文字が含まれています";
+
+/// Name given to UTF-8 files that start with a byte-order mark (Windows tools write these).
+/// The mark is not part of the text: it is taken off when reading and put back when saving.
+pub const UTF8_BOM: &str = "UTF-8 BOM";
+
+/// Decode the bytes of a text file. UTF-8 is tried first; otherwise the
+/// encoding is guessed (older Japanese text is usually Shift_JIS or EUC-JP).
+pub fn decode_text(bytes: &[u8]) -> Result<(String, &'static str), String> {
+    // A UTF-16 byte-order mark settles it (a UTF-8 one is handled like plain UTF-8 below).
+    let bom = encoding_rs::Encoding::for_bom(bytes).filter(|(enc, _)| *enc != encoding_rs::UTF_8);
+    if let Some((enc, bom_len)) = bom {
+        let (text, had_errors) = enc.decode_without_bom_handling(&bytes[bom_len..]);
+        if had_errors {
+            return Err("文字コードを判別できないファイルです".to_string());
+        }
+        return Ok((text.into_owned(), enc.name()));
+    }
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return Ok(match text.strip_prefix('\u{feff}') {
+            Some(rest) => (rest.to_string(), UTF8_BOM),
+            None => (text.to_string(), "UTF-8"),
+        });
+    }
+    // Not text at all (an image, an archive ...): a guess would only show garbage.
+    if bytes.contains(&0) {
+        return Err("文字コードを判別できないファイルです".to_string());
+    }
+    let mut detector = chardetng::EncodingDetector::new();
+    detector.feed(bytes, true);
+    let enc = detector.guess(Some(b"jp"), true);
+    let (text, _, had_errors) = enc.decode(bytes);
+    if had_errors {
+        return Err("文字コードを判別できないファイルです".to_string());
+    }
+    Ok((text.into_owned(), enc.name()))
+}
+
+/// Encode text for a file stored in `encoding` (as reported by `read_file`).
+pub fn encode_text(content: &str, encoding: &str) -> Result<Vec<u8>, String> {
+    if encoding == UTF8_BOM {
+        return Ok(["\u{feff}".as_bytes(), content.as_bytes()].concat());
+    }
+    let enc = encoding_rs::Encoding::for_label(encoding.as_bytes()).unwrap_or(encoding_rs::UTF_8);
+    if enc == encoding_rs::UTF_8 {
+        return Ok(content.as_bytes().to_vec());
+    }
+    if enc == encoding_rs::UTF_16LE || enc == encoding_rs::UTF_16BE {
+        // encoding_rs only decodes UTF-16; write it by hand, with the byte-order mark it was read with.
+        let le = enc == encoding_rs::UTF_16LE;
+        let mut out: Vec<u8> = if le {
+            vec![0xFF, 0xFE]
+        } else {
+            vec![0xFE, 0xFF]
+        };
+        for unit in content.encode_utf16() {
+            out.extend_from_slice(&if le {
+                unit.to_le_bytes()
+            } else {
+                unit.to_be_bytes()
+            });
+        }
+        return Ok(out);
+    }
+    let (bytes, _, had_errors) = enc.encode(content);
+    // Some characters are stored as a different one without an error (in Shift_JIS, "¥" becomes
+    // the byte that reads back as "\"), so also require that the bytes read back as the same text.
+    if had_errors || enc.decode_without_bom_handling(&bytes).0 != content {
+        return Err(format!("{CANNOT_ENCODE}: {}", enc.name()));
+    }
+    Ok(bytes.into_owned())
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -21,6 +98,8 @@ pub struct DirEntry {
 }
 
 pub const TEXT_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "txt"];
+/// Images are listed in the tree too, so they can be looked at and inserted.
+pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif"];
 
 pub fn mtime_of(path: &Path) -> Result<u64, String> {
     let meta = fs::metadata(path).map_err(|e| e.to_string())?;
@@ -31,18 +110,23 @@ pub fn mtime_of(path: &Path) -> Result<u64, String> {
         .unwrap_or(0))
 }
 
-/// Read a UTF-8 text file and return its content and modification time (ms since epoch).
+/// Read a text file and return its content, encoding and modification time (ms since epoch).
 pub fn read_file(path: &Path) -> Result<FileContent, String> {
     let bytes = fs::read(path).map_err(|e| format!("読み込みに失敗しました: {e}"))?;
-    let content =
-        String::from_utf8(bytes).map_err(|_| "UTF-8 として読み込めないファイルです".to_string())?;
+    let (content, encoding) = decode_text(&bytes)?;
     let mtime = mtime_of(path)?;
-    Ok(FileContent { content, mtime })
+    Ok(FileContent {
+        content,
+        mtime,
+        encoding: encoding.to_string(),
+    })
 }
 
 /// Write content atomically (temp file in the same directory, then rename).
-/// Creates missing parent directories.
-pub fn write_file(path: &Path, content: &str) -> Result<u64, String> {
+/// Creates missing parent directories. `encoding` is the one `read_file`
+/// reported for the file (UTF-8 when absent or unknown).
+pub fn write_file(path: &Path, content: &str, encoding: Option<&str>) -> Result<u64, String> {
+    let bytes = encode_text(content, encoding.unwrap_or("UTF-8"))?;
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
         fs::create_dir_all(parent).map_err(|e| format!("フォルダを作成できません: {e}"))?;
     }
@@ -50,7 +134,7 @@ pub fn write_file(path: &Path, content: &str) -> Result<u64, String> {
         "{}.tmp",
         path.extension().and_then(|e| e.to_str()).unwrap_or("")
     ));
-    fs::write(&tmp, content.as_bytes()).map_err(|e| format!("保存に失敗しました: {e}"))?;
+    fs::write(&tmp, &bytes).map_err(|e| format!("保存に失敗しました: {e}"))?;
     fs::rename(&tmp, path).map_err(|e| {
         let _ = fs::remove_file(&tmp);
         format!("保存に失敗しました: {e}")
@@ -58,8 +142,8 @@ pub fn write_file(path: &Path, content: &str) -> Result<u64, String> {
     mtime_of(path)
 }
 
-/// List a directory for the workspace tree: sub-directories and Markdown/text
-/// files, directories first, hidden entries skipped. `display` maps an absolute
+/// List a directory for the workspace tree: sub-directories, Markdown/text
+/// files and images, directories first, hidden entries skipped. `display` maps an absolute
 /// entry path to the path string handed to the UI (absolute for the desktop
 /// app, root-relative for the web server).
 pub fn read_dir(path: &Path, display: impl Fn(&Path) -> String) -> Result<Vec<DirEntry>, String> {
@@ -75,7 +159,9 @@ pub fn read_dir(path: &Path, display: impl Fn(&Path) -> String) -> Result<Vec<Di
             let is_dir = p.is_dir();
             if !is_dir {
                 let ext = p.extension()?.to_str()?.to_ascii_lowercase();
-                if !TEXT_EXTENSIONS.contains(&ext.as_str()) {
+                if !TEXT_EXTENSIONS.contains(&ext.as_str())
+                    && !IMAGE_EXTENSIONS.contains(&ext.as_str())
+                {
                     return None;
                 }
             }
@@ -186,7 +272,10 @@ pub fn search(
             if fs::metadata(&p).map(|m| m.len()).unwrap_or(0) > SEARCH_MAX_FILE_BYTES {
                 continue;
             }
-            let Ok(content) = fs::read_to_string(&p) else {
+            let Ok(content) = fs::read(&p)
+                .map_err(|e| e.to_string())
+                .and_then(|b| decode_text(&b).map(|(t, _)| t))
+            else {
                 continue;
             };
             for (i, line) in content.lines().enumerate() {
@@ -296,7 +385,7 @@ mod tests {
     fn write_then_read_roundtrip() {
         let dir = tmp("rw");
         let path = dir.join("sub").join("a.md");
-        let mtime = write_file(&path, "# hello\n日本語").unwrap();
+        let mtime = write_file(&path, "# hello\n日本語", None).unwrap();
         let got = read_file(&path).unwrap();
         assert_eq!(got.content, "# hello\n日本語");
         assert_eq!(got.mtime, mtime);
@@ -317,9 +406,11 @@ mod tests {
         fs::write(dir.join("b.md"), "").unwrap();
         fs::write(dir.join("a.txt"), "").unwrap();
         fs::write(dir.join("c.png"), "").unwrap();
+        fs::write(dir.join("d.zip"), "").unwrap();
         let entries = read_dir(&dir, |p| p.to_string_lossy().into_owned()).unwrap();
         let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(names, vec!["zeta", "a.txt", "b.md"]);
+        // Folders first, then documents and images; other files and hidden folders are left out.
+        assert_eq!(names, vec!["zeta", "a.txt", "b.md", "c.png"]);
         assert!(entries[0].is_dir);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -380,7 +471,7 @@ mod tests {
         create_dir(&d).unwrap();
         assert!(create_dir(&d).is_err());
         let f = d.join("a.md");
-        write_file(&f, "x").unwrap();
+        write_file(&f, "x", None).unwrap();
         let g = d.join("b.md");
         rename_path(&f, &g).unwrap();
         assert!(!f.exists() && g.exists());
@@ -415,5 +506,73 @@ mod tests {
         );
         assert_eq!(percent_decode("100%.png"), "100%.png");
         assert_eq!(percent_decode("a%2"), "a%2");
+    }
+
+    #[test]
+    fn utf8_bom_and_binary() {
+        // The byte-order mark is not part of the text, and saving puts it back.
+        let (text, enc) = decode_text(b"\xEF\xBB\xBF# title\n").unwrap();
+        assert_eq!((text.as_str(), enc), ("# title\n", UTF8_BOM));
+        assert_eq!(
+            encode_text("# title\n", enc).unwrap(),
+            b"\xEF\xBB\xBF# title\n"
+        );
+        assert_eq!(
+            decode_text(b"# title\n").unwrap(),
+            ("# title\n".to_string(), "UTF-8")
+        );
+        assert_eq!(encode_text("# title\n", "UTF-8").unwrap(), b"# title\n");
+        // Binary data is refused rather than shown as garbage.
+        assert!(decode_text(b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\xff\xfe").is_err());
+    }
+
+    #[test]
+    fn shift_jis_round_trip() {
+        let dir = std::env::temp_dir().join(format!("mde-sjis-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("sjis.txt");
+        let text = "# 見出し\r\n日本語のテキスト、ｶﾀｶﾅ、①\r\n";
+        let (bytes, _, _) = encoding_rs::SHIFT_JIS.encode(text);
+        fs::write(&path, &bytes).unwrap();
+
+        let got = read_file(&path).unwrap();
+        assert_eq!(got.encoding, "Shift_JIS");
+        assert_eq!(got.content, text);
+
+        // Saving keeps the encoding: the bytes on disk are Shift_JIS again.
+        write_file(&path, &format!("{text}追記\r\n"), Some(&got.encoding)).unwrap();
+        let on_disk = fs::read(&path).unwrap();
+        assert!(std::str::from_utf8(&on_disk).is_err());
+        assert_eq!(read_file(&path).unwrap().content, format!("{text}追記\r\n"));
+
+        // A character Shift_JIS cannot store is refused instead of being replaced.
+        let err = write_file(&path, "emoji 🦜", Some("Shift_JIS")).unwrap_err();
+        assert!(err.starts_with(CANNOT_ENCODE));
+        // ... and so is one that would be stored as a different character.
+        assert!(encode_text("100¥", "Shift_JIS").is_err());
+        assert!(encode_text("100\\ ～", "Shift_JIS").is_ok());
+        assert_eq!(read_file(&path).unwrap().content, format!("{text}追記\r\n"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn other_encodings() {
+        let (euc, _, _) =
+            encoding_rs::EUC_JP.encode("これは日本語の文章です。漢字とひらがなとカタカナ。");
+        assert_eq!(decode_text(&euc).unwrap().1, "EUC-JP");
+
+        let utf16 = encode_text("abc 日本語", "UTF-16LE").unwrap();
+        assert_eq!(&utf16[..2], &[0xFF, 0xFE]);
+        assert_eq!(
+            decode_text(&utf16).unwrap(),
+            ("abc 日本語".to_string(), "UTF-16LE")
+        );
+
+        assert_eq!(decode_text("plain ascii".as_bytes()).unwrap().1, "UTF-8");
+        assert_eq!(
+            decode_text("\u{feff}with bom".as_bytes()).unwrap(),
+            ("with bom".to_string(), UTF8_BOM)
+        );
+        assert_eq!(encode_text("x", "no-such-encoding").unwrap(), b"x");
     }
 }

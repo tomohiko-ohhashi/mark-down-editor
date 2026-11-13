@@ -12,6 +12,9 @@ import { useSettings } from "../../store/useSettings";
 import { choose } from "../../components/ConfirmDialog";
 import { suggestFileName } from "./names";
 import { firstOpenedText } from "../diff";
+
+/** Start of the error the back end gives when the text does not fit the file's encoding. */
+const CANNOT_ENCODE = "この文字コードでは保存できない文字が含まれています";
 import { joinPath } from "../../preview/paths";
 import { t, tError } from "../../i18n";
 
@@ -79,10 +82,10 @@ export async function openDocument(presetPath?: string, opts: { silent?: boolean
     // What the changes view compares against: the text at the first open in this run.
     const original = firstOpenedText(path, file.content);
     if (!active.path && active.content === "" && !isDirty(active)) {
-      state.loadInto(active.id, path, file.content, file.mtime);
+      state.loadInto(active.id, path, file.content, file.mtime, file.encoding);
       state.setOriginal(active.id, original);
     } else {
-      state.addDoc({ path, content: file.content, mtime: file.mtime, originalContent: original });
+      state.addDoc({ path, content: file.content, mtime: file.mtime, originalContent: original, encoding: file.encoding });
     }
     useSettings.getState().addRecent(path);
   } catch (e) {
@@ -148,16 +151,44 @@ async function writeTo(id: string, path: string): Promise<boolean> {
     );
     if (!overwrite) return false;
   }
-  try {
-    const mtime = await writeFile(path, diskText(doc));
-    useDocStore.getState().markSaved(id, path, mtime, written);
-    useSettings.getState().addRecent(path);
-    flashStatus(t("保存しました"));
-    return true;
-  } catch (e) {
-    await message(tError(e), { title: t("保存できませんでした"), kind: "error" });
-    return false;
+  let encoding = doc.encoding;
+  for (;;) {
+    try {
+      const mtime = await writeFile(path, diskText(doc), encoding);
+      useDocStore.getState().markSaved(id, path, mtime, written);
+      if (encoding !== doc.encoding) {
+        useDocStore.setState((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, encoding } : d)) }));
+      }
+      noteAutosave(id, null);
+      useSettings.getState().addRecent(path);
+      flashStatus(t("保存しました"));
+      return true;
+    } catch (e) {
+      // The file's own encoding (Shift_JIS ...) cannot hold a character that was typed: offer UTF-8.
+      if (encoding !== "UTF-8" && String(e).includes(CANNOT_ENCODE)) {
+        const asUtf8 = await ask(
+          t("「{0}」の文字コード ({1}) では保存できない文字が含まれています。UTF-8 に変換して保存しますか？", fileName(path), encoding),
+          { title: t("文字コード"), kind: "warning", okLabel: t("UTF-8 で保存"), cancelLabel: t("キャンセル") },
+        );
+        if (!asUtf8) return false;
+        encoding = "UTF-8";
+        continue;
+      }
+      await message(tError(e), { title: t("保存できませんでした"), kind: "error" });
+      return false;
+    }
   }
+}
+
+/** Remember (or forget, with null) that the autosave could not write a document. */
+function noteAutosave(id: string, problem: string | null): void {
+  useDocStore.setState((s) => {
+    if ((s.autosaveErrors[id] ?? null) === problem) return {};
+    const next = { ...s.autosaveErrors };
+    if (problem == null) delete next[id];
+    else next[id] = problem;
+    return { autosaveErrors: next };
+  });
 }
 
 /** Save every dirty document that already has a path (autosave). */
@@ -168,10 +199,12 @@ export async function autosaveAll(): Promise<void> {
       if (await changedOnDisk(doc, doc.path)) continue;
       const written = doc.content;
       try {
-        const mtime = await writeFile(doc.path, diskText(doc));
+        const mtime = await writeFile(doc.path, diskText(doc), doc.encoding);
         useDocStore.getState().markSaved(doc.id, doc.path, mtime, written);
-      } catch {
-        /* reported on the next manual save */
+        noteAutosave(doc.id, null);
+      } catch (e) {
+        // Keep telling the user for as long as it fails; nothing is saved meanwhile.
+        noteAutosave(doc.id, `${fileName(doc.path)}: ${tError(e)}`);
       }
     }
   }
@@ -196,7 +229,7 @@ export async function checkExternalChanges(): Promise<void> {
 
       if (!isDirty(doc)) {
         const file = await readFile(doc.path);
-        useDocStore.getState().loadInto(doc.id, doc.path, file.content, file.mtime);
+        useDocStore.getState().loadInto(doc.id, doc.path, file.content, file.mtime, file.encoding);
         flashStatus(t("「{0}」の外部の変更を読み込みました", fileName(doc.path)));
         continue;
       }
@@ -212,7 +245,7 @@ export async function checkExternalChanges(): Promise<void> {
       );
       if (reload) {
         const file = await readFile(doc.path);
-        useDocStore.getState().loadInto(doc.id, doc.path, file.content, file.mtime);
+        useDocStore.getState().loadInto(doc.id, doc.path, file.content, file.mtime, file.encoding);
       }
     }
   } finally {

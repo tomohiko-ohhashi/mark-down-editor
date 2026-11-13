@@ -1,4 +1,4 @@
-# Markdown Editor
+# Toucan Markdown Editor
 
 macOS / Linux / Windows で動く、単独で動作する Markdown エディタです。
 (A standalone Markdown editor for macOS, Linux and Windows. The UI is available in Japanese and English; this README is in Japanese.)
@@ -35,7 +35,13 @@ macOS / Linux / Windows で動く、単独で動作する Markdown エディタ�
 - バージョン情報 (「⋯」メニュー): バージョン、権利表記、利用しているライブラリ、GitHub へのリンク。同梱しているライブラリのライセンス文もここから表示できる
 - 保存していない変更の復元 (設定で有効化): 保存せずに終了しても、次回の起動時に無題のドキュメントや編集中の内容を復元。終了時の確認を出さない設定もある
 - 未保存の変更がある状態での終了確認 (「保存する / 保存しない / キャンセル」)、他のプログラムによるファイル変更の検知と再読込
-- 自動アップデート (GitHub Releases から更新を確認。署名鍵の設定が必要、下記参照)
+- UTF-8 以外の文字コード (Shift_JIS / EUC-JP / UTF-16 など) や BOM 付き UTF-8 のファイルも開ける。文字コードはステータスバーに表示し、保存は元の文字コードのまま行う。その文字コードで表せない文字 (絵文字など) が含まれるときは、UTF-8 に変換して保存するかを確認する。文字コードは自動判別で、日本語以外 (中国語・韓国語など) の古い文字コードは誤判定することがある
+- 自動保存に失敗したときは、ステータスバーに警告を表示 (保存できるようになると消える)
+- タブはドラッグで並べ替えられる
+- ワークスペースのツリーには画像も表示。クリックすると画像を表示し、「ドキュメントに挿入」で相対パスの画像記法を挿入する
+- 文字サイズの変更 (デスクトップ版): Ctrl/⌘ と + / - / 0
+- スペルチェック (設定で有効化、既定はオフ。OS / ブラウザのスペルチェックを使う)
+- 自動アップデート (バージョン情報から更新を確認。起動時の自動確認もここで切り替える)
 - `.md` / `.markdown` ファイルの関連付け
 - 日本語 IME で行頭に入力した全角「＃」「　」は半角に補正 (見出し記号として扱えるように)
 
@@ -55,6 +61,8 @@ macOS / Linux / Windows で動く、単独で動作する Markdown エディタ�
 | 編集 / 分割 / プレビュー表示 | ⌘⇧1 / ⌘⇧2 / ⌘⇧3 | Ctrl+Shift+1 / 2 / 3 |
 | サイドバー / アウトライン | ⌘⇧E / ⌘⇧O | Ctrl+Shift+E / Ctrl+Shift+O |
 | ワークスペースを全文検索 | ⌘⇧F | Ctrl+Shift+F |
+| 差分表示 | ⌘⇧G | Ctrl+Shift+G |
+| 文字を大きく / 小さく / 元に戻す (デスクトップ版) | ⌘+ / ⌘- / ⌘0 | Ctrl++ / Ctrl+- / Ctrl+0 |
 | リスト・引用の続きの行 | ⇧Enter | Shift+Enter |
 | ドキュメント全体を整形 | ⇧⌥F | Shift+Alt+F |
 | フォーカス / タイプライターモード | ⌘⇧D / ⌘⇧T | Ctrl+Shift+D / Ctrl+Shift+T |
@@ -114,7 +122,7 @@ Tailscale などの VPN 内で使うことを想定しています。インタ�
 ```bash
 pnpm install
 pnpm tauri dev      # 開発モードで起動
-pnpm tauri build    # 配布用パッケージを作成 (src-tauri/target/release/bundle/)
+pnpm tauri build    # 配布用パッケージを作成 (target/release/bundle/)
 pnpm build          # フロントエンドのみビルド (型チェック含む)
 pnpm test           # フロントエンドのユニットテスト (vitest)
 pnpm server:build   # Web モードのサーバーをビルド
@@ -170,6 +178,6 @@ docs/SUMMARY.md      経緯、環境構築のトラブル対処、リリース�
 
 ## ライセンス
 
-Copyright (c) 2026 tomohiko-ohhashi. All rights reserved.
+Copyright (c) 2026 BigBridge Digital. All rights reserved.
 
 オープンソースライセンスでは公開していません。リポジトリは参照用の公開で、許可なく使用・複製・改変・再配布することはできません。詳細は [LICENSE](LICENSE) を参照してください。利用している第三者のライブラリには、それぞれのライセンスが適用されます。

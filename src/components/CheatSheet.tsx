@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDocStore } from "../store/useDocStore";
 import { t } from "../i18n";
+import { inTauri } from "../platform";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl";
@@ -52,6 +53,8 @@ const shortcutRows = (): [string, string][] => [
   [k(mod, shift, "T"), t("タイプライターモード")],
   [k(mod, shift, "H"), t("HTML を書き出す")],
   [k(mod, "P"), t("印刷 / PDF")],
+  // In a browser these keys are the browser's own zoom.
+  ...(inTauri ? [[`${k(mod, "+")} / ${k(mod, "-")} / ${k(mod, "0")}`, t("文字を大きく / 小さく / 元の大きさに戻す")] as [string, string]] : []),
   [k(mod, ","), t("設定")],
   ["F1 / " + k(mod, shift, "/"), t("このチートシートを開く / 閉じる")],
   ["Esc", t("フォーカスモードを終了 / 設定を閉じる")],

@@ -1,4 +1,4 @@
-# Markdown Editor デスクトップアプリ 開発計画
+# Toucan Markdown Editor (旧名 Markdown Editor) デスクトップアプリ 開発計画
 
 対象 OS: macOS / Linux / Windows
 

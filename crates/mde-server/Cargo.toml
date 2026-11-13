@@ -1,6 +1,6 @@
 [package]
 name = "markdown-editor-server"
-description = "Serves the Markdown Editor UI over HTTP so it can be used from a browser (e.g. a phone) against files on a server"
+description = "Serves the Toucan Markdown Editor UI over HTTP so it can be used from a browser (e.g. a phone) against files on a server"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

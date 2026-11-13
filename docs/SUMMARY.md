@@ -1,6 +1,6 @@
 # 開発のまとめ (2026-11)
 
-このドキュメントは、Markdown Editor の立ち上げから v0.2.0 までの経緯、環境構築でつまずいた点とその対処、リリース手順、残っている作業をまとめたものです。
+このドキュメントは、Toucan Markdown Editor (v0.3.5 までの名前は Markdown Editor) の立ち上げから v0.2.0 までの経緯、環境構築でつまずいた点とその対処、リリース手順、残っている作業をまとめたものです。
 
 ## 1. 何を作ったか
 
@@ -203,21 +203,42 @@ GitHub の Settings → Branches → Add branch ruleset (または Add classic b
 | アップデートまわり | 「今すぐ更新を確認」と「起動時にアップデートを確認する」はバージョン情報だけに置く。確認の結果はボタンの横に出す |
 | ライセンス一覧の作り直しコマンド | `pnpm licenses` は pnpm 自体のコマンドと名前が重なっていたため、`pnpm update-licenses` に変更 |
 
+## 7l. 名前の変更: Toucan Markdown Editor (v0.3.5 のあと)
+
+- アプリ名を **Toucan Markdown Editor**、作成者を **BigBridge Digital** に変更。リポジトリは `tomohiko-ohhashi/toucan-markdown-editor` (旧名 `mark-down-editor` からは GitHub が転送する)
+- 変えたもの: 製品名とウィンドウタイトル、バージョン情報、著作権表記 (`LICENSE` / README / インストーラの情報)、発行元、macOS のメニュー、リリース名、Web 版のタイトルとホーム画面用の名前、アプリ内のリンクと更新確認の URL
+- **変えていないもの** (変えると既存の環境が壊れるため): アプリの識別子 `dev.tomohiko-ohhashi.markdown-editor` (設定ファイルの保存場所と自動アップデートの引き継ぎに使われる)、実行ファイル名 `markdown-editor`、サーバーの実行ファイル名とサービス名 `markdown-editor-server` / `markdown-editor.service`
+- アイコン: オオハシのシルエット (くちばしだけオレンジと黄色の 2 色) と「md」の文字。元データは `src-tauri/icons-src/icon.svg` (文字は線で描いてあり、フォントに依存しない)。作り直すときは `pnpm tauri icon src-tauri/icons-src/icon.svg` を実行し、`src-tauri/icons/android` と `ios` は消す。Web 版用の `public/*.png` は同じ SVG から作る
+- 注意: Windows では製品名が変わるため、旧名「Markdown Editor」からの自動アップデート後に、旧名のアプリが別に残る可能性がある (未確認)。残った場合は旧名のほうをアンインストールする
+
+## 7m. 名前の変更のあとに足したもの
+
+| 項目 | 内容 |
+| --- | --- |
+| UTF-8 以外のファイル | Shift_JIS / EUC-JP / UTF-16 などを判別して開く (`encoding_rs` と `chardetng`、`crates/mde-core` の `decode_text` / `encode_text`)。文字コードはステータスバーに出し、保存は同じ文字コードで書き戻す。表せない文字や、別の文字に化けて保存される文字 (Shift_JIS の「¥」→「\\」など。書いたバイト列を読み戻して同じ文字列になるかで判定) があるときは置き換えずにエラーにし、画面側で「UTF-8 に変換して保存しますか？」と尋ねる。BOM 付き UTF-8 は BOM を本文から外して読み (これまでは先頭に見えない文字として残っていた)、保存時に付け直す。NUL を含むバイナリは開かない。全文検索もこの読み込みを使う。判別は日本語を優先するので、GBK や EUC-KR などは日本語の文字コードとして誤判定されうる (バイト列は保たれるので壊れはしない) |
+| 自動保存の失敗 | 失敗したことをステータスバーに出し続ける。ドキュメントごとに覚えていて、そのドキュメントの保存が通る・閉じる・自動保存をやめる、のいずれかで消える (他のドキュメントの保存が通っても消えない)。これまでは黙って失敗していた |
+| 文字サイズのショートカット | デスクトップ版のみ、Ctrl/⌘ と + / - / 0。ブラウザではブラウザ自身の拡大縮小なので何もしない。キーの位置ではなく入力される文字で判定する (日本語配列の「+」は Shift+;)。Alt を押しているときは反応しない (Windows の AltGr は Ctrl+Alt として届き、ドイツ語配列などで「\\」や「@」を打つのに使う) |
+| タブの並べ替え | ドラッグで並べ替え。デスクトップ版はウィンドウへのファイルのドロップを受けるために HTML5 のドラッグ&ドロップが使えないので、ポインターイベントで実装。相手のタブの中央を越えたときに入れ替える (幅の違うタブで行ったり来たりしないように)。タッチ操作ではタブバーの横スクロールを優先し、並べ替えはしない |
+| ツリーに画像 | ワークスペースのツリーに画像 (png / jpg / gif / webp / svg / bmp / avif) も出す。クリックで表示し、「ドキュメントに挿入」で文書からの相対パスの画像記法を入れる (未保存の無題のドキュメントには挿入できない)。パスは空白や括弧だけを `%20` などにし、日本語のファイル名はそのまま読める形で入れる (貼り付け・ドロップした画像も同じ) |
+| スペルチェック | 設定で有効化 (既定はオフ)。OS / WebView のスペルチェックをそのまま使うので、日本語には効かない |
+| レビューで直したもの | Rust のテスト 1 件が画像の一覧表示に追従しておらず失敗していた (CI が落ちる状態だった)。画像の表示ダイアログが、無題のドキュメントでは Esc で閉じなかった。別ドライブの画像への相対パスが壊れていた |
+| 残っていた古いものの整理 | ワークスペース化の前の `src-tauri/Cargo.lock`、旧アイコン `assets/icon.png`、使われていない英訳・CSS を削除。ビルド結果の場所の説明を `target/release/bundle/` に修正 |
+
 ## 8. 残っている作業・候補
 
-- macOS / Windows の実機で v0.2 を確認する
-- Apple の署名と公証、アップデータ署名鍵の Secrets 登録
+- macOS の実機確認 (下の「まだ実機で確認していないこと」)
+- Apple と Windows のコード署名 (有料の証明書が必要。アップデータの署名鍵は登録済み)
 - 表編集は `| a | b |` 形式 (先頭と末尾にパイプがある表) のみ対応
 - Web モードの実機 (iPhone Safari) での確認。IME 入力と「ホーム画面に追加」の動作
 - Web モードの HTTPS 化 (リバースプロキシ) と、複数の公開フォルダ対応
-- 候補機能: WYSIWYG 的なインライン表示、Git 連携、プラグイン / カスタム CSS
+- 候補機能: Git 連携、プラグイン / カスタム CSS、文字コードを指定して開き直す / 保存する
 
 ## 9. 運用メモ (次にやることのチェックリスト)
 
 ### おうちサーバー (Ubuntu) で Web モードを動かす
 
 ```bash
-cd ~/dev/mark-down-editor && git checkout main && git pull origin main
+cd ~/dev/toucan-markdown-editor && git checkout main && git pull origin main
 source "$HOME/.cargo/env"
 pnpm install --config.minimum-release-age=0   # pnpm 12 の公開日制限を回避
 pnpm server:build                             # target/release/markdown-editor-server ができる
@@ -233,9 +254,9 @@ pnpm server:build                             # target/release/markdown-editor-s
 ### Mac で最新を動かす
 
 ```bash
-cd ~/dev/mark-down-editor && git checkout main && git pull origin main
+cd ~/dev/toucan-markdown-editor && git checkout main && git pull origin main
 pnpm install && pnpm tauri dev      # 開発モード
-pnpm tauri build                    # .app / .dmg を作る (src-tauri/target/release/bundle/)
+pnpm tauri build                    # .app / .dmg を作る (target/release/bundle/)
 ```
 
 ### リリースする
@@ -257,6 +278,7 @@ pnpm tauri build                    # .app / .dmg を作る (src-tauri/target/re
 - iPhone 実機の Safari (開けることは確認済み): 日本語 IME での入力、ホーム画面追加後の全画面表示、画像の貼り付け
 - macOS 実機の v0.2 以降: ⌘W でタブが閉じる、画像の貼り付け、⌘P の印刷、⌘Q の未保存確認
 - Windows 実機: 起動と `.md` の関連付け
+- デスクトップ版 (どの OS でも未確認、ブラウザ版では確認済み): 差分表示、未保存の変更の復元、バージョン情報とライセンス表示、Shift_JIS のファイルの読み書き、タブのドラッグ、ツリーの画像の表示と挿入。デスクトップ版だけの機能で未確認: 文字サイズのショートカット、スペルチェック
 - (確認済み) Windows 実機: PDF 書き出しのヘッダー・フッター、ウィンドウへのファイル・画像・フォルダのドロップ、英語表示、自動アップデート (v0.3.2 → v0.3.3)
 
 ### ライセンスと公開範囲

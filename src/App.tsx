@@ -16,6 +16,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Outline } from "./components/Outline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { AboutDialog } from "./components/AboutDialog";
+import { ImagePreview } from "./components/ImagePreview";
 import { DiffPanel } from "./components/DiffPanel";
 import { CheatSheet } from "./components/CheatSheet";
 import { Editor } from "./editor/Editor";
@@ -72,7 +73,7 @@ export default function App() {
 
   // Window title reflects the document and its dirty state.
   useEffect(() => {
-    const title = `${dirty ? "● " : ""}${fileName(doc.path)} - Markdown Editor`;
+    const title = `${dirty ? "● " : ""}${fileName(doc.path)} - Toucan Markdown Editor`;
     document.title = title;
     if (inTauri) getCurrentWindow().setTitle(title).catch(() => {});
   }, [doc.path, dirty, language]);
@@ -105,6 +106,26 @@ export default function App() {
         const i = state.docs.findIndex((d) => d.id === state.activeId);
         const n = (i + (e.shiftKey ? -1 : 1) + state.docs.length) % state.docs.length;
         return run(() => state.setActive(state.docs[n].id));
+      }
+      // Text size. Only in the desktop app: in a browser these keys are the browser's own zoom.
+      // Matched by the character the key gives, so "+" works wherever the layout has it (Shift+; on a
+      // Japanese keyboard). Never with Alt: on Windows AltGr is Ctrl+Alt and types characters such as "\" or "@".
+      const zoom = !inTauri || e.altKey
+        ? null
+        : e.key === "+" || (e.key === "=" && !e.shiftKey) || code === "NumpadAdd"
+          ? 1
+          : (e.key === "-" && !e.shiftKey) || code === "NumpadSubtract"
+            ? -1
+            : e.key === "0" || (code === "Digit0" && !e.shiftKey) || code === "Numpad0"
+              ? 0
+              : null;
+      if (zoom != null) {
+        return run(() => {
+          const s = useSettings.getState();
+          const step = zoom;
+          const size = (cur: number, def: number) => (step === 0 ? def : Math.max(9, Math.min(40, cur + step)));
+          s.update({ editorFontSize: size(s.editorFontSize, 14), previewFontSize: size(s.previewFontSize, 15) });
+        });
       }
       if (e.shiftKey) {
         if (code === "KeyS") return run(() => void saveDocumentAs());
@@ -251,6 +272,7 @@ export default function App() {
       <MobileBar />
       <SettingsDialog />
       <AboutDialog />
+      <ImagePreview />
       <FilePicker />
       <PromptDialog />
       <ConfirmDialog />
