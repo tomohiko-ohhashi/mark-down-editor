@@ -288,3 +288,20 @@ test("the changes view compares with the first-opened text and with the saved fi
   await page.keyboard.press("Escape");
   await expect(page.locator(".diff")).toHaveCount(0);
 });
+
+test("undo stops at the text the file was opened with", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  await editor(page).click();
+  for (let i = 0; i < 6; i++) await page.keyboard.press("Control+Z");
+  await expect(editor(page)).toContainText("First paragraph.");
+  await expect(page).toHaveTitle(/^hello\.md/);
+
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("typed");
+  for (let i = 0; i < 10; i++) await page.keyboard.press("Control+Z");
+  await expect(editor(page)).toContainText("First paragraph.");
+  await expect(editor(page)).not.toContainText("typed");
+  for (let i = 0; i < 10; i++) await page.keyboard.press("Control+Shift+Z");
+  await expect(editor(page)).toContainText("typed");
+});

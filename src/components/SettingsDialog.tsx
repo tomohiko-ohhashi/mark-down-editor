@@ -1,13 +1,11 @@
 import { useDocStore } from "../store/useDocStore";
 import { useSettings, hasUnsavedSettings, type Theme, type ListContinuation, type SmartPaste } from "../store/useSettings";
-import { UpdateCheck } from "./UpdateCheck";
 import { availableFonts } from "../features/fonts";
 import type { FontInfo } from "../platform/types";
 import { useEffect, useState } from "react";
 import type { LanguageSetting } from "../i18n";
 import { t } from "../i18n";
 
-const inTauri = "__TAURI_INTERNALS__" in window;
 
 /** Pick a font from the ones this computer has. `monoFirst` lists fixed-pitch fonts first (editor). */
 function FontSelect(props: { value: string; fonts: FontInfo[] | null; monoFirst: boolean; onChange: (v: string) => void }) {
@@ -184,7 +182,6 @@ export function SettingsDialog() {
               <input type="checkbox" checked={s.checkUpdatesOnStartup} onChange={(e) => s.preview({ checkUpdatesOnStartup: e.target.checked })} />
               {t("起動時にアップデートを確認する")}
             </label>
-            {inTauri && <UpdateCheck />}
           </section>
         </div>
         <div className="modal-footer">

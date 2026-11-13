@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorState, Compartment, Transaction } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -282,6 +282,9 @@ export function Editor() {
       changes: { from: 0, to: current.length, insert: doc.content },
       selection: { anchor },
       effects: restored != null ? EditorView.scrollIntoView(anchor, { y: "center" }) : [],
+      // Not an edit by the user: a file loaded into this tab (or reloaded from disk) must not
+      // be something "undo" can take back, or undoing far enough would empty the document.
+      annotations: Transaction.addToHistory.of(false),
     });
     if (restored != null && anchor > 0) showInPreview(restored);
   }, [doc.content, doc.id, doc.path]);
