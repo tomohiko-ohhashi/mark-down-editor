@@ -5,6 +5,7 @@ import type { DirEntry } from "../platform";
 import { dirName, fileName } from "../store/useDocStore";
 import { t, tError } from "../i18n";
 import { isImagePath } from "../preview/paths";
+import { IconClose, IconHome, IconFolder, IconFile } from "./icons";
 
 interface PickerRequest {
   mode: "open" | "save";
@@ -97,10 +98,10 @@ export function FilePicker() {
       <div className="modal picker" onMouseDown={(e) => e.stopPropagation()} role="dialog">
         <div className="modal-header">
           <h2>{request.mode === "open" ? t("ファイルを開く") : t("名前を付けて保存")}</h2>
-          <button onClick={() => finish(null)} title={t("閉じる")}>×</button>
+          <button onClick={() => finish(null)} title={t("閉じる")}><IconClose /></button>
         </div>
         <div className="picker-crumbs">
-          <button onClick={() => setDir("")}>🏠</button>
+          <button onClick={() => setDir("")} title={t("最上位のフォルダ")} aria-label={t("最上位のフォルダ")}><IconHome /></button>
           {crumbs.map((c, i) => (
             <span key={i}>
               <span className="sep">/</span>
@@ -121,14 +122,19 @@ export function FilePicker() {
                   else setName(e.name);
                 }}
               >
-                {e.is_dir ? "📁" : "📄"} {e.name}
+                {e.is_dir ? <IconFolder /> : <IconFile />} {e.name}
               </button>
             </li>
           ))}
           {entries && entries.length === 0 && !error && <li className="panel-empty">{t("(空のフォルダ)")}</li>}
         </ul>
+        {request.mode === "open" && (
+          <div className="modal-footer">
+            <button className="secondary" onClick={() => finish(null)}>{t("キャンセル")}</button>
+          </div>
+        )}
         {request.mode === "save" && (
-          <div className="picker-save">
+          <div className="picker-save modal-footer">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -138,6 +144,7 @@ export function FilePicker() {
               placeholder={t("ファイル名")}
               autoFocus
             />
+            <button className="secondary" onClick={() => finish(null)}>{t("キャンセル")}</button>
             <button className="primary" onClick={submitSave}>{t("保存")}</button>
           </div>
         )}

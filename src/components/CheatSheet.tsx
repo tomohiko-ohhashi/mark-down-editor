@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDocStore } from "../store/useDocStore";
 import { t } from "../i18n";
 import { inTauri } from "../platform";
+import { IconClose } from "./icons";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl";
@@ -74,7 +75,7 @@ export function CheatSheet() {
       <div className="panel-title">
         <span>{t("チートシート")}</span>
         <span className="panel-actions">
-          <button onClick={() => toggle("cheatSheetOpen")} title={t("閉じる (F1)")} aria-label={t("チートシートを閉じる")}>×</button>
+          <button onClick={() => toggle("cheatSheetOpen")} title={t("閉じる (F1)")} aria-label={t("チートシートを閉じる")}><IconClose /></button>
         </span>
       </div>
       <div className="cheat-tabs segmented" role="tablist">

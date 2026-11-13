@@ -5,6 +5,7 @@ import type { FontInfo } from "../platform/types";
 import { useEffect, useState } from "react";
 import type { LanguageSetting } from "../i18n";
 import { t } from "../i18n";
+import { IconClose } from "./icons";
 
 
 /** Pick a font from the ones this computer has. `monoFirst` lists fixed-pitch fonts first (editor). */
@@ -76,7 +77,7 @@ export function SettingsDialog() {
       <div className="modal" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={t("設定")}>
         <div className="modal-header">
           <h2>{t("設定")}</h2>
-          <button onClick={() => toggle("settingsOpen")} title={t("閉じる (Esc)")}>×</button>
+          <button onClick={() => toggle("settingsOpen")} title={t("閉じる (Esc)")}><IconClose /></button>
         </div>
         <div className="modal-body">
           <section>

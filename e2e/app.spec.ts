@@ -461,8 +461,8 @@ test("menus: nothing wraps, and switched-on items are ticked", async ({ page }) 
   const items = page.locator(".toolbar .tg-more .menu-item");
   const heights = await items.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
   expect(new Set(heights).size).toBe(1); // every item is one line high
-  await expect(items.filter({ hasText: "タイプライターモード" }).locator(".menu-check")).toHaveText("✓");
-  await expect(items.filter({ hasText: "チートシート / ショートカット" }).locator(".menu-check")).toHaveText("");
+  await expect(items.filter({ hasText: "タイプライターモード" }).locator(".menu-check svg")).toHaveCount(1);
+  await expect(items.filter({ hasText: "チートシート / ショートカット" }).locator(".menu-check svg")).toHaveCount(0);
   await expect(items.filter({ hasText: "タイプライターモード" })).toHaveAttribute("aria-checked", "true");
 });
 
@@ -569,4 +569,33 @@ test("menus and dialogs opened from the sidebar look like the others", async ({ 
   await expect(del).not.toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator('.tree-file[title="unsaved.md"]')).toBeVisible();
+});
+
+test("on a phone the toolbar shows that it scrolls, and its menus open on screen", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true, locale: "ja-JP" });
+  const page = await context.newPage();
+  await page.goto("/?token=e2e");
+  await page.waitForSelector(".mobilebar");
+  const bar = page.locator(".toolbar");
+
+  // More to the right at first; after scrolling to the end, more to the left instead.
+  await expect(bar).toHaveAttribute("data-more-right", "");
+  await expect(page.locator(".toolbar-more.right")).toBeVisible();
+  await expect(page.locator(".toolbar-more.left")).toBeHidden();
+  await bar.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+  await expect(bar).toHaveAttribute("data-more-left", "");
+  await expect(page.locator(".toolbar-more.right")).toBeHidden();
+  await bar.evaluate((el) => { el.scrollLeft = 0; });
+
+  // A menu of the bar used to open inside the scrolling bar, where it could not be seen.
+  await page.locator(".toolbar .dropdown > button").nth(1).click();
+  const menu = page.locator(".toolbar .dropdown-menu");
+  await expect(menu).toBeVisible();
+  const box = await menu.boundingBox();
+  if (!box) throw new Error("no menu");
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  const onTop = await menu.evaluate((el) => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + 20, r.top + 16); return !!hit && el.contains(hit); });
+  expect(onTop).toBe(true);
+  await context.close();
 });
