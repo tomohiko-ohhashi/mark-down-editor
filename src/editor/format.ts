@@ -6,6 +6,42 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkStringify from "remark-stringify";
 import type { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
+import { displayWidth } from "./table";
+
+interface Node {
+  type: string;
+  value?: string;
+  children?: Node[];
+  position?: { start: { offset?: number }; end: { offset?: number } };
+}
+
+/**
+ * Keep URLs that were written bare ("https://example.com", "www.example.com",
+ * "name@example.com") exactly as they were. The parser reads them as links,
+ * and writing a link back out would turn them into "<https://example.com>" or
+ * "[www.example.com](http://www.example.com)": the same link, but not what the
+ * author typed. A link written with "<...>" or "[...](...)" is left to the formatter.
+ */
+function keepBareUrls() {
+  return (tree: Node, file: { value: unknown }) => {
+    const source = String(file.value);
+    const walk = (node: Node) => {
+      if (!node.children) return;
+      node.children = node.children.map((child) => {
+        const from = child.position?.start.offset;
+        const to = child.position?.end.offset;
+        if (child.type === "link" && from != null && to != null) {
+          const written = source.slice(from, to);
+          // An "html" node is written out verbatim, which is what is wanted here.
+          if (!/^[<[]/.test(written)) return { type: "html", value: written };
+        }
+        walk(child);
+        return child;
+      });
+    };
+    walk(tree);
+  };
+}
 
 /**
  * Normalise a whole Markdown document: "-" bullets, "_" emphasis, "**" strong,
@@ -14,9 +50,11 @@ import { EditorSelection } from "@codemirror/state";
  */
 const processor = unified()
   .use(remarkParse)
-  .use(remarkGfm)
+  // Table columns are lined up by display width, so full-width (Japanese) text counts as two columns.
+  .use(remarkGfm, { stringLength: displayWidth })
   .use(remarkMath)
   .use(remarkFrontmatter, ["yaml", "toml"])
+  .use(keepBareUrls)
   .use(remarkStringify, {
     bullet: "-",
     emphasis: "_",
