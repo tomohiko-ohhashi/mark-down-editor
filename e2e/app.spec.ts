@@ -519,3 +519,54 @@ test("layout holds in a smaller window, in Japanese and English", async ({ brows
     await context.close();
   }
 });
+
+test("on a phone the changes view is one column, and a change can be put back", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true, locale: "ja-JP" });
+  const page = await context.newPage();
+  await page.goto("/?token=e2e");
+  await page.waitForSelector(".mobilebar");
+  await page.locator(".mobilebar > button").first().click();
+  await page.click('.tree-file[title="hello.md"]');
+  await expect(page).toHaveTitle(/^hello\.md /);
+  await editor(page).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("added on the phone");
+  await page.click(".mobilebar .dropdown > button");
+  await page.locator(".mobilebar .menu-item").filter({ hasText: "変更箇所を表示" }).click();
+
+  // One editor, not two side by side; the old text is shown with a button to put it back.
+  await page.waitForSelector(".diff-body .cm-editor");
+  await expect(page.locator(".diff-body .cm-mergeView")).toHaveCount(0);
+  await expect(page.locator(".diff-cols")).toBeHidden();
+  await expect(page.locator(".diff-count")).toHaveText("変更 1 箇所");
+  const back = page.locator(".diff-revert-inline");
+  await expect(back).toHaveText("この変更を元に戻す");
+  await back.dispatchEvent("mousedown");
+  await expect(page.locator(".diff-count")).toHaveText("違いはありません");
+  await expect(page).toHaveTitle(/^hello\.md /); // no unsaved mark any more
+  await context.close();
+});
+
+test("menus and dialogs opened from the sidebar look like the others", async ({ page }) => {
+  await start(page);
+  // The menu under the sidebar's "⋯" used to take over the heading's tiny bold capitals.
+  await page.locator(".sidebar .panel-title .dropdown > button").click();
+  const item = page.locator(".sidebar .panel-title .dropdown-menu .menu-item").first();
+  const look = await item.evaluate((e) => { const s = getComputedStyle(e); return { size: s.fontSize, weight: s.fontWeight, height: Math.round(e.getBoundingClientRect().height) }; });
+  expect(look.size).toBe("13px");
+  expect(look.weight).toBe("400");
+  expect(look.height).toBeGreaterThanOrEqual(26);
+  await page.keyboard.press("Escape");
+  await page.mouse.click(700, 400);
+
+  // Deleting asks with a red button, and Enter does not go for it by default.
+  await page.hover('.tree-file[title="unsaved.md"]');
+  await page.locator('.tree-file[title="unsaved.md"]').locator("xpath=..").locator(".dropdown > button").click();
+  await page.locator(".dropdown-menu .menu-item").last().click();
+  await page.waitForSelector(".modal.confirm");
+  const del = page.locator(".modal.confirm .prompt-actions button").last();
+  await expect(del).toHaveClass(/danger/);
+  await expect(del).not.toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator('.tree-file[title="unsaved.md"]')).toBeVisible();
+});

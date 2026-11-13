@@ -46,7 +46,7 @@ export const baseTheme = EditorView.theme({
   ".cm-panel.cm-search br": { display: "none" },
   ".cm-panel.cm-search::before": { content: '""', flexBasis: "100%", height: "0", order: "20" },
   ".cm-panel.cm-search::after": { content: '""', flexBasis: "100%", height: "0", order: "40" },
-  ".cm-panel.cm-search input.cm-textfield": { fontSize: "13px", padding: "4px 8px", flex: "1 1 120px", minWidth: "90px", maxWidth: "24em", width: "auto", margin: "0", boxSizing: "border-box" },
+  ".cm-panel.cm-search input.cm-textfield": { fontSize: "13px", padding: "4px 8px", flex: "0 1 17em", minWidth: "90px", width: "auto", margin: "0", boxSizing: "border-box" },
   ".cm-panel.cm-search input[name=search]": { order: "10" },
   ".cm-panel.cm-search button[name=next]": { order: "11" },
   ".cm-panel.cm-search button[name=prev]": { order: "12" },

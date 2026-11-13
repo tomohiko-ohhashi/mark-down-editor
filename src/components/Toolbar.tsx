@@ -103,7 +103,7 @@ export function Toolbar() {
               {recent.map((p) => (
                 <button key={p} className="menu-item two-line" title={p} onClick={() => { close(); void openDocument(p); }}>
                   <span className="menu-main">{fileName(p)}</span>
-                  <span className="menu-sub">{p}</span>
+                  {p !== fileName(p) && <span className="menu-sub">{p}</span>}
                 </button>
               ))}
               {recent.length > 0 && (

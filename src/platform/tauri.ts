@@ -33,7 +33,8 @@ export const tauriPlatform: Platform = {
   pickSavePath: (defaultPath, filters = mdFilters()) => save({ defaultPath, filters }),
   pickDirectory: () => open({ directory: true, multiple: false }),
 
-  ask: (msg, opts) => ask(msg, opts),
+  // The native dialog has no red button; `danger` is only for our own dialogs.
+  ask: (msg, opts) => ask(msg, { title: opts?.title, kind: opts?.kind, okLabel: opts?.okLabel, cancelLabel: opts?.cancelLabel }),
   message: async (msg, opts) => {
     await message(msg, opts);
   },
