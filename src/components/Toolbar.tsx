@@ -77,6 +77,7 @@ export function Toolbar() {
   const showSidebar = useDocStore((s) => s.showSidebar);
   const showOutline = useDocStore((s) => s.showOutline);
   const cheatSheetOpen = useDocStore((s) => s.cheatSheetOpen);
+  const diffOpen = useDocStore((s) => s.diffOpen);
   const recent = useSettings((s) => s.recentFiles);
   const clearRecent = useSettings((s) => s.clearRecent);
 
@@ -152,6 +153,7 @@ export function Toolbar() {
       <div className="toolbar-group tg-panels">
         <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={t("サイドバー (ファイル一覧) の表示切替 ({0}{1}E)", mod, shift)}>📁</button>
         <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={t("アウトラインの表示切替 ({0}{1}O)", mod, shift)}>☰</button>
+        <button className={diffOpen ? "active" : ""} onClick={() => toggle("diffOpen")} title={t("変更箇所を表示 (最初に開いたとき / 保存済みとの差分) ({0}{1}G)", mod, shift)}>±</button>
         <button className={cheatSheetOpen ? "active" : ""} onClick={() => toggle("cheatSheetOpen")} title={t("チートシートの表示切替 (F1)")}>？</button>
       </div>
       <div className="toolbar-group segmented tg-view">
@@ -212,6 +214,7 @@ export function MobileBar() {
             <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>{t("印刷 / PDF…")}</button>
             <hr />
             <button className="menu-item" onClick={() => { close(); runFormat(); }}>{t("ドキュメント全体を整形")}</button>
+            <button className="menu-item" onClick={() => { close(); toggle("diffOpen"); }}>{t("変更箇所を表示")}</button>
             <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>{t("フォーカスモード")}</button>
             <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>{t("チートシート")}</button>
             <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>{t("設定…")}</button>

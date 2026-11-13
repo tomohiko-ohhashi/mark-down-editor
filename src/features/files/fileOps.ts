@@ -11,6 +11,7 @@ import {
 import { useSettings } from "../../store/useSettings";
 import { choose } from "../../components/ConfirmDialog";
 import { suggestFileName } from "./names";
+import { firstOpenedText } from "../diff";
 import { joinPath } from "../../preview/paths";
 import { t, tError } from "../../i18n";
 
@@ -75,10 +76,13 @@ export async function openDocument(presetPath?: string, opts: { silent?: boolean
       return;
     }
     const active = selectActiveDoc(state);
+    // What the changes view compares against: the text at the first open in this run.
+    const original = firstOpenedText(path, file.content);
     if (!active.path && active.content === "" && !isDirty(active)) {
       state.loadInto(active.id, path, file.content, file.mtime);
+      state.setOriginal(active.id, original);
     } else {
-      state.addDoc({ path, content: file.content, mtime: file.mtime });
+      state.addDoc({ path, content: file.content, mtime: file.mtime, originalContent: original });
     }
     useSettings.getState().addRecent(path);
   } catch (e) {

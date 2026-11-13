@@ -47,6 +47,7 @@ const shortcutRows = (): [string, string][] => [
   [k(mod, shift, "E"), t("サイドバー（フォルダ）")],
   [k(mod, shift, "O"), t("アウトライン")],
   [k(mod, shift, "F"), t("ワークスペースを全文検索")],
+  [k(mod, shift, "G"), t("変更箇所を表示 (最初に開いたとき / 保存済みとの差分)")],
   [k(mod, shift, "D"), t("フォーカスモード")],
   [k(mod, shift, "T"), t("タイプライターモード")],
   [k(mod, shift, "H"), t("HTML を書き出す")],

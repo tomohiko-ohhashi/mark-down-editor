@@ -16,6 +16,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Outline } from "./components/Outline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { AboutDialog } from "./components/AboutDialog";
+import { DiffPanel } from "./components/DiffPanel";
 import { CheatSheet } from "./components/CheatSheet";
 import { Editor } from "./editor/Editor";
 import { Preview } from "./preview/Preview";
@@ -45,6 +46,7 @@ export default function App() {
   const showOutline = useDocStore((s) => s.showOutline);
   const cheatSheetOpen = useDocStore((s) => s.cheatSheetOpen);
   const focusMode = useDocStore((s) => s.focusMode);
+  const diffOpen = useDocStore((s) => s.diffOpen) && !focusMode;
   const theme = useSettings((s) => s.theme);
   // Set while rendering, so everything below reads the chosen language in this same pass.
   const language = resolveLanguage(useSettings((s) => s.language));
@@ -86,6 +88,7 @@ export default function App() {
       if (e.key === "Escape") {
         // The cheat sheet is a side panel now and stays open; F1 toggles it.
         if (state.aboutOpen) toggle("aboutOpen");
+        else if (state.diffOpen) toggle("diffOpen");
         else if (state.settingsOpen) toggle("settingsOpen");
         else if (state.focusMode) toggle("focusMode");
         return;
@@ -108,6 +111,7 @@ export default function App() {
         if (code === "KeyE") return run(() => toggle("showSidebar"));
         if (code === "KeyO") return run(() => toggle("showOutline"));
         if (code === "KeyD") return run(() => toggle("focusMode"));
+        if (code === "KeyG") return run(() => toggle("diffOpen"));
         if (code === "KeyF")
           return run(() => {
             if (!state.showSidebar) toggle("showSidebar");
@@ -229,7 +233,9 @@ export default function App() {
       <TabBar />
       <div className="workbench">
         {showSidebar && !focusMode && <Sidebar />}
-        <main className={`panes mode-${effectiveMode}`}>
+        {diffOpen && <DiffPanel />}
+        {/* Kept mounted (hidden) under the changes view so the editor keeps its state. */}
+        <main className={`panes mode-${effectiveMode}`} hidden={diffOpen}>
           <section className="pane pane-editor">
             <Editor />
           </section>
