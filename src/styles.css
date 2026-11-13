@@ -231,6 +231,9 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .diff-file { color: var(--fg-muted); }
 .diff-count { color: var(--fg-muted); margin-left: auto; white-space: nowrap; }
 .diff-head .segmented { flex-shrink: 0; }
+/* Same look as the view switch in the toolbar: only the chosen side is filled. */
+.diff-head .segmented button { padding: 3px 10px; cursor: pointer; }
+.diff-head .segmented button:not(.active) { background: none; }
 .diff-head .segmented button, .diff-head strong { white-space: nowrap; }
 .diff-file { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .diff-nav { display: inline-flex; align-items: center; gap: 6px; }
