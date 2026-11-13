@@ -75,6 +75,7 @@ export function Toolbar() {
   const toggle = useDocStore((s) => s.toggle);
   const showSidebar = useDocStore((s) => s.showSidebar);
   const showOutline = useDocStore((s) => s.showOutline);
+  const cheatSheetOpen = useDocStore((s) => s.cheatSheetOpen);
   const recent = useSettings((s) => s.recentFiles);
   const clearRecent = useSettings((s) => s.clearRecent);
 
@@ -153,6 +154,7 @@ export function Toolbar() {
         )}
         <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={`サイドバー (ファイル一覧) の表示切替 (${mod}${shift}E)`}>📁</button>
         <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={`アウトラインの表示切替 (${mod}${shift}O)`}>☰</button>
+        <button className={cheatSheetOpen ? "active" : ""} onClick={() => toggle("cheatSheetOpen")} title="チートシートの表示切替 (F1)">？</button>
       </div>
       <div className="toolbar-group segmented tg-view">
         {VIEW_MODES.map((v) => (

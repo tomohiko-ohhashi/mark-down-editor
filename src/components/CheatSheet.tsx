@@ -50,41 +50,43 @@ const SHORTCUTS: [string, string][] = [
   [k(mod, shift, "H"), "HTML を書き出す"],
   [k(mod, "P"), "印刷 / PDF"],
   [k(mod, ","), "設定"],
-  ["F1 / " + k(mod, shift, "/"), "このチートシート"],
-  ["Esc", "フォーカスモード / パネルを閉じる"],
+  ["F1 / " + k(mod, shift, "/"), "このチートシートを開く / 閉じる"],
+  ["Esc", "フォーカスモードを終了 / 設定を閉じる"],
   ["右上の「✕ フォーカス解除」 / 右クリック", "フォーカスモードを終了 (Esc 以外の方法)"],
 ];
 
+/**
+ * Side panel (right of the outline) with the Markdown syntax and the keyboard
+ * shortcuts, so it can stay open next to the text while writing.
+ */
 export function CheatSheet() {
-  const open = useDocStore((s) => s.cheatSheetOpen);
   const toggle = useDocStore((s) => s.toggle);
   const [tab, setTab] = useState<"syntax" | "keys">("syntax");
-  if (!open) return null;
   const rows = tab === "syntax" ? SYNTAX : SHORTCUTS;
   return (
-    <div className="modal-backdrop" onMouseDown={() => toggle("cheatSheetOpen")}>
-      <div className="modal wide" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label="チートシート">
-        <div className="modal-header">
-          <h2>チートシート</h2>
-          <div className="segmented">
-            <button className={tab === "syntax" ? "active" : ""} onClick={() => setTab("syntax")}>Markdown 記法</button>
-            <button className={tab === "keys" ? "active" : ""} onClick={() => setTab("keys")}>ショートカット</button>
-          </div>
-          <button onClick={() => toggle("cheatSheetOpen")} title="閉じる (Esc)">×</button>
-        </div>
-        <div className="modal-body">
-          <table className="cheat">
-            <tbody>
-              {rows.map(([a, b]) => (
-                <tr key={a}>
-                  <td>{tab === "syntax" ? <pre>{a}</pre> : <kbd>{a}</kbd>}</td>
-                  <td>{b}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <aside className="cheatsheet" aria-label="チートシート">
+      <div className="panel-title">
+        <span>チートシート</span>
+        <span className="panel-actions">
+          <button onClick={() => toggle("cheatSheetOpen")} title="閉じる (F1)" aria-label="チートシートを閉じる">×</button>
+        </span>
       </div>
-    </div>
+      <div className="cheat-tabs segmented" role="tablist">
+        <button role="tab" aria-selected={tab === "syntax"} className={tab === "syntax" ? "active" : ""} onClick={() => setTab("syntax")}>
+          Markdown 記法
+        </button>
+        <button role="tab" aria-selected={tab === "keys"} className={tab === "keys" ? "active" : ""} onClick={() => setTab("keys")}>
+          ショートカット
+        </button>
+      </div>
+      <dl className="cheat-list">
+        {rows.map(([a, b]) => (
+          <div key={a} className="cheat-row">
+            <dt>{tab === "syntax" ? <pre>{a}</pre> : <kbd>{a}</kbd>}</dt>
+            <dd>{b}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
   );
 }
