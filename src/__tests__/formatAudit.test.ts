@@ -14,6 +14,9 @@ import { formatMarkdown } from "../editor/format";
 const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(remarkFrontmatter, ["yaml", "toml"]);
 const meaning = (md: string) => JSON.stringify(parser.parse(md), (key, value: unknown) => (key === "position" ? undefined : value));
 
+/** How many "&#x3042;"-style character codes a text has. Formatting must not add any (a document may contain some of its own). */
+const characterCodes = (md: string) => (md.match(/&#x?[0-9a-f]+;/gi) ?? []).length;
+
 const cases: Record<string, string> = {
   "jp emphasis star": "これは*強調*です。これは**太字**です。\n",
   "jp emphasis underscore": "これは _強調_ です。__太字__ です。\n",
@@ -73,7 +76,7 @@ describe("formatMarkdown keeps the meaning", () => {
       const out = await formatMarkdown(source);
       expect(meaning(out), "the document means something else after formatting").toBe(meaning(src));
       expect(await formatMarkdown(out), "formatting twice gives a different text").toBe(out);
-      expect(out, "character codes in place of letters").not.toMatch(/&#x?[0-9a-f]+;/i);
+      expect(characterCodes(out), "character codes in place of letters").toBe(characterCodes(src));
     });
   }
 
@@ -84,7 +87,7 @@ describe("formatMarkdown keeps the meaning", () => {
       const out = await formatMarkdown(src);
       expect(meaning(out), file).toBe(meaning(src));
       expect(await formatMarkdown(out), file).toBe(out);
-      expect(out, file).not.toMatch(/&#x?[0-9a-f]+;/i);
+      expect(characterCodes(out), file).toBe(characterCodes(src));
     }
   }, 60000);
 });
