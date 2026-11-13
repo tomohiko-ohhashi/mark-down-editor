@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { platform, inTauri } from "./platform";
 import { FilePicker } from "./components/FilePicker";
 import { PromptDialog } from "./components/PromptDialog";
+import { FocusControls } from "./components/FocusControls";
 import { searchBoxRef } from "./components/Sidebar";
 import { Toolbar, MobileBar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
@@ -239,6 +240,7 @@ export default function App() {
       <CheatSheet />
       <FilePicker />
       <PromptDialog />
+      <FocusControls />
     </div>
   );
 }
