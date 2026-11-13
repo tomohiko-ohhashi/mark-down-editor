@@ -34,6 +34,8 @@ export const tauriPlatform: Platform = {
     await message(msg, opts);
   },
 
+  listFonts: () => invoke("list_fonts"),
+
   assetUrl: (path) => convertFileSrc(path),
   openExternal: async (url) => {
     const { openUrl } = await import("@tauri-apps/plugin-opener");

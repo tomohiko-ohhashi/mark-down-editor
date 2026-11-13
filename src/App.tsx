@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { platform, inTauri } from "./platform";
@@ -17,6 +17,7 @@ import { Editor } from "./editor/Editor";
 import { Preview } from "./preview/Preview";
 import { useDocStore, selectActiveDoc, selectActiveIsDirty, fileName } from "./store/useDocStore";
 import { useSettings, applyTheme, loadSettings } from "./store/useSettings";
+import { restoreSession, saveSessionNow } from "./features/session";
 import {
   newDocument,
   openDocument,
@@ -27,7 +28,7 @@ import {
   checkExternalChanges,
   autosaveAll,
 } from "./features/files/fileOps";
-import { exportHtml, exportPdf } from "./features/export";
+import { exportHtml, exportPdf, installPrintHooks } from "./features/export";
 import { checkForUpdates } from "./features/updater";
 
 export default function App() {
@@ -42,31 +43,15 @@ export default function App() {
   const focusMode = useDocStore((s) => s.focusMode);
   const theme = useSettings((s) => s.theme);
   const autosaveSeconds = useSettings((s) => s.autosaveSeconds);
-  const loaded = useSettings((s) => s.loaded);
 
   // Load settings, then restore the previous session and check for updates.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Use the returned snapshot: once `loaded` flips, effects below start writing to the store.
+      // Use the returned snapshot: it is what was on disk, before this run changes anything.
       const s = await loadSettings();
       if (cancelled) return;
-      const startup = await platform.takeStartupFiles();
-      if (startup.length > 0) {
-        for (const f of startup) await openDocument(f);
-      } else if (s.reopenLastFiles) {
-        for (const f of s.lastOpenFiles) await openDocument(f, { silent: true });
-      }
-      setSessionRestored(true);
-      if (platform.kind === "web") {
-        // The server exposes one folder; show it right away on wide screens.
-        useDocStore.getState().set({ workspace: "", showSidebar: window.innerWidth >= 768 });
-        if (window.innerWidth < 768 && useDocStore.getState().viewMode === "split") {
-          useDocStore.getState().setViewMode("editor");
-        }
-      } else if (s.lastWorkspace) {
-        useDocStore.getState().set({ workspace: s.lastWorkspace });
-      }
+      await restoreSession(s);
       if (inTauri && s.checkUpdatesOnStartup) setTimeout(() => void checkForUpdates(true), 3000);
     })();
     return () => {
@@ -75,17 +60,6 @@ export default function App() {
   }, []);
 
   useEffect(() => applyTheme(theme), [theme]);
-
-  // Remember the open files for the next launch (only once the previous session
-  // has been restored, otherwise the empty start-up state would overwrite it).
-  const [sessionRestored, setSessionRestored] = useState(false);
-  const openPaths = useDocStore((s) => s.docs.map((d) => d.path).filter((p): p is string => !!p).join("\n"));
-  useEffect(() => {
-    if (!loaded || !sessionRestored) return;
-    const list = openPaths ? openPaths.split("\n") : [];
-    const cur = useSettings.getState().lastOpenFiles;
-    if (list.join("\n") !== cur.join("\n")) useSettings.getState().update({ lastOpenFiles: list });
-  }, [openPaths, loaded, sessionRestored]);
 
   // Window title reflects the document and its dirty state.
   useEffect(() => {
@@ -149,6 +123,8 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [setViewMode, toggle]);
 
+  useEffect(() => installPrintHooks(), []);
+
   // Browser: warn before leaving the page with unsaved changes.
   useEffect(() => {
     if (inTauri) return;
@@ -164,6 +140,7 @@ export default function App() {
     if (!inTauri) return;
     const win = getCurrentWindow();
     const unlisten = win.onCloseRequested(async (event) => {
+      saveSessionNow();
       if (!useDocStore.getState().docs.some((d) => d.content !== d.savedContent)) return;
       event.preventDefault();
       if (await confirmDiscardAll()) await win.destroy();
@@ -189,6 +166,7 @@ export default function App() {
   useEffect(() => {
     if (!inTauri) return;
     const unlisten = listen("quit-requested", async () => {
+      saveSessionNow();
       if (await confirmDiscardAll()) {
         const { exit } = await import("@tauri-apps/plugin-process");
         await exit(0);

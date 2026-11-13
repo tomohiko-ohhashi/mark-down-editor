@@ -28,6 +28,8 @@ import { listKeymap } from "./listContinuation";
 import { formatDocument } from "./format";
 import { livePreview } from "./livePreview";
 import { handleSmartPaste } from "./smartPaste";
+import { fontFamilyCss, MONO_FALLBACK } from "../features/fonts";
+import { noteCursor, takeRestoredCursor, lineOffset } from "../features/session";
 import type { ListContinuation } from "../store/useSettings";
 
 /** Shared view so toolbar buttons and the outline can reach the editor. */
@@ -97,9 +99,12 @@ function baseExtensions(opts: {
       ...defaultKeymap,
     ]),
     EditorView.updateListener.of((u) => {
-      if (u.docChanged) {
-        const id = currentDocId;
-        if (id) useDocStore.getState().setContent(id, u.state.doc.toString());
+      const id = currentDocId;
+      if (u.docChanged && id) useDocStore.getState().setContent(id, u.state.doc.toString());
+      if ((u.selectionSet || u.docChanged) && id) {
+        // Remembered so the next start can put the cursor back.
+        const path = useDocStore.getState().docs.find((d) => d.id === id)?.path ?? null;
+        noteCursor(path, u.state.doc.lineAt(u.state.selection.main.head).number);
       }
     }),
     EditorView.domEventHandlers({
@@ -112,11 +117,12 @@ function baseExtensions(opts: {
 
 let currentDocId: string | null = null;
 
-function createState(content: string) {
+function createState(content: string, cursor = 0) {
   const s = useSettings.getState();
   const tw = useDocStore.getState().typewriterMode;
   return EditorState.create({
     doc: content,
+    selection: { anchor: cursor },
     extensions: baseExtensions({
       lineWrap: s.lineWrap,
       tabSize: s.tabSize,
@@ -125,6 +131,18 @@ function createState(content: string) {
       livePreview: s.livePreview,
     }),
   });
+}
+
+/** Have the preview scroll to a source line once it has rendered the active document. */
+function showInPreview(line: number) {
+  pauseScrollSync(700);
+  useDocStore.setState({ reveal: { line, seq: -Date.now() } });
+}
+
+/** State for a tab shown for the first time; a file from the previous session gets its cursor back. */
+function freshState(doc: { path: string | null; content: string }) {
+  const line = takeRestoredCursor(doc.path);
+  return createState(doc.content, line != null ? lineOffset(doc.content, line) : 0);
 }
 
 export function Editor() {
@@ -146,7 +164,7 @@ export function Editor() {
     if (!host.current) return;
     const first = selectActiveDoc(useDocStore.getState());
     currentDocId = first.id;
-    const view = new EditorView({ state: createState(first.content), parent: host.current });
+    const view = new EditorView({ state: freshState(first), parent: host.current });
     editorRef.view = view;
     view.focus();
     const unfollow = followScroll("editor", view.scrollDOM);
@@ -180,7 +198,13 @@ export function Editor() {
         ],
       });
     } else {
-      view.setState(createState(doc.content));
+      view.setState(freshState(doc));
+    }
+    // Back to where the cursor is in this tab (also after a restart), in both panes.
+    const head = view.state.selection.main.head;
+    if (head > 0) {
+      view.dispatch({ effects: EditorView.scrollIntoView(head, { y: "center" }) });
+      showInPreview(view.state.doc.lineAt(head).number);
     }
     view.focus();
   }, [doc.id, doc.content]);
@@ -197,11 +221,17 @@ export function Editor() {
     if (!view || currentDocId !== doc.id) return;
     const current = view.state.doc.toString();
     if (current === doc.content) return;
+    // A file loaded into this tab at start-up gets its cursor from the previous session.
+    const restored = takeRestoredCursor(doc.path);
+    const anchor =
+      restored != null ? lineOffset(doc.content, restored) : Math.min(view.state.selection.main.anchor, doc.content.length);
     view.dispatch({
       changes: { from: 0, to: current.length, insert: doc.content },
-      selection: { anchor: Math.min(view.state.selection.main.anchor, doc.content.length) },
+      selection: { anchor },
+      effects: restored != null ? EditorView.scrollIntoView(anchor, { y: "center" }) : [],
     });
-  }, [doc.content, doc.id]);
+    if (restored != null && anchor > 0) showInPreview(restored);
+  }, [doc.content, doc.id, doc.path]);
 
   // Apply settings changes live.
   useEffect(() => {
@@ -224,6 +254,11 @@ export function Editor() {
     editorRef.view?.dispatch({ effects: preview.reconfigure(livePreviewOn ? livePreview : []) });
   }, [livePreviewOn]);
 
+  // A different font changes the character metrics the editor has cached.
+  useEffect(() => {
+    editorRef.view?.requestMeasure();
+  }, [fontFamily, fontSize]);
+
   // Coming back from preview-only: the editor was hidden, so bring the cursor into view.
   useEffect(() => {
     const was = prevMode.current;
@@ -241,7 +276,7 @@ export function Editor() {
 
   const style = {
     "--editor-font-size": `${fontSize}px`,
-    ...(fontFamily ? { "--mono": fontFamily } : {}),
+    ...(fontFamilyCss(fontFamily, MONO_FALLBACK) ? { "--mono": fontFamilyCss(fontFamily, MONO_FALLBACK) } : {}),
   } as React.CSSProperties;
 
   return <div className="editor" ref={host} style={style} />;

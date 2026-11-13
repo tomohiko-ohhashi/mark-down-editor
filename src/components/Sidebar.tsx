@@ -305,7 +305,7 @@ export function Sidebar() {
           {workspace != null && <EntryMenu path={workspace} isDir isRoot />}
           <button title="再読込" onClick={() => void refresh()} disabled={workspace == null}>↻</button>
           {platform.kind === "tauri" && (
-            <button title="フォルダを開く" onClick={() => void openWorkspace()}>📂</button>
+            <button title="別のフォルダを開く…" aria-label="別のフォルダを開く" onClick={() => void openWorkspace()}>📂</button>
           )}
         </span>
       </div>

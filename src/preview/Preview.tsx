@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fontFamilyCss, SANS_FALLBACK } from "../features/fonts";
 import { renderMarkdown } from "./markdown";
 import { useDocStore, selectActiveDoc, dirName } from "../store/useDocStore";
 import { useSettings, isDarkTheme } from "../store/useSettings";
@@ -47,6 +48,7 @@ export function Preview() {
   const doc = useDocStore(selectActiveDoc);
   const theme = useSettings((s) => s.theme);
   const previewFontSize = useSettings((s) => s.previewFontSize);
+  const previewFont = useSettings((s) => s.previewFontFamily);
   const [html, setHtml] = useState("");
   /** Bumped after every finished render; `rendered` is the text that render was for. */
   const [renderTick, setRenderTick] = useState(0);
@@ -114,7 +116,7 @@ export function Preview() {
     <div
       ref={ref}
       className="preview markdown-body"
-      style={{ fontSize: previewFontSize }}
+      style={{ fontSize: previewFontSize, fontFamily: fontFamilyCss(previewFont, SANS_FALLBACK) ?? undefined }}
       onClick={(e) => void onPreviewClick(e, doc.path)}
       dangerouslySetInnerHTML={{ __html: html }}
     />

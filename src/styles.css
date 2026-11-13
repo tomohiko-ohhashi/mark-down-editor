@@ -205,6 +205,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .modal label { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; }
 .modal label input[type="text"] { flex: 1; max-width: 300px; }
 .modal label input[type="number"] { width: 70px; }
+.modal label select { max-width: min(300px, 60%); }
 .modal label.check { justify-content: flex-start; }
 .modal button.secondary { margin-top: 6px; border: 1px solid var(--border); background: var(--bg-alt); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
 /* ---------- Cheat sheet side panel ---------- */
@@ -222,7 +223,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 @media print {
   html, body, #root { height: auto; overflow: visible; background: #fff; color: #1f2328; }
   :root { color-scheme: light; --bg: #fff; --bg-alt: #f6f7f9; --fg: #1f2328; --fg-muted: #6e7781; --border: #d8dee4; --link: #0969da; --code: #cf222e; }
-  .toolbar, .tabbar, .statusbar, .sidebar, .outline, .pane-editor, .modal-backdrop { display: none !important; }
+  .toolbar, .tabbar, .statusbar, .sidebar, .outline, .cheatsheet, .mobilebar, .pane-editor, .modal-backdrop { display: none !important; }
   .app, .workbench, .panes, .pane { display: block; height: auto; overflow: visible; }
   .pane-preview { display: block !important; }
   .preview { height: auto; overflow: visible; padding: 0; }
@@ -251,8 +252,10 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .prompt-actions .secondary { border: 1px solid var(--border); background: var(--bg-alt); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
 
-/* ---------- Phones / narrow windows ---------- */
-@media (max-width: 767px) {
+/* ---------- Phones / narrow windows ----------
+   `screen` only: a printed page is narrower than 768px too, and must not get
+   the phone layout (bottom bar, extra preview padding) in the PDF export. */
+@media screen and (max-width: 767px) {
   .statusbar, .tg-panels, .tg-view, .tg-more { display: none !important; }
   .app.focus .mobilebar { display: none; }
   .mobilebar {

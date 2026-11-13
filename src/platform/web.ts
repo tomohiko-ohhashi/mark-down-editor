@@ -59,6 +59,8 @@ export const webPlatform: Platform = {
     openPicker({ mode: "save", defaultPath, extensions: filters?.[0]?.extensions ?? ["md"] }),
   // The server exposes exactly one folder, so the workspace is always its root.
   pickDirectory: async () => "",
+  // A browser cannot list fonts; the settings fall back to detecting well-known ones.
+  listFonts: async () => [],
 
   ask: async (msg) => window.confirm(msg),
   message: async (msg) => window.alert(msg),
