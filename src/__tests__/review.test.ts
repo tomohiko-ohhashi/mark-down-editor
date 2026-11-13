@@ -82,7 +82,7 @@ describe("third-party license file", () => {
   const deps = Object.keys(
     (Object.values(import.meta.glob<{ dependencies: Record<string, string> }>("../../package.json", { eager: true }))[0] as { dependencies: Record<string, string> }).dependencies,
   );
-  it("lists every runtime dependency of the app (run `pnpm licenses` after changing dependencies)", () => {
+  it("lists every runtime dependency of the app (run `pnpm update-licenses` after changing dependencies)", () => {
     expect(deps.length).toBeGreaterThan(10);
     expect(deps.filter((d) => !text.includes(`  - ${d} `))).toEqual([]);
   });

@@ -218,15 +218,17 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .diff-cols { display: grid; grid-template-columns: 1fr 1fr; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); border-bottom: 1px solid var(--border); }
 .diff-cols span { padding: 3px 12px; }
 .diff-cols span + span { border-left: 1px solid var(--border); }
-.diff-body { flex: 1; overflow: auto; font-family: var(--mono); font-size: 13px; line-height: 1.55; }
-.diff-row { display: grid; grid-template-columns: 3.5em minmax(0, 1fr) 3.5em minmax(0, 1fr); }
-.diff-no { text-align: right; padding: 0 8px 0 4px; color: var(--fg-muted); user-select: none; background: var(--bg-alt); }
-.diff-text { padding: 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.55em; }
-.diff-left { border-right: 1px solid var(--border); }
-.diff-del .diff-left, .diff-change .diff-left { background: var(--diff-del); }
-.diff-add .diff-right, .diff-change .diff-right { background: var(--diff-add); }
-.diff-del .diff-right, .diff-add .diff-left { background: var(--bg-alt); }
-.diff-text mark { background: var(--diff-mark); color: inherit; border-radius: 2px; }
+.diff-body { flex: 1; min-height: 0; overflow: auto; }
+.diff-body .cm-mergeView { height: 100%; overflow: auto; }
+.diff-body .cm-editor { font-size: 13px; }
+.diff-body .cm-mergeViewEditor:first-child .cm-content { background: var(--bg-alt); }
+.diff-body .cm-changedLine { background: var(--diff-add) !important; }
+.diff-body .cm-mergeViewEditor:first-child .cm-changedLine { background: var(--diff-del) !important; }
+.diff-body .cm-changedText { background: var(--diff-mark) !important; border-radius: 2px; }
+.diff-body .cm-deletedChunk { background: var(--diff-del); }
+.diff-body .cm-merge-revert { width: 2.2em; background: var(--bg-alt); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.diff-revert { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; width: 1.7em; height: 1.5em; line-height: 1; padding: 0; cursor: pointer; color: var(--fg); font-size: 12px; position: absolute; left: 0.2em; }
+.diff-revert:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .update-check { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; margin-top: 6px; }
 .modal-footer .update-check { margin-top: 0; }
 .update-check button.secondary { margin-top: 0; }

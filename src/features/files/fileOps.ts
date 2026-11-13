@@ -126,10 +126,28 @@ export async function saveDocumentAs(id?: string): Promise<boolean> {
   return writeTo(doc.id, path);
 }
 
+/** True when the file was changed on disk after this document last read or wrote it. */
+async function changedOnDisk(doc: Doc, path: string): Promise<boolean> {
+  if (doc.path !== path || doc.mtime == null) return false;
+  try {
+    return (await fileMtime(path)) !== doc.mtime;
+  } catch {
+    return false; // gone or unreadable: saving recreates it
+  }
+}
+
 async function writeTo(id: string, path: string): Promise<boolean> {
   const doc = docById(id);
   if (!doc) return false;
   const written = doc.content;
+  // Another program may have written the file since it was opened; saving would silently undo that.
+  if (await changedOnDisk(doc, path)) {
+    const overwrite = await ask(
+      t("「{0}」は、開いたあとに別のプログラムによって変更されています。上書きして保存しますか？", fileName(path)),
+      { title: t("ファイルが変更されています"), kind: "warning", okLabel: t("上書きする"), cancelLabel: t("キャンセル") },
+    );
+    if (!overwrite) return false;
+  }
   try {
     const mtime = await writeFile(path, diskText(doc));
     useDocStore.getState().markSaved(id, path, mtime, written);
@@ -146,6 +164,8 @@ async function writeTo(id: string, path: string): Promise<boolean> {
 export async function autosaveAll(): Promise<void> {
   for (const doc of useDocStore.getState().docs) {
     if (doc.path && isDirty(doc)) {
+      // Never overwrite another program's changes without asking; the external-change check will ask.
+      if (await changedOnDisk(doc, doc.path)) continue;
       const written = doc.content;
       try {
         const mtime = await writeFile(doc.path, diskText(doc));

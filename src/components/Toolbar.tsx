@@ -153,15 +153,18 @@ export function Toolbar() {
       <div className="toolbar-group tg-panels">
         <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={t("サイドバー (ファイル一覧) の表示切替 ({0}{1}E)", mod, shift)}>📁</button>
         <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={t("アウトラインの表示切替 ({0}{1}O)", mod, shift)}>☰</button>
-        <button className={diffOpen ? "active" : ""} onClick={() => toggle("diffOpen")} title={t("変更箇所を表示 (最初に開いたとき / 保存済みとの差分) ({0}{1}G)", mod, shift)}>±</button>
         <button className={cheatSheetOpen ? "active" : ""} onClick={() => toggle("cheatSheetOpen")} title={t("チートシートの表示切替 (F1)")}>？</button>
       </div>
       <div className="toolbar-group segmented tg-view">
         {viewModes().map((v) => (
-          <button key={v.mode} className={viewMode === v.mode ? "active" : ""} onClick={() => setViewMode(v.mode)} title={v.title}>
+          <button key={v.mode} className={!diffOpen && viewMode === v.mode ? "active" : ""} onClick={() => setViewMode(v.mode)} title={v.title}>
             {v.label}
           </button>
         ))}
+        {/* The changes view is a fourth way to look at the document. */}
+        <button className={diffOpen ? "active" : ""} onClick={() => toggle("diffOpen")} title={t("変更箇所を表示 (最初に開いたとき / 保存済みとの差分) ({0}{1}G)", mod, shift)}>
+          {t("差分")}
+        </button>
       </div>
       <div className="toolbar-group tg-more">
         <Dropdown label="⋯" title={t("その他")} align="right">
