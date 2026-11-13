@@ -124,7 +124,6 @@ export function Toolbar() {
         <button onClick={() => runInEditor(toggleItalic)} title={t("斜体 ({0}I)", mod)}><i>I</i></button>
         <button onClick={() => runInEditor(toggleCode)} title={t("コード ({0}E)", mod)}><code>{"<>"}</code></button>
         <button onClick={() => runInEditor(insertLink)} title={t("リンク ({0}K)", mod)}>🔗</button>
-        <button onClick={runFormat} title={t("ドキュメント全体を整形 ({0}{1}F)", shift, alt)}>{t("整形")}</button>
         <Dropdown label={t("表")} title={t("表の挿入と編集")}>
           {(close) => (
             <>
@@ -142,6 +141,7 @@ export function Toolbar() {
             </>
           )}
         </Dropdown>
+        <button onClick={runFormat} title={t("ドキュメント全体を整形 ({0}{1}F)", shift, alt)}>{t("整形")}</button>
       </div>
 
       <div className="toolbar-title" title={doc.path ?? ""}>

@@ -76,3 +76,18 @@ describe("dropAliases", () => {
     expect(dropAliases(["Inter", "Roboto"].map(f), (n) => n)).toHaveLength(2);
   });
 });
+
+describe("third-party license file", () => {
+  const text = Object.values(import.meta.glob<string>("../../public/THIRD-PARTY-LICENSES.txt", { query: "?raw", import: "default", eager: true }))[0] ?? "";
+  const deps = Object.keys(
+    (Object.values(import.meta.glob<{ dependencies: Record<string, string> }>("../../package.json", { eager: true }))[0] as { dependencies: Record<string, string> }).dependencies,
+  );
+  it("lists every runtime dependency of the app (run `pnpm licenses` after changing dependencies)", () => {
+    expect(deps.length).toBeGreaterThan(10);
+    expect(deps.filter((d) => !text.includes(`  - ${d} `))).toEqual([]);
+  });
+  it("contains the license texts themselves", () => {
+    expect(text).toContain("Permission is hereby granted, free of charge");
+    expect(text).toContain("Apache License");
+  });
+});

@@ -42,3 +42,11 @@ jobs:
       - run: cargo clippy --workspace -- -D warnings
       - run: cargo test --workspace
       - run: cargo build -p markdown-editor-server --release
+
+      # Browser tests of the real UI (web mode), on one OS.
+      - name: Install the browser for the UI tests
+        if: runner.os == 'Linux'
+        run: pnpm exec playwright install --with-deps chromium
+      - name: UI tests
+        if: runner.os == 'Linux'
+        run: pnpm e2e

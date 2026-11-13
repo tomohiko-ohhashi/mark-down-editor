@@ -27,3 +27,7 @@ dist-ssr
 /target
 src-tauri/target
 src-tauri/gen/schemas
+
+# Playwright
+test-results
+playwright-report

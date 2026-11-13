@@ -3,6 +3,7 @@ import { platform, inTauri } from "../platform";
 import { checkForUpdates } from "../features/updater";
 import { t } from "../i18n";
 import { version } from "../../package.json";
+import { useEffect, useState } from "react";
 
 const REPO = "https://github.com/tomohiko-ohhashi/mark-down-editor";
 
@@ -13,8 +14,41 @@ const BUILT_WITH = ["Tauri", "React", "CodeMirror", "unified (remark / rehype)",
 export function AboutDialog() {
   const open = useDocStore((s) => s.aboutOpen);
   const toggle = useDocStore((s) => s.toggle);
+  // The license texts of the bundled libraries: null = not shown, "" = loading.
+  const [licenses, setLicenses] = useState<string | null>(null);
+  // Closed from elsewhere (Esc): start from the first page next time.
+  useEffect(() => {
+    if (!open) setLicenses(null);
+  }, [open]);
   if (!open) return null;
-  const close = () => toggle("aboutOpen");
+  const close = () => {
+    setLicenses(null);
+    toggle("aboutOpen");
+  };
+  const showLicenses = () => {
+    setLicenses("");
+    fetch("/THIRD-PARTY-LICENSES.txt")
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+      .then(setLicenses, () => setLicenses(t("ライセンス一覧を読み込めませんでした")));
+  };
+  if (licenses !== null) {
+    return (
+      <div className="modal-backdrop" onMouseDown={close}>
+        <div className="modal licenses" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={t("ライブラリのライセンス")}>
+          <div className="modal-header">
+            <h2>{t("ライブラリのライセンス")}</h2>
+            <button onClick={close} title={t("閉じる (Esc)")}>×</button>
+          </div>
+          <pre className="licenses-text" tabIndex={0}>{licenses || t("読み込み中…")}</pre>
+          <div className="modal-footer">
+            <span className="modal-footer-note" />
+            <button className="secondary" onClick={() => setLicenses(null)}>{t("戻る")}</button>
+            <button className="primary" onClick={close}>{t("閉じる")}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const link = (url: string, label: string) => (
     <a
       href={url}
@@ -52,6 +86,9 @@ export function AboutDialog() {
             {BUILT_WITH.join(" · ")}
             <br />
             {t("各ライブラリには、それぞれのライセンスが適用されます。")}
+          </p>
+          <p>
+            <button className="link" onClick={showLicenses}>{t("すべてのライブラリとライセンス文を表示")}</button>
           </p>
         </div>
         <div className="modal-footer">
