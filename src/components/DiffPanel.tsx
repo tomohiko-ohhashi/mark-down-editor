@@ -84,7 +84,11 @@ export function DiffPanel() {
           </button>
         </div>
         <span className="diff-count">
-          {starts.length === 0 ? t("違いはありません") : t("{0} 箇所 (+{1} 行 / −{2} 行)", starts.length, added, removed)}
+          {starts.length === 0
+            ? t("違いはありません")
+            : starts.length === 1
+              ? t("1 箇所 (+{0} 行 / −{1} 行)", added, removed)
+              : t("{0} 箇所 (+{1} 行 / −{2} 行)", starts.length, added, removed)}
         </span>
         <span className="diff-nav">
           <button onClick={() => show(current - 1)} disabled={starts.length === 0} title={t("前の変更")}>↑</button>

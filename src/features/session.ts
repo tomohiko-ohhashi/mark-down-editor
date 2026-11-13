@@ -3,7 +3,7 @@ import { useDocStore, selectActiveDoc, type ViewMode } from "../store/useDocStor
 import { useSettings, type SessionState, type Settings, type UnsavedDoc } from "../store/useSettings";
 import { openDocument, confirmDiscardAll } from "./files/fileOps";
 import { choose } from "../components/ConfirmDialog";
-import { flushSettings } from "../store/useSettings";
+import { flushSettings, savedSetting } from "../store/useSettings";
 import { t } from "../i18n";
 
 /**
@@ -161,7 +161,7 @@ export function saveSessionNow(): void {
   if (!tracking) return;
   const cur = useSettings.getState();
   const docState = useDocStore.getState();
-  const next = { ...snapshotSession(docState, cursors), unsavedDocs: unsavedSnapshot(docState.docs, cur.restoreUnsaved) };
+  const next = { ...snapshotSession(docState, cursors), unsavedDocs: unsavedSnapshot(docState.docs, savedSetting("restoreUnsaved")) };
   if (
     JSON.stringify(next.session) === JSON.stringify(cur.session) &&
     next.lastOpenFiles.join("\n") === cur.lastOpenFiles.join("\n") &&
@@ -177,9 +177,7 @@ function startTracking() {
   tracking = true;
   useDocStore.subscribe(scheduleSave);
   // Turning "restore unsaved changes" on or off changes what has to be kept.
-  useSettings.subscribe((s, prev) => {
-    if (s.restoreUnsaved !== prev.restoreUnsaved) scheduleSave();
-  });
+  useSettings.subscribe(scheduleSave);
   // Closing a tab / the app: don't lose the last half second.
   window.addEventListener("pagehide", saveSessionNow);
   document.addEventListener("visibilitychange", () => {

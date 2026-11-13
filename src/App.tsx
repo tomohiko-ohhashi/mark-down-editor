@@ -88,7 +88,8 @@ export default function App() {
       if (e.key === "Escape") {
         // The cheat sheet is a side panel now and stays open; F1 toggles it.
         if (state.aboutOpen) toggle("aboutOpen");
-        else if (state.diffOpen) toggle("diffOpen");
+        // In focus mode the changes view is hidden; Esc leaves focus mode first.
+        else if (state.diffOpen && !state.focusMode) toggle("diffOpen");
         else if (state.settingsOpen) toggle("settingsOpen");
         else if (state.focusMode) toggle("focusMode");
         return;

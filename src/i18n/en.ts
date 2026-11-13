@@ -155,6 +155,7 @@ export const en: Record<string, string> = {
   "保存済みの内容と比較": "Against the saved file",
   "違いはありません": "No differences",
   "{0} 箇所 (+{1} 行 / −{2} 行)": "{0} changes (+{1} / −{2} lines)",
+  "1 箇所 (+{0} 行 / −{1} 行)": "1 change (+{0} / −{1} lines)",
   "前の変更": "Previous change",
   "次の変更": "Next change",
   "最初に開いたとき": "When first opened",
