@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { snapshotSession, normalizeSession, lineOffset } from "../features/session";
+import { snapshotSession, normalizeSession, lineOffset, unsavedSnapshot, normalizeUnsaved } from "../features/session";
 import { cssString, printPageCss, supportsMarginBoxes } from "../features/printPage";
 import { fontFamilyCss } from "../features/fonts";
 
@@ -113,5 +113,30 @@ describe("fontFamilyCss", () => {
   });
   it("leaves a hand-written font list from an older version alone", () => {
     expect(fontFamilyCss("'JetBrains Mono', Menlo, monospace", "x")).toBe("'JetBrains Mono', Menlo, monospace");
+  });
+});
+
+describe("unsaved changes kept for the next start", () => {
+  const docs = [
+    { path: "/n/a.md", content: "changed", savedContent: "original" },
+    { path: "/n/b.md", content: "same", savedContent: "same" },
+    { path: null, content: "draft", savedContent: "" },
+    { path: null, content: "", savedContent: "" },
+  ];
+  it("keeps only documents with unsaved changes, untitled ones included", () => {
+    expect(unsavedSnapshot(docs, true)).toEqual([
+      { path: "/n/a.md", content: "changed" },
+      { path: null, content: "draft" },
+    ]);
+  });
+  it("keeps nothing while the feature is off", () => {
+    expect(unsavedSnapshot(docs, false)).toEqual([]);
+  });
+  it("drops broken stored entries", () => {
+    expect(normalizeUnsaved(null)).toEqual([]);
+    expect(normalizeUnsaved([{ path: "a.md", content: "x" }, { path: 3, content: "y" }, { path: "b.md" }, "junk"])).toEqual([
+      { path: "a.md", content: "x" },
+      { path: null, content: "y" },
+    ]);
   });
 });

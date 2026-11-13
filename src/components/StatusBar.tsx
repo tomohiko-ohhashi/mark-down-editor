@@ -25,9 +25,9 @@ export function StatusBar() {
       <span title={t("カーソル位置")}>
         {t("{0} 行目 {1} 列", cursor.line, cursor.col)}
       </span>
-      <span>{t("全 {0} 行", lines)}</span>
-      <span>{t("{0} 語", words)}</span>
-      <span>{t("{0} 文字", chars)}</span>
+      <span>{lines === 1 ? t("全 1 行") : t("全 {0} 行", lines)}</span>
+      <span>{words === 1 ? t("1 語") : t("{0} 語", words)}</span>
+      <span>{chars === 1 ? t("1 文字") : t("{0} 文字", chars)}</span>
     </footer>
   );
 }

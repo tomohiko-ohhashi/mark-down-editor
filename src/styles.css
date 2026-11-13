@@ -217,6 +217,8 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .modal label input[type="number"] { width: 70px; }
 .modal label select { max-width: min(300px, 60%); }
 .modal label.check { justify-content: flex-start; }
+.modal label.check.sub { padding-left: 26px; }
+.modal label.check:has(input:disabled) { color: var(--fg-muted); }
 .modal button.secondary { margin-top: 6px; border: 1px solid var(--border); background: var(--bg-alt); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
 /* ---------- Cheat sheet side panel ---------- */
 .cheatsheet { width: 300px; flex-shrink: 0; overflow: auto; background: var(--bg-alt); border-left: 1px solid var(--border); font-size: 12.5px; }
