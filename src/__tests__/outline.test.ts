@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractHeadings } from "../components/Outline";
+import { ancestorDirs } from "../components/Sidebar";
 import { dirName, fileName, splitEol, diskText } from "../store/useDocStore";
 
 describe("extractHeadings", () => {
@@ -49,5 +50,20 @@ describe("line endings", () => {
     expect(eol).toBe("\r\n");
     expect(diskText({ content: text + "c\n", eol })).toBe("a\r\nb\r\nc\r\n");
     expect(diskText({ content: "x\ny", eol: "\n" })).toBe("x\ny");
+  });
+});
+
+describe("ancestorDirs", () => {
+  it("lists folders between the workspace and the file", () => {
+    expect(ancestorDirs("/home/u/notes", "/home/u/notes/a/b/c.md")).toEqual(["/home/u/notes/a", "/home/u/notes/a/b"]);
+    expect(ancestorDirs("/home/u/notes", "/home/u/notes/c.md")).toEqual([]);
+  });
+  it("handles the web-mode root and Windows paths", () => {
+    expect(ancestorDirs("", "a/b/c.md")).toEqual(["a", "a/b"]);
+    expect(ancestorDirs("C:\\n", "C:\\n\\a\\c.md")).toEqual(["C:\\n\\a"]);
+  });
+  it("returns null for files outside the workspace", () => {
+    expect(ancestorDirs("/home/u/notes", "/home/u/other/c.md")).toBeNull();
+    expect(ancestorDirs("/home/u/notes", "/home/u/notes2/c.md")).toBeNull();
   });
 });

@@ -19,7 +19,67 @@ function DirtyMark({ show }: { show: boolean }) {
   return show ? <span className="tree-dirty" title="未保存の変更があります">●</span> : null;
 }
 import { openDocument, openWorkspace } from "../features/files/fileOps";
-import { createFileIn, createFolderIn, renamePath, deletePath } from "../features/files/manage";
+import { createFileIn, createFolderIn, renamePath, deletePath, childPath } from "../features/files/manage";
+import { flashStatus, selectActiveDoc } from "../store/useDocStore";
+
+/** Folders between the workspace root and `path` (root excluded), outermost first; null when `path` is outside. */
+export function ancestorDirs(workspace: string, path: string): string[] | null {
+  let rel: string;
+  if (workspace === "") {
+    rel = path;
+  } else if (path.startsWith(workspace + "/") || path.startsWith(workspace + "\\")) {
+    rel = path.slice(workspace.length + 1);
+  } else {
+    return null;
+  }
+  const parts = rel.split(/[\\/]/).filter(Boolean);
+  const dirs: string[] = [];
+  let cur = workspace;
+  for (const name of parts.slice(0, -1)) {
+    cur = childPath(cur, name);
+    dirs.push(cur);
+  }
+  return dirs;
+}
+
+/**
+ * Show the active document in the tree: expand the folders above it, then
+ * scroll its row into view and flash it. Rows load asynchronously as folders
+ * open, so the row is looked for a few times.
+ */
+function revealActiveInTree(): boolean {
+  const state = useDocStore.getState();
+  const doc = selectActiveDoc(state);
+  if (state.workspace == null) return false;
+  if (doc.path == null) {
+    flashStatus("まだ保存されていないドキュメントです");
+    return false;
+  }
+  const dirs = ancestorDirs(state.workspace, doc.path);
+  if (dirs === null) {
+    flashStatus("このファイルはワークスペースの外にあります");
+    return false;
+  }
+  for (const d of dirs) useSettings.getState().setDirExpanded(d, true);
+  const target = doc.path;
+  let tries = 0;
+  const look = () => {
+    const row = Array.from(document.querySelectorAll<HTMLElement>(".sidebar .tree-file")).find(
+      (el) => el.title === target,
+    );
+    if (row) {
+      row.scrollIntoView({ block: "center" });
+      row.classList.remove("tree-flash");
+      void row.offsetWidth; // restart the animation when pressed twice
+      row.classList.add("tree-flash");
+      return;
+    }
+    if (++tries < 25) setTimeout(look, 80);
+    else flashStatus("ツリーに見つかりませんでした（再読込を試してください）");
+  };
+  setTimeout(look, 0);
+  return true;
+}
 import { Dropdown } from "./Dropdown";
 
 /** "⋯" menu for a folder (new file / folder inside, rename, delete) or a file (rename, delete). */
@@ -231,6 +291,17 @@ export function Sidebar() {
           {workspace == null ? "ワークスペース" : workspace === "" ? (rootName ?? "ワークスペース") : fileName(workspace)}
         </span>
         <span className="panel-actions">
+          <button
+            title="開いているファイルをツリーで表示"
+            aria-label="開いているファイルをツリーで表示"
+            disabled={workspace == null}
+            onClick={() => {
+              // The tree is replaced by results while searching; go back to it first.
+              if (revealActiveInTree()) setQuery("");
+            }}
+          >
+            ◎
+          </button>
           {workspace != null && <EntryMenu path={workspace} isDir isRoot />}
           <button title="再読込" onClick={() => void refresh()} disabled={workspace == null}>↻</button>
           {platform.kind === "tauri" && (

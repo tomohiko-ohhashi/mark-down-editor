@@ -144,6 +144,8 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .tree-file.active { color: var(--accent); font-weight: 600; }
 .tree-arrow { display: inline-block; width: 12px; color: var(--fg-muted); }
 .tree-dirty { color: var(--accent); font-size: 9px; margin-left: 6px; vertical-align: middle; }
+@keyframes tree-flash { from { background: var(--selection); } to { background: transparent; } }
+.tree-file.tree-flash { animation: tree-flash 1.4s ease-out; }
 .tree-row { display: flex; align-items: center; }
 .tree-row > .tree-dir, .tree-row > .tree-file { flex: 1; min-width: 0; }
 .tree-menu { position: relative; flex-shrink: 0; }
