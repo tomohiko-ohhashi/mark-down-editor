@@ -114,6 +114,10 @@ let backend: Backend | null = null;
 interface SettingsState extends Settings {
   loaded: boolean;
   update: (patch: Partial<Settings>) => void;
+  /** Apply a change at once without saving it; saved by commitPreview(), undone by cancelPreview(). */
+  preview: (patch: Partial<Settings>) => void;
+  commitPreview: () => void;
+  cancelPreview: () => void;
   addRecent: (path: string) => void;
   setDirExpanded: (path: string, expanded: boolean) => void;
   clearRecent: () => void;
@@ -125,6 +129,20 @@ export const useSettings = create<SettingsState>((set, get) => ({
   update: (patch) => {
     set(patch);
     void persist(get());
+  },
+  preview: (patch) => {
+    const cur = get() as unknown as Record<string, unknown>;
+    for (const key of Object.keys(patch)) if (!(key in unsaved)) unsaved[key] = cur[key];
+    set(patch);
+  },
+  commitPreview: () => {
+    unsaved = {};
+    void persist(get());
+  },
+  cancelPreview: () => {
+    const saved = unsaved;
+    unsaved = {};
+    if (Object.keys(saved).length > 0) set(saved as Partial<Settings>);
   },
   addRecent: (path) => {
     const recent = [path, ...get().recentFiles.filter((p) => p !== path)].slice(0, MAX_RECENT);
@@ -143,9 +161,24 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
 }));
 
+/**
+ * Settings changed in the settings dialog but not saved yet: key -> the saved
+ * value. The store already holds the new values (so they show at once), and
+ * this is what is written to disk in their place until the dialog is saved.
+ * Other things are saved all the time (recent files, the session), and they
+ * must not carry an unsaved preference along.
+ */
+let unsaved: Record<string, unknown> = {};
+
+/** True when the settings dialog holds changes that have not been saved. */
+export function hasUnsavedSettings(): boolean {
+  const cur = useSettings.getState() as unknown as Record<string, unknown>;
+  return Object.keys(unsaved).some((key) => unsaved[key] !== cur[key]);
+}
+
 function pick(s: SettingsState): Settings {
   const out: Record<string, unknown> = {};
-  for (const k of Object.keys(DEFAULT_SETTINGS)) out[k] = s[k as keyof Settings];
+  for (const k of Object.keys(DEFAULT_SETTINGS)) out[k] = k in unsaved ? unsaved[k] : s[k as keyof Settings];
   return out as unknown as Settings;
 }
 
