@@ -207,11 +207,16 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .modal label input[type="number"] { width: 70px; }
 .modal label.check { justify-content: flex-start; }
 .modal button.secondary { margin-top: 6px; border: 1px solid var(--border); background: var(--bg-alt); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
-table.cheat { border-collapse: collapse; width: 100%; }
-table.cheat td { border-bottom: 1px solid var(--border); padding: 6px 8px; vertical-align: top; }
-table.cheat td:first-child { width: 48%; }
-table.cheat pre { margin: 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; background: var(--bg-alt); padding: 4px 8px; border-radius: 4px; }
-table.cheat kbd { margin: 0; padding: 0; font-size: 12px; color: var(--fg); }
+/* ---------- Cheat sheet side panel ---------- */
+.cheatsheet { width: 300px; flex-shrink: 0; overflow: auto; background: var(--bg-alt); border-left: 1px solid var(--border); font-size: 12.5px; }
+.cheat-tabs { display: flex; margin: 0 10px 8px; }
+.cheat-tabs button { flex: 1; background: none; border: none; padding: 4px 6px; cursor: pointer; font-size: 12px; }
+.cheat-list { margin: 0; padding: 0 10px 16px; }
+.cheat-row { padding: 7px 0; border-bottom: 1px solid var(--border); }
+.cheat-row dt { margin: 0 0 3px; }
+.cheat-row dd { margin: 0; color: var(--fg-muted); line-height: 1.5; }
+.cheat-row pre { margin: 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; }
+.cheat-row kbd { margin: 0; padding: 0; font-size: 12.5px; font-weight: 600; color: var(--fg); }
 
 /* ---------- Print (PDF export) ---------- */
 @media print {
@@ -271,9 +276,10 @@ table.cheat kbd { margin: 0; padding: 0; font-size: 12px; color: var(--fg); }
   .tg-panels { order: 1; } .tg-file { order: 2; } .tg-view { order: 3; } .tg-more { order: 4; } .tg-format { order: 5; }
   .toolbar button, .dropdown > button { padding: 6px 8px; }
   .workbench { position: relative; }
-  .sidebar, .outline { position: absolute; top: 0; bottom: 0; z-index: 40; width: min(82vw, 320px); box-shadow: 0 0 24px rgba(0, 0, 0, 0.25); }
+  .sidebar, .outline, .cheatsheet { position: absolute; top: 0; bottom: 0; z-index: 40; width: min(82vw, 320px); box-shadow: 0 0 24px rgba(0, 0, 0, 0.25); }
   .sidebar { left: 0; }
-  .outline { right: 0; }
+  .outline, .cheatsheet { right: 0; }
+  .cheatsheet { z-index: 41; }
   .mode-split .panes { flex-direction: column; }
   .mode-split .pane-editor { border-right: none; border-bottom: 1px solid var(--border); }
   .preview { padding: 16px 16px 40vh; }

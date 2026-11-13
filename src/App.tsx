@@ -38,6 +38,7 @@ export default function App() {
   const dirty = useDocStore(selectActiveIsDirty);
   const showSidebar = useDocStore((s) => s.showSidebar);
   const showOutline = useDocStore((s) => s.showOutline);
+  const cheatSheetOpen = useDocStore((s) => s.cheatSheetOpen);
   const focusMode = useDocStore((s) => s.focusMode);
   const theme = useSettings((s) => s.theme);
   const autosaveSeconds = useSettings((s) => s.autosaveSeconds);
@@ -102,8 +103,8 @@ export default function App() {
         return toggle("cheatSheetOpen");
       }
       if (e.key === "Escape") {
-        if (state.cheatSheetOpen) toggle("cheatSheetOpen");
-        else if (state.settingsOpen) toggle("settingsOpen");
+        // The cheat sheet is a side panel now and stays open; F1 toggles it.
+        if (state.settingsOpen) toggle("settingsOpen");
         else if (state.focusMode) toggle("focusMode");
         return;
       }
@@ -233,11 +234,11 @@ export default function App() {
           </section>
         </main>
         {showOutline && !focusMode && <Outline />}
+        {cheatSheetOpen && !focusMode && <CheatSheet />}
       </div>
       <StatusBar />
       <MobileBar />
       <SettingsDialog />
-      <CheatSheet />
       <FilePicker />
       <PromptDialog />
       <FocusControls />
