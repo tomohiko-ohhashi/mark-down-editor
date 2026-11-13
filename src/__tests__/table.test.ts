@@ -19,6 +19,14 @@ describe("splitRow", () => {
   });
 });
 
+describe("a table inside a list item", () => {
+  it("keeps its indent when it is rewritten", () => {
+    const state = EditorState.create({ doc: "- item\n\n  |a|b|\n  |-|-|\n  |1|2|\n" });
+    const t = tableAt(state, state.doc.line(5).from + 3)!;
+    expect(formatTable(t)).toBe("  | a   | b   |\n  | --- | --- |\n  | 1   | 2   |");
+  });
+});
+
 describe("tableAt / formatTable", () => {
   const src = "intro\n|項目|値|\n|---|--:|\n|OS|mac|\n\nafter";
   it("finds the table around the cursor", () => {

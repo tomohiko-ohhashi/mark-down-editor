@@ -9,14 +9,12 @@ import {
   highlightActiveLineGutter,
   drawSelection,
   dropCursor,
-  rectangularSelection,
-  crosshairCursor,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { search, searchKeymap, highlightSelectionMatches, setSearchQuery, SearchQuery } from "@codemirror/search";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import { bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
+import { bracketMatching, indentUnit } from "@codemirror/language";
 import { useDocStore, selectActiveDoc, flashStatus } from "../store/useDocStore";
 import { useSettings } from "../store/useSettings";
 import { baseTheme, markdownHighlight } from "./theme";
@@ -24,9 +22,9 @@ import { toggleBold, toggleItalic, toggleCode, insertLink, setHeading } from "./
 import { publishScroll, followScroll, pauseScrollSync } from "../preview/useScrollSync";
 import { handlePaste, handleDrop } from "./images";
 import { inTauri } from "../platform";
-import { typewriterScrolling, tabSizeExt, fullWidthHeadingFix } from "./extensions";
+import { typewriterScrolling, tabSizeExt, fullWidthHeadingFix, plainHtmlTags } from "./extensions";
 import { tableNextCell, tablePrevCell } from "./table";
-import { listKeymap } from "./listContinuation";
+import { listKeymap, indentListItem, outdentListItem } from "./listContinuation";
 import { formatDocument } from "./format";
 import { livePreview } from "./livePreview";
 import { handleSmartPaste } from "./smartPaste";
@@ -62,6 +60,20 @@ const languageExtensions = () => [
   placeholder(t("ここに Markdown を書きます。書き方は F1 のチートシートで確認できます。")),
 ];
 
+/**
+ * The search panel does not pass the "literal" setting on for what is typed into it, so a
+ * query that is not a regular expression is made literal here, on its way into the editor.
+ */
+const literalSearch = EditorState.transactionFilter.of((tr) => {
+  const typed = tr.effects.find((e) => e.is(setSearchQuery) && !e.value.literal && !e.value.regexp);
+  if (!typed) return tr;
+  const q = typed.value as SearchQuery;
+  const literal = new SearchQuery({ search: q.search, replace: q.replace, caseSensitive: q.caseSensitive, wholeWord: q.wholeWord, literal: true });
+  return [tr, { effects: setSearchQuery.of(literal), sequential: true }];
+});
+
+const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+
 /** Shared view so toolbar buttons and the outline can reach the editor. */
 export const editorRef: { view: EditorView | null } = { view: null };
 
@@ -91,10 +103,14 @@ function baseExtensions(opts: {
     history(),
     drawSelection(),
     dropCursor(),
-    rectangularSelection(),
-    crosshairCursor(),
     bracketMatching(),
-    indentOnInput(),
+    // No indentOnInput(): it re-indents a line by the rules of the language around the cursor while
+    // typing ("}" or "</div>" in a code block), which changes text the writer laid out by hand.
+    // Search for what is typed. By default "\n", "\t" and "\\" in the search and replace boxes stand for
+    // a line break, a tab and a backslash even with "regexp" off: "\theta" was not found, and
+    // replacing with it wrote a tab followed by "heta".
+    search({ literal: true }),
+    literalSearch,
     uiLanguage.of(languageExtensions()),
     spelling.of(spellingExt(useSettings.getState().spellCheck)),
     highlightSelectionMatches(),
@@ -105,7 +121,9 @@ function baseExtensions(opts: {
     listKeys.of(keymap.of(listKeymap(opts.listContinuation))),
     // addKeymap: false — lang-markdown's own Enter binding (always continues
     // lists) would override the user's list-continuation setting.
-    markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: false }),
+    // pasteURLAsLink off: the Markdown package would turn every URL pasted over a selection into a link
+    // before our own handler runs, so the "ask / always / off" setting never had a say.
+    markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: false, pasteURLAsLink: false, htmlTagLanguage: plainHtmlTags }),
     preview.of(opts.livePreview ? livePreview : []),
     fullWidthHeadingFix,
     baseTheme,
@@ -115,9 +133,16 @@ function baseExtensions(opts: {
       { key: "Mod-i", run: toggleItalic },
       { key: "Mod-e", run: toggleCode },
       { key: "Mod-k", run: insertLink },
-      { key: "Mod-1", run: setHeading(1) },
-      { key: "Mod-2", run: setHeading(2) },
-      { key: "Mod-3", run: setHeading(3) },
+      {
+        // Mod+1..3 by the position of the key, like the app's own shortcuts (Mod+Shift+1..3 are the
+        // view modes). Matched by character, a keyboard that needs Shift for digits ran both.
+        any: (view, e) => {
+          const mod = IS_MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+          const level = ["Digit1", "Digit2", "Digit3"].indexOf(e.code) + 1;
+          if (!mod || e.shiftKey || e.altKey || level === 0) return false;
+          return setHeading(level)(view);
+        },
+      },
       // The app's shortcut for the changes view (handled in App.tsx). Claimed here so
       // the editor's own binding for it, "find previous", does not open the search panel too.
       { key: "Mod-Shift-g", run: () => true },
@@ -131,6 +156,7 @@ function baseExtensions(opts: {
         },
       },
       { key: "Tab", run: tableNextCell, shift: tablePrevCell },
+      { key: "Tab", run: indentListItem, shift: outdentListItem },
       indentWithTab,
       ...searchKeymap,
       ...historyKeymap,
@@ -274,9 +300,14 @@ export function Editor() {
   }, [docIds]);
 
   // Replace the text when the document was changed outside the editor (reload from disk).
+  const shown = useRef({ id: doc.id, path: doc.path });
   useEffect(() => {
     const view = editorRef.view;
     if (!view || currentDocId !== doc.id) return;
+    // A file opened into this (empty) tab: the click was on the file tree, so bring the cursor here.
+    const opened = shown.current.id === doc.id && shown.current.path !== doc.path && doc.path != null;
+    shown.current = { id: doc.id, path: doc.path };
+    if (opened && !document.querySelector(".modal-backdrop")) view.focus();
     const current = view.state.doc.toString();
     if (current === doc.content) return;
     // A file loaded into this tab at start-up gets its cursor from the previous session.

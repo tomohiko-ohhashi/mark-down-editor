@@ -6,10 +6,14 @@ import { beginPrint, endPrint } from "./printPage";
 import previewCss from "../preview/preview.css?raw";
 
 import katex from "katex";
+import katexCss from "katex/dist/katex.min.css?raw";
+import { previewReady } from "../preview/Preview";
 import { getLanguage, t, tError } from "../i18n";
 
-// Same KaTeX version as the one that rendered the markup.
-const KATEX_CSS = `https://cdn.jsdelivr.net/npm/katex@${katex.version}/dist/katex.min.css`;
+// The style sheet of the KaTeX version that rendered the markup, put into the exported file itself
+// so that formulas are laid out without a network (linked from a CDN, each formula showed twice
+// when offline). Only the fonts are fetched; without them the browser's own fonts are used.
+const KATEX_CSS = katexCss.replace(/url\(fonts\//g, `url(https://cdn.jsdelivr.net/npm/katex@${katex.version}/dist/fonts/`);
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -27,8 +31,8 @@ export async function buildStandaloneHtml(): Promise<string> {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
-${needsKatex ? `<link rel="stylesheet" href="${KATEX_CSS}">` : ""}
 <style>
+${needsKatex ? KATEX_CSS : ""}
 :root { --bg: #ffffff; --bg-alt: #f6f7f9; --fg: #1f2328; --fg-muted: #6e7781; --border: #d8dee4; --link: #0969da; --code: #cf222e;
   --syntax-keyword: #cf222e; --syntax-string: #0a3069; --syntax-number: #0550ae; --syntax-function: #8250df;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
@@ -88,8 +92,9 @@ export async function exportPdf(): Promise<void> {
   const state = useDocStore.getState();
   const prevMode = state.viewMode;
   if (prevMode === "editor") state.setViewMode("preview");
-  // Give the preview a frame to render before printing.
-  await new Promise((r) => setTimeout(r, 150));
+  // The preview may be behind (it is not kept up to date key by key while hidden): have it render first.
+  await previewReady();
+  await new Promise((r) => setTimeout(r, 50));
   beginPrint(printName());
   const started = Date.now();
   try {

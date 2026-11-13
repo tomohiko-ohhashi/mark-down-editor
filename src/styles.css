@@ -327,7 +327,11 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 /* ---------- Print (PDF export) ---------- */
 @media print {
   html, body, #root { height: auto; overflow: visible; background: #fff; color: #1f2328; }
-  :root { color-scheme: light; --bg: #fff; --bg-alt: #f6f7f9; --fg: #1f2328; --fg-muted: #6e7781; --border: #d8dee4; --link: #0969da; --code: #cf222e; }
+  /* The dark theme's own rules are more specific than ":root"; printed, it is always dark text on white paper. */
+  :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    color-scheme: light; --bg: #fff; --bg-alt: #f6f7f9; --fg: #1f2328; --fg-muted: #6e7781; --border: #d8dee4; --link: #0969da; --code: #cf222e;
+    --syntax-keyword: #cf222e; --syntax-string: #0a3069; --syntax-number: #0550ae; --syntax-function: #8250df;
+  }
   .toolbar, .tabbar, .statusbar, .sidebar, .outline, .cheatsheet, .mobilebar, .pane-editor, .modal-backdrop, .diff, .splitter { display: none !important; }
   .panes[hidden] { display: block !important; }
   .app, .workbench, .panes, .pane { display: block; height: auto; overflow: visible; }

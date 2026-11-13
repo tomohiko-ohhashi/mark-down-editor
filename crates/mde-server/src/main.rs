@@ -8,7 +8,7 @@
 use axum::{
     Router,
     body::Bytes,
-    extract::{Query, Request, State},
+    extract::{DefaultBodyLimit, Query, Request, State},
     http::{HeaderMap, HeaderValue, StatusCode, Uri, header},
     middleware::{self, Next},
     response::{Html, IntoResponse, Redirect, Response},
@@ -79,7 +79,16 @@ async fn main() {
     let token = if args.no_auth {
         None
     } else {
-        Some(args.token.unwrap_or_else(random_token))
+        // An empty token (MDE_TOKEN= in a service file) is no token: anyone would get in with "".
+        let given = args.token.filter(|t| !t.is_empty());
+        if let Some(t) = &given
+            && !token_is_usable(t)
+        {
+            fatal(
+                "--token に使えない文字が含まれています (半角の英数字と記号のみ。空白 ; , \" \\ は不可)",
+            );
+        }
+        Some(given.unwrap_or_else(random_token))
     };
 
     let state: Shared = Arc::new(AppState {
@@ -99,6 +108,14 @@ async fn main() {
         .route("/mkdir", post(api_mkdir))
         .route("/rename", post(api_rename))
         .route("/delete", post(api_delete))
+        .fallback(api_not_found)
+        // The default limit for a request body is 2 MB: a long document could be opened but not
+        // saved, and most photos could not be inserted.
+        .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            same_origin_only,
+        ))
         .layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     let app = Router::new()
@@ -119,7 +136,8 @@ async fn main() {
         Some(t) => {
             println!(
                 "  ブラウザで開く: http://<このマシンのアドレス>:{}/?token={}",
-                args.port, t
+                args.port,
+                percent_encode(t)
             );
             println!("  (トークンは初回アクセス時に Cookie に保存されます)");
         }
@@ -138,6 +156,28 @@ fn random_token() -> String {
     let mut bytes = [0u8; 16];
     rand::rng().fill_bytes(&mut bytes);
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Largest request body: a document, or an image dropped into one.
+const MAX_BODY_BYTES: usize = 64 * 1024 * 1024;
+
+/// A token has to survive a cookie and a URL: visible ASCII without the characters that end a cookie value.
+fn token_is_usable(token: &str) -> bool {
+    token
+        .chars()
+        .all(|c| c.is_ascii_graphic() && !matches!(c, ';' | ',' | '"' | '\\'))
+}
+
+/// Escape everything but letters, digits and "-._~" for use in a URL.
+fn percent_encode(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
 }
 
 // ---------- auth ----------
@@ -173,6 +213,31 @@ async fn require_auth(State(state): State<Shared>, req: Request, next: Next) -> 
     } else {
         api_error(StatusCode::UNAUTHORIZED, "認証が必要です")
     }
+}
+
+/// Without a token, nothing stops another web site that is open in the same browser from sending
+/// changes here (with a token, its cookie is never sent along with such a request). So in that mode a
+/// change that the browser says comes from another site is refused. A reverse proxy may rewrite
+/// the Host header, hence the forwarded host is accepted as well.
+async fn same_origin_only(State(state): State<Shared>, req: Request, next: Next) -> Response {
+    let headers = req.headers();
+    let text = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
+    if state.token.is_none() && req.method() != axum::http::Method::GET {
+        let origin_host = text("origin").and_then(|o| o.split_once("://").map(|(_, h)| h));
+        let foreign_origin = origin_host
+            .is_some_and(|o| Some(o) != text("host") && Some(o) != text("x-forwarded-host"));
+        if text("sec-fetch-site") == Some("cross-site") || foreign_origin {
+            return api_error(
+                StatusCode::FORBIDDEN,
+                "ほかのサイトからの操作は受け付けません",
+            );
+        }
+    }
+    next.run(req).await
+}
+
+async fn api_not_found() -> Response {
+    api_error(StatusCode::NOT_FOUND, "そのような操作はありません")
 }
 
 // ---------- UI ----------
@@ -272,16 +337,43 @@ fn bad(msg: String) -> Response {
     api_error(StatusCode::BAD_REQUEST, &msg)
 }
 
+const OUTSIDE: &str = "公開フォルダの外は指定できません";
+
+/// The absolute path for a path given by the UI. It is inside the shared folder, also after
+/// following symbolic links: a link in the folder that points elsewhere is not a way out.
 fn resolve(state: &AppState, rel: &str) -> Result<PathBuf, Box<Response>> {
-    mde_core::resolve_within(&state.root, rel)
-        .map_err(|e| Box::new(api_error(StatusCode::FORBIDDEN, &e)))
+    let p = mde_core::resolve_within(&state.root, rel)
+        .map_err(|e| Box::new(api_error(StatusCode::FORBIDDEN, &e)))?;
+    if !mde_core::stays_within(&state.root, &p) {
+        return Err(Box::new(api_error(StatusCode::FORBIDDEN, OUTSIDE)));
+    }
+    Ok(p)
+}
+
+/// True for a path the server handed out (root-relative) that `resolve` would accept.
+fn reachable(state: &AppState, rel: &str) -> bool {
+    resolve(state, rel).is_ok()
 }
 
 /// Root-relative display path with forward slashes.
 fn display_path(root: &Path, p: &Path) -> String {
     p.strip_prefix(root)
-        .map(|r| r.to_string_lossy().replace('\\', "/"))
+        .map(|r| {
+            let rel = r.to_string_lossy();
+            // Only Windows separates folders with "\"; elsewhere it is an ordinary character of a
+            // name, and replacing it would point at a different file.
+            if cfg!(windows) {
+                rel.replace('\\', "/")
+            } else {
+                rel.into_owned()
+            }
+        })
         .unwrap_or_else(|_| p.to_string_lossy().into_owned())
+}
+
+/// The shared folder itself is not a file or folder that can be written, renamed or filled in.
+fn is_root(state: &AppState, p: &Path) -> bool {
+    p == state.root
 }
 
 async fn api_config(State(state): State<Shared>) -> Response {
@@ -319,7 +411,7 @@ async fn api_write_file(
         Ok(p) => p,
         Err(r) => return *r,
     };
-    if q.path.trim().is_empty() {
+    if q.path.trim().is_empty() || is_root(&state, &p) {
         return bad("ファイル名が空です".into());
     }
     match mde_core::write_file(&p, &body, q.encoding.as_deref()) {
@@ -346,7 +438,11 @@ async fn api_read_dir(State(state): State<Shared>, Query(q): Query<PathQuery>) -
     };
     let root = state.root.clone();
     match mde_core::read_dir(&p, |e| display_path(&root, e)) {
-        Ok(entries) => axum::Json(entries).into_response(),
+        Ok(mut entries) => {
+            // Links that lead out of the shared folder could not be opened; do not list them.
+            entries.retain(|e| reachable(&state, &e.path));
+            axum::Json(entries).into_response()
+        }
         Err(e) => api_error(StatusCode::NOT_FOUND, &e),
     }
 }
@@ -370,6 +466,14 @@ async fn api_save_image(
         Ok(p) => p,
         Err(r) => return *r,
     };
+    // The image goes into "assets" next to the document, so the document has to be a file in the
+    // shared folder; for the folder itself, "next to it" would be outside.
+    let assets_inside = doc
+        .parent()
+        .is_some_and(|dir| mde_core::stays_within(&state.root, &dir.join("assets")));
+    if is_root(&state, &doc) || !assets_inside {
+        return api_error(StatusCode::FORBIDDEN, OUTSIDE);
+    }
     if body.len() > 50 * 1024 * 1024 {
         return bad("画像が大きすぎます (50MB まで)".into());
     }
@@ -397,7 +501,10 @@ async fn api_search(State(state): State<Shared>, Query(q): Query<SearchQuery>) -
     })
     .await;
     match result {
-        Ok(Ok(hits)) => axum::Json(hits).into_response(),
+        Ok(Ok(mut hits)) => {
+            hits.retain(|h| reachable(&state, &h.path));
+            axum::Json(hits).into_response()
+        }
         Ok(Err(e)) => api_error(StatusCode::NOT_FOUND, &e),
         Err(_) => api_error(StatusCode::INTERNAL_SERVER_ERROR, "検索に失敗しました"),
     }
@@ -408,7 +515,7 @@ async fn api_mkdir(State(state): State<Shared>, Query(q): Query<PathQuery>) -> R
         Ok(p) => p,
         Err(r) => return *r,
     };
-    if q.path.trim().is_empty() {
+    if q.path.trim().is_empty() || is_root(&state, &p) {
         return bad("フォルダ名が空です".into());
     }
     match mde_core::create_dir(&p) {
@@ -428,7 +535,11 @@ async fn api_rename(State(state): State<Shared>, Query(q): Query<RenameQuery>) -
         (Ok(f), Ok(t)) => (f, t),
         (Err(r), _) | (_, Err(r)) => return *r,
     };
-    if q.from.trim().is_empty() || q.to.trim().is_empty() {
+    if q.from.trim().is_empty()
+        || q.to.trim().is_empty()
+        || is_root(&state, &from)
+        || is_root(&state, &to)
+    {
         return bad("名前が空です".into());
     }
     match mde_core::rename_path(&from, &to) {
@@ -460,7 +571,17 @@ async fn api_raw(State(state): State<Shared>, Query(q): Query<PathQuery>) -> Res
     match tokio::fs::read(&p).await {
         Ok(bytes) => {
             let mime = mime_guess::from_path(&p).first_or_octet_stream();
-            ([(header::CONTENT_TYPE, mime.as_ref().to_string())], bytes).into_response()
+            (
+                [
+                    (header::CONTENT_TYPE, mime.as_ref().to_string()),
+                    // These are files of the user's folder, shown as images. Opened directly as a
+                    // page (an .html or .svg file), nothing in them may run with the editor's rights.
+                    (header::CONTENT_SECURITY_POLICY, "sandbox".to_string()),
+                    (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_string()),
+                ],
+                bytes,
+            )
+                .into_response()
         }
         Err(_) => api_error(StatusCode::NOT_FOUND, "ファイルがありません"),
     }
@@ -501,6 +622,15 @@ mod tests {
             dist: None,
         };
         assert!(is_authorized(&open, &HeaderMap::new()));
+    }
+
+    #[test]
+    fn tokens_that_cannot_work_are_refused() {
+        assert!(token_is_usable("8f0a-Zz_.~!@"));
+        for bad in ["ひみつ", "a b", "ab;cd", "a,b", "a\"b", "a\\b"] {
+            assert!(!token_is_usable(bad), "{bad}");
+        }
+        assert_eq!(percent_encode("a+b%41 c"), "a%2Bb%2541%20c");
     }
 
     #[test]

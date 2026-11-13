@@ -2,7 +2,7 @@ import { useDocStore } from "../store/useDocStore";
 import { useSettings, hasUnsavedSettings, type Theme, type ListContinuation, type SmartPaste } from "../store/useSettings";
 import { availableFonts } from "../features/fonts";
 import type { FontInfo } from "../platform/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LanguageSetting } from "../i18n";
 import { t } from "../i18n";
 import { IconClose } from "./icons";
@@ -33,6 +33,46 @@ function FontSelect(props: { value: string; fonts: FontInfo[] | null; monoFirst:
       {fonts == null && <option disabled>{t("フォントを読み込み中…")}</option>}
       {monoFirst ? groups : groups.reverse()}
     </select>
+  );
+}
+
+/**
+ * A number that can be typed. The value is taken over while it is within the limits and put right
+ * when the field is left. Limiting it at every key press made typing impossible: "1" on the way
+ * to "12" became 9 at once, and the "2" then made it 92, which became 40.
+ */
+function NumberField({ value, min, max, onValue }: { value: number; min: number; max: number; onValue: (v: number) => void }) {
+  const [text, setText] = useState(String(value));
+  const typed = useRef(value);
+  // The value changed from outside (the zoom shortcut, Cancel): show it.
+  useEffect(() => {
+    if (value !== typed.current) {
+      typed.current = value;
+      setText(String(value));
+    }
+  }, [value]);
+  const take = (v: number) => {
+    typed.current = v;
+    onValue(v);
+  };
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        const v = Number(e.target.value);
+        if (e.target.value.trim() !== "" && Number.isInteger(v) && v >= min && v <= max) take(v);
+      }}
+      onBlur={() => {
+        const v = Number(text);
+        const fixed = text.trim() === "" || !Number.isFinite(v) ? value : Math.max(min, Math.min(max, Math.round(v)));
+        setText(String(fixed));
+        if (fixed !== value) take(fixed);
+      }}
+    />
   );
 }
 
@@ -101,7 +141,7 @@ export function SettingsDialog() {
             </label>
             <label>
               {t("エディタのフォントサイズ")}
-              <input type="number" min={9} max={40} value={s.editorFontSize} onChange={num("editorFontSize", 9, 40)} />
+              <NumberField min={9} max={40} value={s.editorFontSize} onValue={(v) => s.preview({ editorFontSize: v })} />
             </label>
             <label>
               {t("エディタのフォント")}
@@ -109,7 +149,7 @@ export function SettingsDialog() {
             </label>
             <label>
               {t("プレビューのフォントサイズ")}
-              <input type="number" min={9} max={40} value={s.previewFontSize} onChange={num("previewFontSize", 9, 40)} />
+              <NumberField min={9} max={40} value={s.previewFontSize} onValue={(v) => s.preview({ previewFontSize: v })} />
             </label>
             <label>
               {t("プレビューのフォント")}

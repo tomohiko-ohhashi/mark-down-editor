@@ -54,7 +54,8 @@ export default function App() {
   // Set while rendering, so everything below reads the chosen language in this same pass.
   const language = resolveLanguage(useSettings((s) => s.language));
   setLanguage(language);
-  const autosaveSeconds = useSettings((s) => s.autosaveSeconds);
+  // The saved value: a number that is only being tried out in the settings dialog must not start writing files.
+  const autosaveSeconds = useSettings(() => savedSetting("autosaveSeconds"));
   const panelSizes = useSettings((s) => s.panelSizes);
 
   // Load settings, then restore the previous session and check for updates.
@@ -100,6 +101,9 @@ export default function App() {
       }
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
+      // None of these shortcuts use Alt. On Windows AltGr arrives as Ctrl+Alt and types characters
+      // ("ń" is AltGr+N on a Polish keyboard, "@" AltGr+Q on a German one): typing must not run a command.
+      if (e.altKey || e.getModifierState("AltGraph")) return;
       const code = e.code;
       const run = (fn: () => void) => {
         e.preventDefault();
@@ -112,8 +116,8 @@ export default function App() {
       }
       // Text size. Only in the desktop app: in a browser these keys are the browser's own zoom.
       // Matched by the character the key gives, so "+" works wherever the layout has it (Shift+; on a
-      // Japanese keyboard). Never with Alt: on Windows AltGr is Ctrl+Alt and types characters such as "\" or "@".
-      const zoom = !inTauri || e.altKey
+      // Japanese keyboard).
+      const zoom = !inTauri
         ? null
         : e.key === "+" || (e.key === "=" && !e.shiftKey) || code === "NumpadAdd"
           ? 1

@@ -42,10 +42,14 @@ function build(view: EditorView): DecorationSet {
           // [text](url) → text ; keep the whole thing when it has no label.
           const n = node.node;
           const marks: { from: number; to: number }[] = [];
+          let hasTarget = false;
           for (let c = n.firstChild; c; c = c.nextSibling) {
             if (c.name === "LinkMark") marks.push({ from: c.from, to: c.to });
+            if (c.name === "URL") hasTarget = true;
           }
-          if (marks.length >= 2) {
+          // Only "[text](url)". Brackets without an address are usually just brackets
+          // ("[重要]", "a[0]", "[^1]"), and hiding them would change what the text says.
+          if (marks.length >= 2 && hasTarget) {
             const open = marks[0];
             const closeLabel = marks[1];
             push(open.from, open.to); // "[" or "!["

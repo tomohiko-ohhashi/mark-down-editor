@@ -38,7 +38,7 @@ async function onPreviewClick(e: React.MouseEvent<HTMLDivElement>, docPath: stri
   e.preventDefault();
   if (href.startsWith("#")) {
     const id = decodeURIComponent(href.slice(1));
-    const target = e.currentTarget.querySelector(`[id="${CSS.escape(id)}"]`);
+    const target = e.currentTarget.querySelector(`[id="${CSS.escape(id)}"], [name="${CSS.escape(id)}"]`);
     target?.scrollIntoView({ block: "start" });
     return;
   }
@@ -59,6 +59,19 @@ async function onPreviewClick(e: React.MouseEvent<HTMLDivElement>, docPath: stri
   }
 }
 
+/** Set by the preview: render the active document now and resolve when it is on screen. */
+let renderNow: (() => Promise<void>) | null = null;
+
+/**
+ * Wait until the preview shows the current text (printing needs it). While the preview is
+ * hidden it is only brought up to date now and then, so that typing does not wait for it.
+ */
+export function previewReady(): Promise<void> {
+  const done = renderNow?.() ?? Promise.resolve();
+  // Never hold up the caller for long: a render that is dropped (the tab changed) would not report back.
+  return Promise.race([done, new Promise<void>((r) => setTimeout(r, 8000))]);
+}
+
 export function Preview() {
   const doc = useDocStore(selectActiveDoc);
   const theme = useSettings((s) => s.theme);
@@ -71,6 +84,11 @@ export function Preview() {
   const reveal = useDocStore((s) => s.reveal);
   const viewMode = useDocStore((s) => s.viewMode);
   const prevMode = useRef(viewMode);
+  /** The preview is not on screen: editor only, focus mode, or the changes view in front. */
+  const hidden = useDocStore((s) => s.viewMode === "editor" || s.focusMode || s.diffOpen);
+  /** A caller waiting for an up-to-date preview (see previewReady). */
+  const waiting = useRef<(() => void)[]>([]);
+  const [forced, setForced] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   useScrollSync("preview", ref);
   const [systemDark, setSystemDark] = useState(() => isDarkTheme());
@@ -90,11 +108,32 @@ export function Preview() {
   const activeId = useRef(doc.id);
   activeId.current = doc.id;
   useEffect(() => {
+    renderNow = () =>
+      new Promise<void>((resolve) => {
+        waiting.current.push(resolve);
+        setForced((n) => n + 1);
+      });
+    return () => {
+      renderNow = null;
+    };
+  }, []);
+  useEffect(() => {
     const t = timing.current;
     const now = Date.now();
+    const answer = () => waiting.current.splice(0).forEach((resolve) => resolve());
+    if (waiting.current.length > 0 && rendered.current === doc.content && t.shownDoc === doc.id) {
+      answer();
+      return;
+    }
     t.pendingSince ??= now;
-    const maxWait = Math.max(500, t.cost * 4);
-    const delay = t.shownDoc !== doc.id ? 0 : Math.min(120, Math.max(0, maxWait - (now - t.pendingSince)));
+    // A render takes the main thread for `cost` ms, during which nothing typed appears. So the
+    // pause in typing that is waited for grows with the document: a short one is rendered
+    // 120 ms after the last key, a very long one only once the writer really stops, and during
+    // a long burst it still catches up now and then. Out of sight, it only follows at leisure.
+    const maxWait = Math.max(500, t.cost * 8);
+    const pause = hidden ? Math.max(1500, t.cost * 2) : Math.max(120, t.cost);
+    const delay =
+      waiting.current.length > 0 || t.shownDoc !== doc.id ? 0 : hidden ? pause : Math.min(pause, Math.max(0, maxWait - (now - t.pendingSince)));
     const timer = setTimeout(() => {
       t.pendingSince = null;
       const content = doc.content;
@@ -115,10 +154,12 @@ export function Preview() {
         setHtml(h);
         rendered.current = content;
         setRenderTick((n) => n + 1);
+        // After React has put it on screen.
+        requestAnimationFrame(answer);
       });
     }, delay);
     return () => clearTimeout(timer);
-  }, [doc.id, doc.content, doc.path, theme, systemDark]);
+  }, [doc.id, doc.content, doc.path, theme, systemDark, hidden, forced]);
 
   // Jump requested by the outline / search: wait until this document's HTML is on screen.
   useEffect(() => {
@@ -134,12 +175,9 @@ export function Preview() {
     const was = prevMode.current;
     prevMode.current = viewMode;
     if (was !== "editor" || viewMode === "editor") return;
-    const id = requestAnimationFrame(() => {
-      if (!ref.current) return;
-      pauseScrollSync(400);
-      scrollPreviewToLine(ref.current, cursorLine());
-    });
-    return () => cancelAnimationFrame(id);
+    // Through the same request the outline uses: it waits until the current text has been rendered,
+    // which may still be under way when the preview was hidden a moment ago.
+    useDocStore.setState({ reveal: { line: cursorLine(), seq: -Date.now() } });
   }, [viewMode]);
 
   return (
@@ -148,6 +186,11 @@ export function Preview() {
       className="preview markdown-body"
       style={{ fontSize: previewFontSize, fontFamily: fontFamilyCss(previewFont, SANS_FALLBACK) ?? undefined }}
       onClick={(e) => void onPreviewClick(e, doc.path)}
+      // A middle click on a link would open it in a new browser tab, past the handler above:
+      // a relative link then loads a second copy of the whole app.
+      onAuxClick={(e) => {
+        if ((e.target as HTMLElement).closest("a")) e.preventDefault();
+      }}
       onDoubleClick={(e) => {
         // Find this spot in the source: the editor cursor moves to the block's line.
         const line = sourceLineOf(e.target as HTMLElement);

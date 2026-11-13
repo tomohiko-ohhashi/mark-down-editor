@@ -60,7 +60,11 @@ export function newDocument(): void {
 
 /** Open a file into a tab. Reuses the active tab when it is an empty, untitled, clean document. */
 export async function openDocument(presetPath?: string, opts: { silent?: boolean } = {}): Promise<void> {
-  const path = presetPath ?? (await platform.pickOpenPath());
+  let path = presetPath ?? (await platform.pickOpenPath());
+  if (!path) return;
+  // In the browser every path is relative to the shared folder; "/c.md" (a link written as an
+  // absolute path) and "c.md" are the same file and must not end up in two tabs.
+  if (platform.kind === "web") path = path.replace(/^(\.?[\\/])+/, "");
   if (!path) return;
 
   const existing = useDocStore.getState().docs.find((d) => d.path === path);
@@ -111,6 +115,20 @@ export async function saveDocument(id?: string): Promise<boolean> {
   const doc = id ? docById(id) : selectActiveDoc(useDocStore.getState());
   if (!doc) return false;
   if (!doc.path) return saveDocumentAs(doc.id);
+  // Nothing changed: leave the file alone. Writing it again could still alter it
+  // (a file with mixed line endings is written back with one kind).
+  if (!isDirty(doc)) {
+    let onDisk = true;
+    try {
+      await fileMtime(doc.path);
+    } catch {
+      onDisk = false; // deleted meanwhile: saving puts it back
+    }
+    if (onDisk) {
+      flashStatus(t("変更はありません"));
+      return true;
+    }
+  }
   return writeTo(doc.id, doc.path);
 }
 
@@ -156,6 +174,16 @@ async function writeTo(id: string, path: string): Promise<boolean> {
     try {
       const mtime = await writeFile(path, diskText(doc), encoding);
       useDocStore.getState().markSaved(id, path, mtime, written);
+      // Saved under the name of a file that is open in another tab: that tab now shows what is
+      // no longer on disk. It is closed, or, with unsaved text in it, kept as an untitled document.
+      for (const other of useDocStore.getState().docs) {
+        if (other.id === id || other.path !== path) continue;
+        if (isDirty(other)) {
+          useDocStore.setState((s) => ({ docs: s.docs.map((d) => (d.id === other.id ? { ...d, path: null, mtime: null } : d)) }));
+        } else {
+          useDocStore.getState().removeDoc(other.id);
+        }
+      }
       if (encoding !== doc.encoding) {
         useDocStore.setState((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, encoding } : d)) }));
       }
@@ -197,9 +225,12 @@ export async function autosaveAll(): Promise<void> {
     if (doc.path && isDirty(doc)) {
       // Never overwrite another program's changes without asking; the external-change check will ask.
       if (await changedOnDisk(doc, doc.path)) continue;
-      const written = doc.content;
+      // The check took a moment: save what the document is now (it may have been saved, renamed or closed).
+      const now = docById(doc.id);
+      if (!now || now.path !== doc.path || !isDirty(now)) continue;
+      const written = now.content;
       try {
-        const mtime = await writeFile(doc.path, diskText(doc), doc.encoding);
+        const mtime = await writeFile(doc.path, diskText(now), now.encoding);
         useDocStore.getState().markSaved(doc.id, doc.path, mtime, written);
         noteAutosave(doc.id, null);
       } catch (e) {
@@ -227,25 +258,32 @@ export async function checkExternalChanges(): Promise<void> {
       }
       if (mtime === doc.mtime) continue;
 
+      // A file that cannot be read (now) is left alone; the other tabs are still checked.
+      const read = () => readFile(doc.path as string).catch(() => null);
       if (!isDirty(doc)) {
-        const file = await readFile(doc.path);
+        const file = await read();
+        // Something was typed while the file was being read: do not throw it away; the next check asks.
+        const now = docById(doc.id);
+        if (!file || !now || now.path !== doc.path || now.content !== doc.content) continue;
         useDocStore.getState().loadInto(doc.id, doc.path, file.content, file.mtime, file.encoding);
         flashStatus(t("「{0}」の外部の変更を読み込みました", fileName(doc.path)));
         continue;
       }
 
-      // Record the mtime first so the dialog is not shown repeatedly.
-      useDocStore.setState((s) => ({
-        docs: s.docs.map((d) => (d.id === doc.id ? { ...d, mtime } : d)),
-      }));
       useDocStore.getState().setActive(doc.id);
+      // The recorded time stays as it is while the question is open, so the autosave keeps its
+      // hands off the file until there is an answer.
       const reload = await ask(
         t("「{0}」は別のプログラムによって変更されました。再読込しますか？\n未保存の変更は失われます。", fileName(doc.path)),
         { title: t("ファイルが変更されました"), kind: "warning", okLabel: t("再読込"), cancelLabel: t("そのまま") },
       );
-      if (reload) {
-        const file = await readFile(doc.path);
+      const file = reload ? await read() : null;
+      if (file) {
         useDocStore.getState().loadInto(doc.id, doc.path, file.content, file.mtime, file.encoding);
+      } else {
+        // "Keep mine": remember the file's time, so this change is not asked about again
+        // and a save writes the kept text.
+        useDocStore.setState((s) => ({ docs: s.docs.map((d) => (d.id === doc.id ? { ...d, mtime } : d)) }));
       }
     }
   } finally {

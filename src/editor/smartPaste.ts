@@ -2,6 +2,7 @@ import type { EditorView } from "@codemirror/view";
 import { useSettings } from "../store/useSettings";
 import { platform } from "../platform";
 import { t } from "../i18n";
+import { inCodeOrLink } from "./context";
 
 const URL_RE = /^(https?:\/\/|mailto:)[^\s<>"']+$/i;
 
@@ -19,6 +20,9 @@ export function handleSmartPaste(event: ClipboardEvent, view: EditorView): boole
   if (from === to) return false;
   const selected = view.state.sliceDoc(from, to);
   if (selected.includes("\n")) return false;
+  // Not where a link cannot go: over the address of a link ("[text](url)" with "url" selected, as the
+  // link command leaves it), over another URL, inside a link, in code or in HTML. There the URL is just pasted.
+  if (URL_RE.test(selected.trim()) || inCodeOrLink(view.state, from)) return false;
   event.preventDefault();
 
   const insertLink = () => {

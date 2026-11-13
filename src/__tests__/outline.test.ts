@@ -23,6 +23,13 @@ describe("extractHeadings", () => {
       { level: 2, text: "Sub", line: 10 },
     ]);
   });
+  it("keeps a # that belongs to the heading's text", () => {
+    expect(extractHeadings("# C#\n## F# and C#\n### Closed ###\n#### a#b ##").map((h) => h.text)).toEqual(["C#", "F# and C#", "Closed", "a#b"]);
+  });
+  it("a longer fence is not closed by a shorter one inside it", () => {
+    const h = extractHeadings("````md\n```\n# not\n```\n# not either\n````\n# yes\n~~~\n# no\n```\n# no\n~~~\n# yes too");
+    expect(h.map((x) => x.text)).toEqual(["yes", "yes too"]);
+  });
   it("requires a space after the hashes", () => {
     expect(extractHeadings("#nope")).toEqual([]);
   });
@@ -50,6 +57,13 @@ describe("line endings", () => {
     expect(eol).toBe("\r\n");
     expect(diskText({ content: text + "c\n", eol })).toBe("a\r\nb\r\nc\r\n");
     expect(diskText({ content: "x\ny", eol: "\n" })).toBe("x\ny");
+    // A file that mixes line endings keeps the one it uses most.
+    expect(splitEol("a\nb\nc\r\nd\n").eol).toBe("\n");
+    expect(splitEol("a\r\nb\r\nc\nd").eol).toBe("\r\n");
+    // A file with bare carriage returns (old Mac text) is written back that way.
+    const mac = splitEol("a\rb\rc");
+    expect(mac).toEqual({ text: "a\nb\nc", eol: "\r" });
+    expect(diskText({ content: mac.text + "\nd", eol: mac.eol })).toBe("a\rb\rc\rd");
   });
 });
 

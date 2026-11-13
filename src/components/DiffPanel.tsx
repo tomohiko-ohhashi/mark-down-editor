@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, indentWithTab, undo, redo } from "@codemirror/commands";
+import { plainNewline } from "../editor/listContinuation";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { MergeView, getChunks, unifiedMergeView } from "@codemirror/merge";
 import { useDocStore, selectActiveDoc, fileName } from "../store/useDocStore";
 import { editorRef, goToLine } from "../editor/Editor";
 import { baseTheme, markdownHighlight } from "../editor/theme";
 import { Splitter } from "./Splitter";
+import { handleSmartPaste } from "../editor/smartPaste";
+import { plainHtmlTags } from "../editor/extensions";
 import { t } from "../i18n";
 import { IconClose, IconUp, IconDown, ARROW_RIGHT_SVG } from "./icons";
 
@@ -26,7 +29,7 @@ function useNarrowScreen(): boolean {
 
 type Base = "opened" | "saved";
 
-const shared = [lineNumbers(), drawSelection(), EditorView.lineWrapping, markdown({ base: markdownLanguage, addKeymap: false }), baseTheme, markdownHighlight];
+const shared = [lineNumbers(), drawSelection(), EditorView.lineWrapping, markdown({ base: markdownLanguage, addKeymap: false, pasteURLAsLink: false, htmlTagLanguage: plainHtmlTags }), baseTheme, markdownHighlight];
 
 /**
  * Side-by-side view of what changed in the active document, like a merge
@@ -48,6 +51,8 @@ export function DiffPanel() {
   /** The editor that holds the current text (the right side, or the only one on a narrow screen). */
   const current = useRef<EditorView | null>(null);
   const root = useRef<HTMLElement>(null);
+  /** Cursor and scroll position of the view that was just taken down, for the one built in its place. */
+  const kept = useRef<{ id: string; anchor: number; head: number; scrollTop: number; focused: boolean } | null>(null);
   const narrow = useNarrowScreen();
 
   const oldText = base === "opened" ? doc.originalContent : doc.savedContent;
@@ -62,15 +67,27 @@ export function DiffPanel() {
     const currentSide = [
       ...shared,
       highlightActiveLine(),
-      history(),
-      keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap]),
+      // Undo and redo are the main editor's: there is one history for the document. With a second
+      // one here, undoing in this view and then in the editor brought the undone text back.
+      keymap.of([
+        { key: "Mod-z", run: () => !!editorRef.view && undo(editorRef.view), preventDefault: true },
+        { key: "Mod-y", mac: "Mod-Shift-z", run: () => !!editorRef.view && redo(editorRef.view), preventDefault: true },
+        { key: "Mod-Shift-z", run: () => !!editorRef.view && redo(editorRef.view), preventDefault: true },
+        { key: "Enter", run: plainNewline, shift: plainNewline },
+        indentWithTab,
+        ...defaultKeymap,
+      ]),
+      // Same behaviour as the main editor when a URL is pasted over selected text.
+      EditorView.domEventHandlers({ paste: (e, v) => handleSmartPaste(e, v) }),
       EditorView.updateListener.of((u) => {
         count(u.state);
         if (!u.docChanged) return;
         const main = editorRef.view;
         if (!main || main.state.doc.eq(u.state.doc)) return; // came from the main editor
         // Same edit on the main editor, so it lands in the document and in its undo history.
-        if (main.state.doc.eq(u.startState.doc)) main.dispatch({ changes: u.changes, userEvent: "input" });
+        // Passed on as the same kind of edit, so typing is undone a word at a time there too.
+        const kind = u.transactions.map((tr) => tr.annotation(Transaction.userEvent)).find(Boolean) ?? "input";
+        if (main.state.doc.eq(u.startState.doc)) main.dispatch({ changes: u.changes, userEvent: kind });
         else main.dispatch({ changes: { from: 0, to: main.state.doc.length, insert: u.state.doc.toString() } });
       }),
     ];
@@ -143,15 +160,30 @@ export function DiffPanel() {
     }
     current.current = view;
     count(view.state);
-    // Start at the first change.
-    const first = getChunks(view.state)?.chunks[0];
-    if (first) {
-      const pos = Math.min(first.fromB, view.state.doc.length);
-      view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "center" }) });
+    const before = kept.current;
+    kept.current = null;
+    if (before && before.id === doc.id) {
+      // Rebuilt under the writer's hands (a save changes what "saved" is): the cursor and the
+      // scroll position stay where they were. Starting over put the cursor at the top, and what
+      // was typed next landed there.
+      const clamp = (n: number) => Math.min(n, view.state.doc.length);
+      view.dispatch({ selection: { anchor: clamp(before.anchor), head: clamp(before.head) } });
+      view.scrollDOM.scrollTop = before.scrollTop;
+      requestAnimationFrame(() => (view.scrollDOM.scrollTop = before.scrollTop));
+      if (before.focused) view.focus();
+    } else {
+      // Start at the first change.
+      const first = getChunks(view.state)?.chunks[0];
+      if (first) {
+        const pos = Math.min(first.fromB, view.state.doc.length);
+        view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "center" }) });
+      }
+      // Not on a phone: focusing would bring up the keyboard over what the user came to look at.
+      if (!narrow) view.focus();
     }
-    // Not on a phone: focusing would bring up the keyboard over what the user came to look at.
-    if (!narrow) view.focus();
     return () => {
+      const sel = view.state.selection.main;
+      kept.current = { id: doc.id, anchor: sel.anchor, head: sel.head, scrollTop: view.scrollDOM.scrollTop, focused: view.hasFocus };
       dispose();
       current.current = null;
       merge.current = null;
@@ -161,8 +193,21 @@ export function DiffPanel() {
   // Changes made elsewhere while this is open (toolbar commands, reload from disk) show up on the right.
   useEffect(() => {
     const b = current.current;
-    if (!b || b.state.doc.toString() === doc.content) return;
-    b.dispatch({ changes: { from: 0, to: b.state.doc.length, insert: doc.content }, annotations: Transaction.addToHistory.of(false) });
+    if (!b) return;
+    const old = b.state.doc.toString();
+    if (old === doc.content) return;
+    // Only the part that differs is replaced, so the cursor stays where it is unless the change is under it.
+    let start = 0;
+    const max = Math.min(old.length, doc.content.length);
+    while (start < max && old[start] === doc.content[start]) start++;
+    let end = 0;
+    while (end < max - start && old[old.length - 1 - end] === doc.content[doc.content.length - 1 - end]) end++;
+    const insert = doc.content.slice(start, doc.content.length - end);
+    b.dispatch({
+      changes: { from: start, to: old.length - end, insert },
+      // Undo / redo from this view: go to what changed.
+      ...(b.hasFocus ? { selection: { anchor: start + insert.length }, scrollIntoView: true } : {}),
+    });
   }, [doc.content]);
 
   const step = (dir: 1 | -1) => {

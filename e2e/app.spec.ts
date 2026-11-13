@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const workspace = process.env.E2E_WORKSPACE as string;
@@ -598,4 +598,374 @@ test("on a phone the toolbar shows that it scrolls, and its menus open on screen
   const onTop = await menu.evaluate((el) => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + 20, r.top + 16); return !!hit && el.contains(hit); });
   expect(onTop).toBe(true);
   await context.close();
+});
+
+test("a URL pasted over selected text follows the setting: ask, always a link, or plain", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  const thirdLine = () => page.locator(".pane-editor .cm-line").nth(2);
+  const selectFirstWord = async () => {
+    await editor(page).click();
+    await page.keyboard.press("Control+Home");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Home");
+    for (let i = 0; i < 5; i++) await page.keyboard.press("Shift+ArrowRight");
+  };
+  const paste = (text: string) =>
+    page.evaluate((t) => {
+      const data = new DataTransfer();
+      data.setData("text/plain", t);
+      document.querySelector(".pane-editor .cm-content")?.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    }, text);
+  const setMode = async (label: string) => {
+    await page.keyboard.press("Control+Comma");
+    await page.locator(".modal label").filter({ hasText: "URL を選択範囲に貼り付けたとき" }).locator("select").selectOption({ label });
+    await page.click(".modal-footer button.primary");
+    await expect(page.locator(".modal")).toHaveCount(0);
+  };
+  const undo = async () => {
+    await editor(page).click();
+    await page.keyboard.press("Control+Z");
+    await expect(thirdLine()).toHaveText("First paragraph.");
+  };
+
+  // Default: ask. Nothing changes until the question is answered.
+  await selectFirstWord();
+  await paste("https://example.com/a");
+  await expect(page.locator(".modal.confirm")).toBeVisible();
+  await expect(thirdLine()).toHaveText("First paragraph.");
+  await page.locator(".modal.confirm button.primary").click();
+  await expect(thirdLine()).toHaveText("[First](https://example.com/a) paragraph.");
+  await undo();
+
+  // Plain: the URL replaces the selection, no question, no link.
+  await setMode("そのまま貼り付ける");
+  await selectFirstWord();
+  await paste("https://example.com/b");
+  await expect(page.locator(".modal.confirm")).toHaveCount(0);
+  await expect(thirdLine()).toHaveText("https://example.com/b paragraph.");
+  await undo();
+
+  // Always: a link at once.
+  await setMode("常にリンクにする");
+  await selectFirstWord();
+  await paste("https://example.com/c");
+  await expect(page.locator(".modal.confirm")).toHaveCount(0);
+  await expect(thirdLine()).toHaveText("[First](https://example.com/c) paragraph.");
+});
+
+test("what the editor writes works in Japanese text, and nothing is written that was not typed", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  const lastLine = () => page.locator(".pane-editor .cm-line").last();
+  const newLine = async (text: string) => {
+    await editor(page).click();
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type(text);
+  };
+
+  // Italic uses "*": "_" does nothing between Japanese characters.
+  await newLine("これは斜体です");
+  for (let i = 0; i < 2; i++) await page.keyboard.press("ArrowLeft");
+  for (let i = 0; i < 2; i++) await page.keyboard.press("Shift+ArrowLeft");
+  await page.keyboard.press("Control+i");
+  await expect(lastLine()).toHaveText("これは*斜体*です");
+  await expect(page.locator(".preview em")).toHaveText("斜体");
+  // ... and pressing it again takes the stars off; the stars of bold are left alone.
+  await page.keyboard.press("Control+i");
+  await expect(lastLine()).toHaveText("これは斜体です");
+  await page.keyboard.press("Control+b");
+  await page.keyboard.press("Control+i");
+  await expect(lastLine()).toHaveText("これは***斜体***です");
+
+  // An HTML tag is not closed behind the writer's back.
+  await newLine("<div>中身</div>");
+  await expect(lastLine()).toHaveText("<div>中身</div>");
+});
+
+test("saving a file that was not changed leaves it untouched", async ({ page }) => {
+  await start(page);
+  await openFile(page, "save-me.md");
+  const before = statSync(join(workspace, "save-me.md")).mtimeMs;
+  await editor(page).click();
+  await page.keyboard.press("Control+s");
+  await expect(page.locator(".toolbar-status")).toHaveText("変更はありません");
+  expect(statSync(join(workspace, "save-me.md")).mtimeMs).toBe(before);
+});
+
+test("headings and list continuation put the marker where the writer expects it", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  const lines = () => page.locator(".pane-editor .cm-line").allTextContents();
+  const clear = async () => {
+    await editor(page).click();
+    await page.keyboard.press("Control+a");
+    await page.keyboard.press("Delete");
+  };
+
+  // The heading button on an empty line: what is typed next is the heading's text.
+  await clear();
+  await page.click(".toolbar .tb-heading >> nth=0");
+  await page.keyboard.type("Title");
+  expect(await lines()).toEqual(["# Title"]);
+  await expect(page.locator(".preview h1")).toHaveText("Title");
+  // ... and the shortcut with the cursor at the start of a line of text.
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("abc");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Control+2");
+  await page.keyboard.type("X");
+  expect(await lines()).toEqual(["# Title", "## Xabc"]);
+
+  // Continuing a list (Shift+Enter): ordinary text that starts like a marker is not a list item.
+  for (const text of ["**注意** これは文です", "-5度です", "1.5 倍です", "---"]) {
+    await clear();
+    await page.keyboard.type(text);
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.type("Z");
+    expect(await lines(), text).toEqual([text, "Z"]);
+  }
+  await clear();
+  await page.keyboard.type("- item");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("next");
+  expect(await lines()).toEqual(["- item", "- next"]);
+  // In front of the marker it is a plain line break, not a second marker.
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+Enter");
+  expect(await lines()).toEqual(["- item", "", "- next"]);
+});
+
+test("the preview shows the HTML of a document, safely, and links inside the document work", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  await editor(page).click();
+  await page.keyboard.press("Control+a");
+  const filler = Array.from({ length: 60 }, (_, i) => `段落 ${i}`).join("\n\n");
+  await page.keyboard.insertText(
+    [
+      "[先頭へのリンク](#最後の見出し) と脚注[^1]",
+      "",
+      "| a |",
+      "| - |",
+      "| 1<br>2 |",
+      "",
+      "<kbd>Ctrl</kbd> <details><summary>詳細</summary>中身</details>",
+      "",
+      '<script>window.__hacked = 1</script><img src="x" onerror="window.__hacked = 2"><a href="javascript:window.__hacked=3">罠</a>',
+      "",
+      filler,
+      "",
+      "## 最後の見出し",
+      "",
+      "[^1]: 脚注の本文",
+    ].join("\n"),
+  );
+  const preview = page.locator(".preview");
+  await expect(preview.locator("td br")).toHaveCount(1);
+  await expect(preview.locator("kbd")).toHaveText("Ctrl");
+  await expect(preview.locator("details summary")).toHaveText("詳細");
+  await expect(preview.locator("script, [onerror]")).toHaveCount(0);
+  await preview.locator("a", { hasText: "罠" }).click();
+  expect(await page.evaluate(() => (window as unknown as { __hacked?: number }).__hacked)).toBeUndefined();
+
+  // A link to a heading and a footnote reference both scroll the preview to their target.
+  const top = () => preview.evaluate((el) => el.scrollTop);
+  expect(await top()).toBe(0);
+  await preview.locator("a", { hasText: "先頭へのリンク" }).click();
+  await expect.poll(top).toBeGreaterThan(200);
+  await preview.evaluate((el) => (el.scrollTop = 0));
+  await preview.locator("sup a").click();
+  await expect.poll(top).toBeGreaterThan(200);
+  // The page itself did not go anywhere.
+  expect(new URL(page.url()).hash).toBe("");
+});
+
+test("creating a file with a name that is taken does not empty the existing file", async ({ page }) => {
+  await start(page);
+  await page.locator(".sidebar .panel-title .dropdown > button").click();
+  await page.locator(".sidebar .panel-title .dropdown-menu .menu-item", { hasText: "新規ファイル…" }).click();
+  await page.fill(".modal input", "tasks.md");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".modal.confirm")).toContainText("同じ名前のフォルダかファイルが既にあります");
+  await page.click(".modal.confirm button.primary");
+  expect(onDisk("tasks.md")).toContain("- [ ] 一つ目");
+});
+
+test("typing, Enter and the format shortcuts write only what was asked for", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await start(page);
+  await openFile(page, "hello.md");
+  const lines = () => page.locator(".pane-editor .cm-line").allTextContents();
+  const fresh = async (text = "") => {
+    await editor(page).click();
+    await page.keyboard.press("Control+a");
+    await page.keyboard.press("Delete");
+    if (text) await page.keyboard.insertText(text);
+  };
+
+  // Enter keeps the indentation as written and adds none of its own.
+  await fresh("<div>");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("x");
+  expect(await lines()).toEqual(["<div>", "x"]);
+  await fresh("\tcode");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("y");
+  expect(await lines()).toEqual(["\tcode", "\ty"]);
+  // In a code block "- old" is code, not a list item.
+  await fresh("```diff\n- old");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("n");
+  expect(await lines()).toEqual(["```diff", "- old", "n"]);
+
+  // Tab puts a list item under the one above, whatever the width of its marker.
+  await fresh("1. a\n2. b");
+  await page.keyboard.press("Tab");
+  expect(await lines()).toEqual(["1. a", "   1. b"]);
+  await expect(page.locator(".preview ol ol li")).toHaveText("b");
+  await page.keyboard.press("Shift+Tab");
+  expect(await lines()).toEqual(["1. a", "2. b"]);
+
+  // Bold: the second press steps out of the markers; a whole-line selection keeps the line break outside.
+  await fresh("foo ");
+  await page.keyboard.press("Control+b");
+  await page.keyboard.type("bold");
+  await page.keyboard.press("Control+b");
+  await page.keyboard.type(" after");
+  expect(await lines()).toEqual(["foo **bold** after"]);
+  await fresh("first line\nsecond line");
+  await page.locator(".pane-editor .cm-line").first().click({ clickCount: 3 });
+  await page.keyboard.press("Control+b");
+  expect(await lines()).toEqual(["**first line**", "second line"]);
+  await page.locator(".pane-editor .cm-line").last().click({ clickCount: 3 });
+  await page.keyboard.press("Control+1");
+  expect(await lines()).toEqual(["**first line**", "# second line"]);
+
+  // The link command followed by pasting the address: no question, no link inside the link.
+  await page.evaluate(() => navigator.clipboard.writeText("https://example.com/page"));
+  await fresh("see docs here");
+  await page.keyboard.press("Home");
+  for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowRight");
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Control+k");
+  await page.keyboard.press("Control+v");
+  await expect(page.locator(".pane-editor .cm-line")).toHaveText("see [docs](https://example.com/page) here");
+  await expect(page.locator(".modal.confirm")).toHaveCount(0);
+
+  // Search and replace take what is typed literally unless "regexp" is ticked.
+  await fresh("角度 θ と \\theta");
+  await page.keyboard.press("Control+f");
+  await page.locator(".cm-search input[name=search]").click();
+  await page.keyboard.type("\\theta");
+  await expect(page.locator(".pane-editor .cm-searchMatch")).toHaveCount(1);
+  await page.locator(".cm-search input[name=replace]").click();
+  await page.keyboard.type("\\tau");
+  await page.locator(".cm-search button[name=replaceAll]").click();
+  await page.keyboard.press("Escape");
+  expect(await lines()).toEqual(["角度 θ と \\tau"]);
+});
+
+test("a full-width heading marker typed through the IME becomes a half-width one, once", async ({ page, context }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  const cdp = await context.newCDPSession(page);
+  const lines = () => page.locator(".pane-editor .cm-line").allTextContents();
+  const compose = async (text: string) => {
+    await cdp.send("Input.imeSetComposition", { text, selectionStart: text.length, selectionEnd: text.length });
+    await page.waitForTimeout(60);
+    await cdp.send("Input.insertText", { text });
+    await page.waitForTimeout(150);
+  };
+  const fresh = async (text = "") => {
+    await editor(page).click();
+    await page.keyboard.press("Control+a");
+    await page.keyboard.press("Delete");
+    if (text) await page.keyboard.insertText(text);
+  };
+  await fresh();
+  await compose("＃");
+  expect(await lines()).toEqual(["#"]);
+  await fresh();
+  await compose("＃＃　見出し");
+  expect(await lines()).toEqual(["## 見出し"]);
+  // Not where no heading would come of it, and not in code.
+  await fresh("タグ");
+  await page.keyboard.press("Home");
+  await compose("＃");
+  expect(await lines()).toEqual(["＃タグ"]);
+  await fresh("```\n");
+  await compose("＃");
+  expect(await lines()).toEqual(["```", "＃"]);
+});
+
+test("settings: a font size can be typed, and a setting that is only tried out starts nothing", async ({ page }) => {
+  await start(page);
+  await openFile(page, "save-me.md");
+  await editor(page).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("unsaved");
+  await page.keyboard.press("Control+Comma");
+  const size = page.locator(".modal label").filter({ hasText: "エディタのフォントサイズ" }).locator("input");
+  await size.click();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type("12");
+  await expect(size).toHaveValue("12");
+  await expect(page.locator(".pane-editor .cm-content")).toHaveCSS("font-size", "12px");
+  // Autosave chosen in the dialog but not saved: the file is not written.
+  const before = onDisk("save-me.md");
+  await page.locator(".modal label").filter({ hasText: "自動保存" }).locator("select").selectOption({ index: 1 });
+  await page.waitForTimeout(6000);
+  expect(onDisk("save-me.md")).toBe(before);
+  await page.click(".modal-footer button.secondary");
+  await expect(page.locator(".pane-editor .cm-content")).toHaveCSS("font-size", "14px");
+});
+
+test("the changes view keeps the cursor when the file is saved, and shares the editor's undo", async ({ page }) => {
+  await start(page);
+  await openFile(page, "unsaved.md");
+  await page.keyboard.press("Control+Shift+g");
+  await page.locator(".diff .segmented button").nth(1).click();
+  const right = page.locator(".diff .cm-content").last();
+  await right.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("AAA");
+  await page.keyboard.press("Control+s");
+  await expect(page.locator(".toolbar-status")).toHaveText("保存しました");
+  await page.keyboard.type("BBB");
+  await expect(right).toContainText("AAABBB");
+  expect(onDisk("unsaved.md")).toBe("# Unsaved\nAAA");
+  // Undo here and then in the editor: what was undone stays undone.
+  await page.keyboard.press("Control+z");
+  await expect(right).not.toContainText("BBB");
+  await page.keyboard.press("Escape");
+  await editor(page).click();
+  await page.keyboard.press("Control+z");
+  await expect(editor(page)).not.toContainText("BBB");
+});
+
+test("saving under a name that exists asks first, and a name with a dot still gets its extension", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  await page.keyboard.press("Control+Shift+h");
+  await page.locator(".modal.picker input").fill("exported");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".toolbar-status")).toHaveText("HTML を書き出しました");
+  const first = statSync(join(workspace, "exported.html")).mtimeMs;
+  // Again under the same name: the question comes, and "cancel" leaves the file as it is.
+  await page.keyboard.press("Control+Shift+h");
+  await page.locator(".modal.picker input").fill("exported");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".modal.confirm")).toContainText("既にあります");
+  await page.locator(".modal.confirm .prompt-actions button").first().click();
+  expect(statSync(join(workspace, "exported.html")).mtimeMs).toBe(first);
+  await page.keyboard.press("Escape");
+
+  await page.keyboard.press("Control+Shift+s");
+  await page.locator(".modal.picker input").fill("notes 2026.11");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveTitle(/^notes 2026\.11\.md /);
+  expect(onDisk("notes 2026.11.md")).toContain("# Hello");
 });

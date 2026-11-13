@@ -4,6 +4,7 @@ import { useSettings } from "../../store/useSettings";
 import { promptText } from "../../components/PromptDialog";
 import { openDocument } from "./fileOps";
 import { t, tError } from "../../i18n";
+import { forgetFirstOpened, firstOpenedPaths } from "../diff";
 
 const sep = (dir: string) => (dir.includes("\\") && !dir.includes("/") ? "\\" : "/");
 /** Join a directory and a name; "" is the web-mode root. */
@@ -12,6 +13,9 @@ export function childPath(dir: string, name: string): string {
   const s = sep(dir);
   return dir.endsWith(s) ? dir + name : dir + s + name;
 }
+
+/** Names the file tree shows: documents and images. */
+const LISTED = /\.(md|markdown|mdown|mkd|txt|png|jpe?g|gif|webp|svg|bmp|avif)$/i;
 
 const INVALID = /[\\/:*?"<>|]/;
 function validName(name: string): string | null {
@@ -38,8 +42,21 @@ function isWithin(path: string, dir: string): boolean {
 export async function createFileIn(dir: string): Promise<void> {
   const name = await promptText({ title: t("新規ファイル"), label: t("ファイル名"), defaultValue: "untitled.md", okLabel: t("作成"), validate: validName });
   if (!name) return;
-  const withExt = /\.[A-Za-z0-9]+$/.test(name) ? name : `${name}.md`;
+  // ".md" unless the name already ends in a kind of file the tree shows. A dot alone does not make
+  // an extension: "release-1.2" was created as it stood and then appeared nowhere.
+  const withExt = LISTED.test(name) ? name : `${name}.md`;
   const path = childPath(dir, withExt);
+  // Writing would empty a file that is already there.
+  let exists = true;
+  try {
+    await platform.fileMtime(path);
+  } catch {
+    exists = false;
+  }
+  if (exists) {
+    await platform.message(t("同じ名前のフォルダかファイルが既にあります"), { title: t("作成できませんでした"), kind: "error" });
+    return;
+  }
   try {
     await platform.writeFile(path, "");
     expand(dir);
@@ -65,8 +82,13 @@ export async function createFolderIn(dir: string): Promise<void> {
 /** Rename a file or folder in place; open tabs and the recent list follow. */
 export async function renamePath(path: string, isDir: boolean): Promise<void> {
   const oldName = fileName(path);
-  const name = await promptText({ title: isDir ? t("フォルダ名の変更") : t("ファイル名の変更"), defaultValue: oldName, okLabel: t("変更"), validate: validName });
-  if (!name || name === oldName) return;
+  const typed = await promptText({ title: isDir ? t("フォルダ名の変更") : t("ファイル名の変更"), defaultValue: oldName, okLabel: t("変更"), validate: validName });
+  if (!typed) return;
+  // A file keeps its extension when the new name comes without one ("a2.md" -> "a3" is "a3.md");
+  // without it the file would vanish from the tree.
+  const oldExt = /\.[A-Za-z0-9]+$/.exec(oldName)?.[0] ?? "";
+  const name = !isDir && LISTED.test(oldName) && !LISTED.test(typed) ? typed + oldExt : typed;
+  if (name === oldName) return;
   const target = childPath(dirName(path), name);
   try {
     await platform.rename(path, target);
@@ -84,6 +106,7 @@ export async function renamePath(path: string, isDir: boolean): Promise<void> {
     docs: s.docs.map((d) => (d.path != null && remap(d.path) !== d.path ? { ...d, path: remap(d.path) } : d)),
     workspace: s.workspace != null ? remap(s.workspace) : s.workspace,
   }));
+  for (const p of firstOpenedPaths()) if (remap(p) !== p) forgetFirstOpened(p, remap(p) as string);
   const settings = useSettings.getState();
   settings.update({
     recentFiles: settings.recentFiles.map((p) => remap(p) as string),
@@ -123,6 +146,8 @@ export async function deletePath(path: string, isDir: boolean): Promise<void> {
     // Keep the text in the tab (as an unsaved document) so nothing typed is lost.
     docs: s.docs.map((d) => (affected(d.path) ? { ...d, path: null, mtime: null, savedContent: isDirty(d) ? d.savedContent : "" } : d)),
   }));
+  // A new file under the same name starts from its own text in the changes view.
+  for (const p of firstOpenedPaths()) if (affected(p)) forgetFirstOpened(p);
   const settings = useSettings.getState();
   settings.update({
     recentFiles: settings.recentFiles.filter((p) => !affected(p)),
