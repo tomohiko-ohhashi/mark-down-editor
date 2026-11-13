@@ -436,6 +436,29 @@ pub fn resolve_within(root: &Path, rel: &str) -> Result<PathBuf, String> {
     Ok(out)
 }
 
+/// True when `path` is still inside `root` after every symbolic link on the way has been
+/// followed. `root` must already be canonical. A link in the shared folder that points
+/// somewhere else does not open that other place.
+pub fn stays_within(root: &Path, path: &Path) -> bool {
+    // The part of the path that exists decides; what does not exist yet cannot be a link.
+    let mut existing = path;
+    loop {
+        match fs::canonicalize(existing) {
+            Ok(real) => return real.starts_with(root),
+            Err(_) => {
+                // A link whose target is missing would be created through: not inside.
+                if fs::symlink_metadata(existing).is_ok() {
+                    return false;
+                }
+                match existing.parent() {
+                    Some(parent) => existing = parent,
+                    None => return false,
+                }
+            }
+        }
+    }
+}
+
 /// Decode %XX escapes (as produced by JavaScript's encodeURIComponent).
 pub fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
@@ -565,6 +588,33 @@ mod tests {
         assert!(save_image(Path::new("/"), b"x", "png").is_err());
         assert!(!dir.parent().unwrap().join("escaped.txt").exists());
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn links_that_leave_the_folder_are_not_followed() {
+        let base = tmp("links").canonicalize().unwrap();
+        let root = base.join("root");
+        let outside = base.join("outside");
+        fs::create_dir_all(root.join("sub")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.md"), "x").unwrap();
+        fs::write(root.join("sub").join("a.md"), "x").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("out")).unwrap();
+        std::os::unix::fs::symlink(outside.join("secret.md"), root.join("s.md")).unwrap();
+        std::os::unix::fs::symlink(root.join("sub"), root.join("inside")).unwrap();
+        std::os::unix::fs::symlink(outside.join("missing.md"), root.join("dangling.md")).unwrap();
+
+        assert!(stays_within(&root, &root));
+        assert!(stays_within(&root, &root.join("sub").join("a.md")));
+        assert!(stays_within(&root, &root.join("new").join("file.md")));
+        assert!(stays_within(&root, &root.join("inside").join("a.md")));
+        assert!(!stays_within(&root, &root.join("out")));
+        assert!(!stays_within(&root, &root.join("out").join("secret.md")));
+        assert!(!stays_within(&root, &root.join("out").join("new.md")));
+        assert!(!stays_within(&root, &root.join("s.md")));
+        assert!(!stays_within(&root, &root.join("dangling.md")));
+        fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]

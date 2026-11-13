@@ -23,6 +23,13 @@ describe("extractHeadings", () => {
       { level: 2, text: "Sub", line: 10 },
     ]);
   });
+  it("keeps a # that belongs to the heading's text", () => {
+    expect(extractHeadings("# C#\n## F# and C#\n### Closed ###\n#### a#b ##").map((h) => h.text)).toEqual(["C#", "F# and C#", "Closed", "a#b"]);
+  });
+  it("a longer fence is not closed by a shorter one inside it", () => {
+    const h = extractHeadings("````md\n```\n# not\n```\n# not either\n````\n# yes\n~~~\n# no\n```\n# no\n~~~\n# yes too");
+    expect(h.map((x) => x.text)).toEqual(["yes", "yes too"]);
+  });
   it("requires a space after the hashes", () => {
     expect(extractHeadings("#nope")).toEqual([]);
   });

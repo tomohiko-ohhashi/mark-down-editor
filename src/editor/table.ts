@@ -1,6 +1,7 @@
 import { EditorSelection, type EditorState, type StateCommand } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { t as tr } from "../i18n";
+import { inCodeBlock } from "./context";
 
 /** Display width: CJK and full-width characters count as 2 columns. */
 export function displayWidth(s: string): number {
@@ -67,6 +68,8 @@ export function tableAt(state: EditorState, pos: number): TableInfo | null {
   const doc = state.doc;
   const cur = doc.lineAt(pos);
   if (!isTableLine(cur.text)) return null;
+  // Lines with pipes inside a code block are code; Tab must not rewrite them.
+  if (inCodeBlock(state, cur.from)) return null;
   let start = cur.number;
   while (start > 1 && isTableLine(doc.line(start - 1).text)) start--;
   let end = cur.number;
@@ -146,7 +149,8 @@ function replaceTable(view: EditorView, t: TableInfo, text: string, cursor?: { r
     const segStart = (pipes[cursor.col] ?? -1) + 1;
     const segEnd = pipes[cursor.col + 1] ?? lineText.length;
     const seg = lineText.slice(segStart, segEnd);
-    const contentStart = segStart + (seg.length - seg.trimStart().length);
+    // In an empty cell the cursor goes after the one space behind the pipe, not up against the next pipe.
+    const contentStart = seg.trim() === "" ? segStart + Math.min(1, seg.length) : segStart + (seg.length - seg.trimStart().length);
     const anchor = lineStart + contentStart + seg.trim().length;
     selection = EditorSelection.single(anchor);
   }
@@ -270,10 +274,14 @@ export function insertTable(view: EditorView, rows: number, cols: number) {
   const { from, to } = view.state.selection.main;
   const line = view.state.doc.lineAt(from);
   const prefix = line.text.trim() === "" ? "" : "\n\n";
-  const insert = prefix + text + "\n";
+  // Text that follows on the same line needs a blank line too, or it becomes a row of the table.
+  const suffix = view.state.sliceDoc(to, view.state.doc.lineAt(to).to).trim() === "" ? "\n" : "\n\n";
+  const insert = prefix + text + suffix;
+  const firstCell = from + prefix.length + 2;
   view.dispatch({
     changes: { from, to, insert },
-    selection: { anchor: from + prefix.length + 2 },
+    // The first heading is selected: typing replaces the placeholder.
+    selection: { anchor: firstCell, head: firstCell + headers[0].length },
     scrollIntoView: true,
     userEvent: "input",
   });

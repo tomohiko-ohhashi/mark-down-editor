@@ -24,16 +24,21 @@ export function extractHeadings(src: string): Heading[] {
   }
   for (let i = start; i < lines.length; i++) {
     const line = lines[i];
-    const f = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
-    if (f) {
-      if (!fence) fence = f[1][0];
-      else if (line.trim().startsWith(fence.repeat(3))) fence = null;
+    const f = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence) {
+      // A fence is closed by one of the same kind that is at least as long and has nothing after it.
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length && f[2].trim() === "") fence = null;
       continue;
     }
-    if (fence) continue;
-    const m = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (f) {
+      fence = f[1];
+      continue;
+    }
+    const m = /^\s{0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*$/.exec(line);
     if (m) {
-      out.push({ level: m[1].length, text: m[2] || t("(無題)"), line: i + 1 });
+      // A closing run of "#" counts only after a space: "# C#" is the heading "C#".
+      const text = (m[2] ?? "").replace(/(^|[ \t]+)#+$/, "");
+      out.push({ level: m[1].length, text: text || t("(無題)"), line: i + 1 });
       continue;
     }
     const s = SETEXT_RE.exec(line);

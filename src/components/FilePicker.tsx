@@ -79,17 +79,35 @@ export function FilePicker() {
   const crumbs = dir ? dir.split("/") : [];
   const join = (a: string, b: string) => (a ? `${a}/${b}` : b);
   const ext = request.extensions?.[0];
-  const submitSave = () => {
+  const submitSave = async () => {
     let n = name.trim();
     if (!n) return;
-    if (ext && ext !== "*" && !/\.[A-Za-z0-9]+$/.test(n)) n += `.${ext}`;
+    // The wanted extension is added unless the name ends in it (for a document: in any kind of
+    // document). A dot alone does not make an extension: "notes 2026.11" is "notes 2026.11.md".
+    const kinds = ext === "md" ? "md|markdown|mdown|mkd|txt" : (request.extensions ?? []).join("|");
+    if (ext && ext !== "*" && !new RegExp(`\\.(${kinds})$`, "i").test(n)) n += `.${ext}`;
     if (/[\\/]/.test(n)) {
       setError(t("ファイル名にスラッシュは使えません"));
       return;
     }
     const target = join(dir, n);
-    const exists = entries?.some((e) => !e.is_dir && e.name === n);
-    if (exists && !window.confirm(t("「{0}」は既にあります。上書きしますか？", n))) return;
+    // Asked of the server, not of the list on screen: the list leaves out images and other
+    // kinds of files, which would then be overwritten without a question.
+    let exists = true;
+    try {
+      await platform.fileMtime(target);
+    } catch {
+      exists = false;
+    }
+    if (exists) {
+      const overwrite = await platform.ask(t("「{0}」は既にあります。上書きしますか？", n), {
+        title: t("名前を付けて保存"),
+        kind: "warning",
+        okLabel: t("上書きする"),
+        cancelLabel: t("キャンセル"),
+      });
+      if (!overwrite) return;
+    }
     finish(target);
   };
 

@@ -72,6 +72,16 @@ describe("renderMarkdown", () => {
     expect(html).toContain('<a href="#user-content-はじめに">d</a>');
     expect(html).toContain('<a href="#none">e</a>');
   });
+  it("does not take prices for formulas", async () => {
+    expect(await renderMarkdown("It costs $5 and $10 total.")).toBe("<p>It costs $5 and $10 total.</p>");
+    expect(await renderMarkdown("Only one $ sign here. And US$100.")).toBe("<p>Only one $ sign here. And US$100.</p>");
+    expect(await renderMarkdown("$x$ と $y^2$")).toContain('class="katex');
+  });
+  it("shows pictures given as data or as a path on this computer", async () => {
+    expect(await renderMarkdown("![x](data:image/png;base64,AAAA)")).toContain('src="data:image/png;base64,AAAA"');
+    expect(await renderMarkdown("![x](C:/Users/me/p.png)", { docDir: "C:/docs" })).toContain("C%3A%2FUsers%2Fme%2Fp.png");
+    expect(await renderMarkdown('<a name="place"></a>\n\n[go](#place)')).toContain('href="#user-content-place"');
+  });
   it("keeps mermaid blocks as code when not rendering diagrams", async () => {
     const html = await renderMarkdown("```mermaid\ngraph LR\nA-->B\n```");
     expect(html).toContain('class="language-mermaid"');

@@ -82,6 +82,9 @@ export async function insertImages(view: EditorView, files: File[]): Promise<boo
 export function handlePaste(event: ClipboardEvent, view: EditorView): boolean {
   const files = imageFiles(event.clipboardData);
   if (files.length === 0) return false;
+  // Spreadsheets and word processors put a picture of the copied cells next to their text:
+  // text that was copied is pasted as text.
+  if (event.clipboardData?.getData("text/plain")) return false;
   event.preventDefault();
   void insertImages(view, files);
   return true;

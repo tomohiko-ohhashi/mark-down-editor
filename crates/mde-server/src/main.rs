@@ -337,9 +337,22 @@ fn bad(msg: String) -> Response {
     api_error(StatusCode::BAD_REQUEST, &msg)
 }
 
+const OUTSIDE: &str = "公開フォルダの外は指定できません";
+
+/// The absolute path for a path given by the UI. It is inside the shared folder, also after
+/// following symbolic links: a link in the folder that points elsewhere is not a way out.
 fn resolve(state: &AppState, rel: &str) -> Result<PathBuf, Box<Response>> {
-    mde_core::resolve_within(&state.root, rel)
-        .map_err(|e| Box::new(api_error(StatusCode::FORBIDDEN, &e)))
+    let p = mde_core::resolve_within(&state.root, rel)
+        .map_err(|e| Box::new(api_error(StatusCode::FORBIDDEN, &e)))?;
+    if !mde_core::stays_within(&state.root, &p) {
+        return Err(Box::new(api_error(StatusCode::FORBIDDEN, OUTSIDE)));
+    }
+    Ok(p)
+}
+
+/// True for a path the server handed out (root-relative) that `resolve` would accept.
+fn reachable(state: &AppState, rel: &str) -> bool {
+    resolve(state, rel).is_ok()
 }
 
 /// Root-relative display path with forward slashes.
@@ -425,7 +438,11 @@ async fn api_read_dir(State(state): State<Shared>, Query(q): Query<PathQuery>) -
     };
     let root = state.root.clone();
     match mde_core::read_dir(&p, |e| display_path(&root, e)) {
-        Ok(entries) => axum::Json(entries).into_response(),
+        Ok(mut entries) => {
+            // Links that lead out of the shared folder could not be opened; do not list them.
+            entries.retain(|e| reachable(&state, &e.path));
+            axum::Json(entries).into_response()
+        }
         Err(e) => api_error(StatusCode::NOT_FOUND, &e),
     }
 }
@@ -451,8 +468,11 @@ async fn api_save_image(
     };
     // The image goes into "assets" next to the document, so the document has to be a file in the
     // shared folder; for the folder itself, "next to it" would be outside.
-    if is_root(&state, &doc) {
-        return api_error(StatusCode::FORBIDDEN, "公開フォルダの外は指定できません");
+    let assets_inside = doc
+        .parent()
+        .is_some_and(|dir| mde_core::stays_within(&state.root, &dir.join("assets")));
+    if is_root(&state, &doc) || !assets_inside {
+        return api_error(StatusCode::FORBIDDEN, OUTSIDE);
     }
     if body.len() > 50 * 1024 * 1024 {
         return bad("画像が大きすぎます (50MB まで)".into());
@@ -481,7 +501,10 @@ async fn api_search(State(state): State<Shared>, Query(q): Query<SearchQuery>) -
     })
     .await;
     match result {
-        Ok(Ok(hits)) => axum::Json(hits).into_response(),
+        Ok(Ok(mut hits)) => {
+            hits.retain(|h| reachable(&state, &h.path));
+            axum::Json(hits).into_response()
+        }
         Ok(Err(e)) => api_error(StatusCode::NOT_FOUND, &e),
         Err(_) => api_error(StatusCode::INTERNAL_SERVER_ERROR, "検索に失敗しました"),
     }

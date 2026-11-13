@@ -54,7 +54,8 @@ export default function App() {
   // Set while rendering, so everything below reads the chosen language in this same pass.
   const language = resolveLanguage(useSettings((s) => s.language));
   setLanguage(language);
-  const autosaveSeconds = useSettings((s) => s.autosaveSeconds);
+  // The saved value: a number that is only being tried out in the settings dialog must not start writing files.
+  const autosaveSeconds = useSettings(() => savedSetting("autosaveSeconds"));
   const panelSizes = useSettings((s) => s.panelSizes);
 
   // Load settings, then restore the previous session and check for updates.

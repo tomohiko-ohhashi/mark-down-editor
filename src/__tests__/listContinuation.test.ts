@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EditorState, EditorSelection, type Transaction } from "@codemirror/state";
-import { parseLinePrefix, continuationFor, continueList } from "../editor/listContinuation";
+import { parseLinePrefix, continuationFor, continueList, indentListItem, outdentListItem, plainNewline } from "../editor/listContinuation";
 
 function run(doc: string, cursor: number) {
   let state = EditorState.create({ doc, selection: EditorSelection.single(cursor) });
@@ -55,5 +55,41 @@ describe("continueList command", () => {
   });
   it("does nothing outside lists", () => {
     expect(run("text", 4).ok).toBe(false);
+  });
+});
+
+describe("Tab on a list item", () => {
+  const apply = (cmd: typeof indentListItem, doc: string, cursor: number) => {
+    let state = EditorState.create({ doc, selection: EditorSelection.single(Math.min(cursor, doc.length)) });
+    const ok = cmd({ state, dispatch: (tr: Transaction) => (state = tr.state) });
+    return ok ? state.doc.toString() : null;
+  };
+  it("nests under the item above, at the column of its text, with a number that starts a list", () => {
+    expect(apply(indentListItem, "- a\n- b", 7)).toBe("- a\n  - b");
+    expect(apply(indentListItem, "1. a\n2. b", 9)).toBe("1. a\n   1. b");
+    expect(apply(indentListItem, "10. a\n11. b", 11)).toBe("10. a\n    1. b");
+    expect(apply(indentListItem, "1. a\n   1. x\n2. b", 18)).toBe("1. a\n   1. x\n   2. b");
+    // The first item has nothing to go under.
+    expect(apply(indentListItem, "- a", 3)).toBeNull();
+    expect(apply(indentListItem, "text\n- a", 8)).toBeNull();
+  });
+  it("Shift+Tab goes back to the level of the item it is under", () => {
+    expect(apply(outdentListItem, "1. a\n   1. b", 12)).toBe("1. a\n2. b");
+    expect(apply(outdentListItem, "- a\n  - b", 9)).toBe("- a\n- b");
+    expect(apply(outdentListItem, "- a", 3)).toBeNull();
+  });
+});
+
+describe("plainNewline", () => {
+  const press = (doc: string, cursor: number) => {
+    let state = EditorState.create({ doc, selection: EditorSelection.single(cursor) });
+    plainNewline({ state, dispatch: (tr: Transaction) => (state = tr.state) });
+    return state.doc.toString();
+  };
+  it("keeps the line's own indentation and nothing else", () => {
+    expect(press("\tcode", 5)).toBe("\tcode\n\t");
+    expect(press("  a  ", 3)).toBe("  a\n    ");
+    expect(press("    x", 2)).toBe("  \n    x");
+    expect(press("[t]()", 4)).toBe("[t](\n)");
   });
 });
