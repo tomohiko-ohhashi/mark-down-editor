@@ -111,7 +111,8 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .tab-new:hover { color: var(--fg); }
 
 /* ---------- Workbench ---------- */
-.workbench { display: flex; flex: 1; min-height: 0; }
+/* isolation: the editor's own panels (search) carry a high z-index and must stay below the dialogs. */
+.workbench { display: flex; flex: 1; min-height: 0; isolation: isolate; }
 .panes { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .pane { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
 .pane-editor { border-right: 1px solid var(--border); }

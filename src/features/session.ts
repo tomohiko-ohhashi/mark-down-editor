@@ -1,5 +1,5 @@
 import { platform } from "../platform";
-import { useDocStore, selectActiveDoc, type ViewMode } from "../store/useDocStore";
+import { useDocStore, selectActiveDoc, fileName, type ViewMode } from "../store/useDocStore";
 import { useSettings, type SessionState, type Settings, type UnsavedDoc } from "../store/useSettings";
 import { openDocument, confirmDiscardAll } from "./files/fileOps";
 import { choose } from "../components/ConfirmDialog";
@@ -109,7 +109,9 @@ export function unsavedSnapshot(
   enabled: boolean,
 ): UnsavedDoc[] {
   if (!enabled) return [];
-  return docs.filter((d) => d.content !== d.savedContent).map((d) => ({ path: d.path, content: d.content }));
+  return docs
+    .filter((d) => d.content !== d.savedContent)
+    .map((d) => (d.path ? { path: d.path, content: d.content, base: d.savedContent } : { path: null, content: d.content }));
 }
 
 /** Make stored unsaved documents safe to use. */
@@ -120,13 +122,16 @@ export function normalizeUnsaved(raw: unknown): UnsavedDoc[] {
     if (!item || typeof item !== "object") continue;
     const r = item as Record<string, unknown>;
     if (typeof r.content !== "string") continue;
-    out.push({ path: typeof r.path === "string" && r.path ? r.path : null, content: r.content });
+    const path = typeof r.path === "string" && r.path ? r.path : null;
+    out.push(path && typeof r.base === "string" ? { path, content: r.content, base: r.base } : { path, content: r.content });
   }
   return out;
 }
 
 /** Bring back documents that had unsaved changes when the app was last closed. */
 async function restoreUnsaved(list: UnsavedDoc[]): Promise<void> {
+  const changedOutside: string[] = [];
+  const missing: string[] = [];
   for (const u of list) {
     let state = useDocStore.getState();
     if (u.path) {
@@ -134,15 +139,26 @@ async function restoreUnsaved(list: UnsavedDoc[]): Promise<void> {
       state = useDocStore.getState();
       const doc = state.docs.find((d) => d.path === u.path);
       if (doc) {
+        if (u.base != null && doc.savedContent !== u.base) changedOutside.push(fileName(u.path));
         state.setContent(doc.id, u.content);
         continue;
       }
       // The file is gone: keep the text as a new, unsaved document rather than lose it.
+      missing.push(fileName(u.path));
     }
     const active = selectActiveDoc(state);
     if (!active.path && active.content === "" && active.savedContent === "") state.setContent(active.id, u.content);
     else state.addDoc({ content: u.content, savedContent: "" });
   }
+  // Saving a restored text would overwrite what another program wrote in the meantime: say so once.
+  const notes: string[] = [];
+  if (changedOutside.length > 0) {
+    notes.push(t("次のファイルは、前回の終了後に他のプログラムで変更されています。復元した内容を保存すると、その変更は上書きされます。差分表示で確認できます。\n{0}", changedOutside.join("\n")));
+  }
+  if (missing.length > 0) {
+    notes.push(t("次のファイルは見つからなかったため、内容を無題のドキュメントとして復元しました。\n{0}", missing.join("\n")));
+  }
+  if (notes.length > 0) void platform.message(notes.join("\n\n"), { title: t("未保存の変更を復元しました"), kind: "warning" });
 }
 
 let tracking = false;
@@ -248,9 +264,8 @@ export async function restoreSession(saved: Settings): Promise<void> {
 export async function confirmQuit(): Promise<boolean> {
   saveSessionNow();
   if (!useDocStore.getState().docs.some((d) => d.content !== d.savedContent)) return true;
-  const s = useSettings.getState();
-  if (!s.restoreUnsaved) return confirmDiscardAll();
-  if (!s.quitWithoutAsking) {
+  if (!savedSetting("restoreUnsaved")) return confirmDiscardAll();
+  if (!savedSetting("quitWithoutAsking")) {
     const answer = await choose({
       title: t("未保存の変更"),
       message: t("保存されていない変更があります。次回の起動時に復元されます。終了しますか？"),

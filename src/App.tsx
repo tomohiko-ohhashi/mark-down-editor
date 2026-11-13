@@ -21,7 +21,7 @@ import { CheatSheet } from "./components/CheatSheet";
 import { Editor } from "./editor/Editor";
 import { Preview } from "./preview/Preview";
 import { useDocStore, selectActiveDoc, selectActiveIsDirty, fileName } from "./store/useDocStore";
-import { useSettings, applyTheme, loadSettings } from "./store/useSettings";
+import { useSettings, applyTheme, loadSettings, savedSetting } from "./store/useSettings";
 import { restoreSession, saveSessionNow, confirmQuit } from "./features/session";
 import { resolveLanguage, setLanguage } from "./i18n";
 import {
@@ -143,10 +143,10 @@ export default function App() {
     if (inTauri) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!useDocStore.getState().docs.some((d) => d.content !== d.savedContent)) return;
-      const s = useSettings.getState();
       // The text is kept for the next visit; only ask when the user wants to be asked.
-      if (s.restoreUnsaved) saveSessionNow();
-      if (!(s.restoreUnsaved && s.quitWithoutAsking)) e.preventDefault();
+      const keep = savedSetting("restoreUnsaved");
+      if (keep) saveSessionNow();
+      if (!(keep && savedSetting("quitWithoutAsking"))) e.preventDefault();
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
