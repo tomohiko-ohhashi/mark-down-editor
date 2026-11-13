@@ -170,6 +170,7 @@ export function Toolbar() {
               <hr />
               <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>{t("チートシート")} <kbd>F1</kbd></button>
               <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>{t("設定…")} <kbd>{mod},</kbd></button>
+              <button className="menu-item" onClick={() => { close(); toggle("aboutOpen"); }}>{t("バージョン情報…")}</button>
             </>
           )}
         </Dropdown>
@@ -214,6 +215,7 @@ export function MobileBar() {
             <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>{t("フォーカスモード")}</button>
             <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>{t("チートシート")}</button>
             <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>{t("設定…")}</button>
+            <button className="menu-item" onClick={() => { close(); toggle("aboutOpen"); }}>{t("バージョン情報…")}</button>
           </>
         )}
       </Dropdown>

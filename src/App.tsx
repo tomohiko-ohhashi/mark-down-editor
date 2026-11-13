@@ -15,6 +15,7 @@ import { StatusBar } from "./components/StatusBar";
 import { Sidebar } from "./components/Sidebar";
 import { Outline } from "./components/Outline";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { AboutDialog } from "./components/AboutDialog";
 import { CheatSheet } from "./components/CheatSheet";
 import { Editor } from "./editor/Editor";
 import { Preview } from "./preview/Preview";
@@ -85,7 +86,8 @@ export default function App() {
       }
       if (e.key === "Escape") {
         // The cheat sheet is a side panel now and stays open; F1 toggles it.
-        if (state.settingsOpen) toggle("settingsOpen");
+        if (state.aboutOpen) toggle("aboutOpen");
+        else if (state.settingsOpen) toggle("settingsOpen");
         else if (state.focusMode) toggle("focusMode");
         return;
       }
@@ -239,6 +241,7 @@ export default function App() {
       <StatusBar />
       <MobileBar />
       <SettingsDialog />
+      <AboutDialog />
       <FilePicker />
       <PromptDialog />
       <ConfirmDialog />
