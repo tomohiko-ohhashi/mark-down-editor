@@ -193,7 +193,7 @@ Linux のビルドには次のパッケージが必要: `libwebkit2gtk-4.1-dev l
 
 GitHub の Settings → Branches → Add branch ruleset (または Add classic branch protection rule) で、対象を `main` にして「Require status checks to pass before merging」を有効にし、チェックに `test (ubuntu-22.04)`、`test (macos-latest)`、`test (windows-latest)` を追加する。これで CI の完了前に Merge ボタンが押せなくなる。
 
-## 7k. v0.3.5 のあとの修正
+## 7k. v0.3.5 のあとの修正 (v0.3.6)
 
 | 項目 | 内容 |
 | --- | --- |
@@ -203,7 +203,7 @@ GitHub の Settings → Branches → Add branch ruleset (または Add classic b
 | アップデートまわり | 「今すぐ更新を確認」と「起動時にアップデートを確認する」はバージョン情報だけに置く。確認の結果はボタンの横に出す |
 | ライセンス一覧の作り直しコマンド | `pnpm licenses` は pnpm 自体のコマンドと名前が重なっていたため、`pnpm update-licenses` に変更 |
 
-## 7l. 名前の変更: Toucan Markdown Editor (v0.3.5 のあと)
+## 7l. 名前の変更: Toucan Markdown Editor (v0.3.6)
 
 - アプリ名を **Toucan Markdown Editor**、作成者を **BigBridge Digital** に変更。リポジトリは `tomohiko-ohhashi/toucan-markdown-editor` (旧名 `mark-down-editor` からは GitHub が転送する)
 - 変えたもの: 製品名とウィンドウタイトル、バージョン情報、著作権表記 (`LICENSE` / README / インストーラの情報)、発行元、macOS のメニュー、リリース名、Web 版のタイトルとホーム画面用の名前、アプリ内のリンクと更新確認の URL
@@ -211,7 +211,7 @@ GitHub の Settings → Branches → Add branch ruleset (または Add classic b
 - アイコン: オオハシのシルエット (くちばしだけオレンジと黄色の 2 色) と「md」の文字。元データは `src-tauri/icons-src/icon.svg` (文字は線で描いてあり、フォントに依存しない)。作り直すときは `pnpm tauri icon src-tauri/icons-src/icon.svg` を実行し、`src-tauri/icons/android` と `ios` は消す。Web 版用の `public/*.png` は同じ SVG から作る
 - 注意: Windows では製品名が変わるため、旧名「Markdown Editor」からの自動アップデート後に、旧名のアプリが別に残る可能性がある (未確認)。残った場合は旧名のほうをアンインストールする
 
-## 7m. 名前の変更のあとに足したもの
+## 7m. 名前の変更のあとに足したもの (v0.3.6)
 
 | 項目 | 内容 |
 | --- | --- |
