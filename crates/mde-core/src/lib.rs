@@ -19,6 +19,10 @@ pub struct FileContent {
 /// Said when the text has characters the file's encoding cannot store; the UI offers UTF-8 then.
 pub const CANNOT_ENCODE: &str = "この文字コードでは保存できない文字が含まれています";
 
+/// Name given to UTF-8 files that start with a byte-order mark (Windows tools write these).
+/// The mark is not part of the text: it is taken off when reading and put back when saving.
+pub const UTF8_BOM: &str = "UTF-8 BOM";
+
 /// Decode the bytes of a text file. UTF-8 is tried first; otherwise the
 /// encoding is guessed (older Japanese text is usually Shift_JIS or EUC-JP).
 pub fn decode_text(bytes: &[u8]) -> Result<(String, &'static str), String> {
@@ -32,7 +36,14 @@ pub fn decode_text(bytes: &[u8]) -> Result<(String, &'static str), String> {
         return Ok((text.into_owned(), enc.name()));
     }
     if let Ok(text) = std::str::from_utf8(bytes) {
-        return Ok((text.to_string(), "UTF-8"));
+        return Ok(match text.strip_prefix('\u{feff}') {
+            Some(rest) => (rest.to_string(), UTF8_BOM),
+            None => (text.to_string(), "UTF-8"),
+        });
+    }
+    // Not text at all (an image, an archive ...): a guess would only show garbage.
+    if bytes.contains(&0) {
+        return Err("文字コードを判別できないファイルです".to_string());
     }
     let mut detector = chardetng::EncodingDetector::new();
     detector.feed(bytes, true);
@@ -46,6 +57,9 @@ pub fn decode_text(bytes: &[u8]) -> Result<(String, &'static str), String> {
 
 /// Encode text for a file stored in `encoding` (as reported by `read_file`).
 pub fn encode_text(content: &str, encoding: &str) -> Result<Vec<u8>, String> {
+    if encoding == UTF8_BOM {
+        return Ok(["\u{feff}".as_bytes(), content.as_bytes()].concat());
+    }
     let enc = encoding_rs::Encoding::for_label(encoding.as_bytes()).unwrap_or(encoding_rs::UTF_8);
     if enc == encoding_rs::UTF_8 {
         return Ok(content.as_bytes().to_vec());
@@ -68,8 +82,10 @@ pub fn encode_text(content: &str, encoding: &str) -> Result<Vec<u8>, String> {
         return Ok(out);
     }
     let (bytes, _, had_errors) = enc.encode(content);
-    if had_errors {
-        return Err(format!("{CANNOT_ENCODE} ({})", enc.name()));
+    // Some characters are stored as a different one without an error (in Shift_JIS, "¥" becomes
+    // the byte that reads back as "\"), so also require that the bytes read back as the same text.
+    if had_errors || enc.decode_without_bom_handling(&bytes).0 != content {
+        return Err(format!("{CANNOT_ENCODE}: {}", enc.name()));
     }
     Ok(bytes.into_owned())
 }
@@ -390,9 +406,11 @@ mod tests {
         fs::write(dir.join("b.md"), "").unwrap();
         fs::write(dir.join("a.txt"), "").unwrap();
         fs::write(dir.join("c.png"), "").unwrap();
+        fs::write(dir.join("d.zip"), "").unwrap();
         let entries = read_dir(&dir, |p| p.to_string_lossy().into_owned()).unwrap();
         let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(names, vec!["zeta", "a.txt", "b.md"]);
+        // Folders first, then documents and images; other files and hidden folders are left out.
+        assert_eq!(names, vec!["zeta", "a.txt", "b.md", "c.png"]);
         assert!(entries[0].is_dir);
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -491,6 +509,24 @@ mod tests {
     }
 
     #[test]
+    fn utf8_bom_and_binary() {
+        // The byte-order mark is not part of the text, and saving puts it back.
+        let (text, enc) = decode_text(b"\xEF\xBB\xBF# title\n").unwrap();
+        assert_eq!((text.as_str(), enc), ("# title\n", UTF8_BOM));
+        assert_eq!(
+            encode_text("# title\n", enc).unwrap(),
+            b"\xEF\xBB\xBF# title\n"
+        );
+        assert_eq!(
+            decode_text(b"# title\n").unwrap(),
+            ("# title\n".to_string(), "UTF-8")
+        );
+        assert_eq!(encode_text("# title\n", "UTF-8").unwrap(), b"# title\n");
+        // Binary data is refused rather than shown as garbage.
+        assert!(decode_text(b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\xff\xfe").is_err());
+    }
+
+    #[test]
     fn shift_jis_round_trip() {
         let dir = std::env::temp_dir().join(format!("mde-sjis-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
@@ -512,6 +548,9 @@ mod tests {
         // A character Shift_JIS cannot store is refused instead of being replaced.
         let err = write_file(&path, "emoji 🦜", Some("Shift_JIS")).unwrap_err();
         assert!(err.starts_with(CANNOT_ENCODE));
+        // ... and so is one that would be stored as a different character.
+        assert!(encode_text("100¥", "Shift_JIS").is_err());
+        assert!(encode_text("100\\ ～", "Shift_JIS").is_ok());
         assert_eq!(read_file(&path).unwrap().content, format!("{text}追記\r\n"));
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -531,8 +570,8 @@ mod tests {
 
         assert_eq!(decode_text("plain ascii".as_bytes()).unwrap().1, "UTF-8");
         assert_eq!(
-            decode_text("\u{feff}with bom".as_bytes()).unwrap().1,
-            "UTF-8"
+            decode_text("\u{feff}with bom".as_bytes()).unwrap(),
+            ("with bom".to_string(), UTF8_BOM)
         );
         assert_eq!(encode_text("x", "no-such-encoding").unwrap(), b"x");
     }

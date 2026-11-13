@@ -67,6 +67,7 @@ export const en: Record<string, string> = {
   "編集 / 分割 / プレビュー表示": "Editor / split / preview view",
   "サイドバー（フォルダ）": "Sidebar (folder)",
   "アウトライン": "Outline",
+  "文字を大きく / 小さく / 元の大きさに戻す": "Larger / smaller / default text size",
   "ワークスペースを全文検索": "Search the workspace",
   "フォーカスモード": "Focus mode",
   "タイプライターモード": "Typewriter mode",
@@ -347,7 +348,6 @@ export const en: Record<string, string> = {
   "更新を確認できませんでした: {0}": "Could not check for updates: {0}",
   // ---- Errors from the Rust side ----
   "読み込みに失敗しました": "Could not read the file",
-  "UTF-8 として読み込めないファイルです": "The file is not valid UTF-8 text",
   "フォルダを作成できません": "Could not create the folder",
   "保存に失敗しました": "Could not save the file",
   "フォルダを読み込めません": "Could not read the folder",

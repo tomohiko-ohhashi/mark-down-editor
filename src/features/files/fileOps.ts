@@ -159,7 +159,7 @@ async function writeTo(id: string, path: string): Promise<boolean> {
       if (encoding !== doc.encoding) {
         useDocStore.setState((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, encoding } : d)) }));
       }
-      useDocStore.setState({ autosaveError: null });
+      noteAutosave(id, null);
       useSettings.getState().addRecent(path);
       flashStatus(t("保存しました"));
       return true;
@@ -180,6 +180,17 @@ async function writeTo(id: string, path: string): Promise<boolean> {
   }
 }
 
+/** Remember (or forget, with null) that the autosave could not write a document. */
+function noteAutosave(id: string, problem: string | null): void {
+  useDocStore.setState((s) => {
+    if ((s.autosaveErrors[id] ?? null) === problem) return {};
+    const next = { ...s.autosaveErrors };
+    if (problem == null) delete next[id];
+    else next[id] = problem;
+    return { autosaveErrors: next };
+  });
+}
+
 /** Save every dirty document that already has a path (autosave). */
 export async function autosaveAll(): Promise<void> {
   for (const doc of useDocStore.getState().docs) {
@@ -190,10 +201,10 @@ export async function autosaveAll(): Promise<void> {
       try {
         const mtime = await writeFile(doc.path, diskText(doc), doc.encoding);
         useDocStore.getState().markSaved(doc.id, doc.path, mtime, written);
-        if (useDocStore.getState().autosaveError) useDocStore.setState({ autosaveError: null });
+        noteAutosave(doc.id, null);
       } catch (e) {
         // Keep telling the user for as long as it fails; nothing is saved meanwhile.
-        useDocStore.setState({ autosaveError: `${fileName(doc.path)}: ${tError(e)}` });
+        noteAutosave(doc.id, `${fileName(doc.path)}: ${tError(e)}`);
       }
     }
   }

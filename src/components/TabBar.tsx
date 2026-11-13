@@ -16,7 +16,8 @@ export function TabBar() {
 
   /** Press on a tab; once the pointer has moved a little, the tab follows it over the others. */
   const startDrag = (id: string, e: React.PointerEvent) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest(".tab-close")) return;
+    // Not for touch: there a sideways swipe scrolls the tab bar.
+    if (e.button !== 0 || e.pointerType === "touch" || (e.target as HTMLElement).closest(".tab-close")) return;
     const startX = e.clientX;
     dragged.current = false;
     const move = (ev: PointerEvent) => {
@@ -25,7 +26,13 @@ export function TabBar() {
       setDragging(id);
       const over = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest<HTMLElement>(".tab");
       const overId = over?.dataset.id;
-      if (overId && overId !== id) moveDoc(id, overId);
+      if (!over || !overId || overId === id) return;
+      // Swap only once the pointer is past the middle of the other tab. Without this a narrow tab
+      // dragged over a wide one would still be over it after the swap, and jump back and forth.
+      const ids = useDocStore.getState().docs.map((d) => d.id);
+      const box = over.getBoundingClientRect();
+      const middle = box.left + box.width / 2;
+      if (ids.indexOf(id) < ids.indexOf(overId) ? ev.clientX > middle : ev.clientX < middle) moveDoc(id, overId);
     };
     const up = () => {
       window.removeEventListener("pointermove", move);

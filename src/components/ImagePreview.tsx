@@ -1,8 +1,9 @@
+import { useEffect } from "react";
 import { create } from "zustand";
 import { platform } from "../platform";
 import { useDocStore, selectActiveDoc, fileName, dirName, flashStatus } from "../store/useDocStore";
 import { editorRef } from "../editor/Editor";
-import { relativePath } from "../preview/paths";
+import { relativePath, linkPath } from "../preview/paths";
 import { t } from "../i18n";
 
 const useImageStore = create<{ path: string | null }>(() => ({ path: null }));
@@ -15,12 +16,25 @@ export function showImage(path: string): void {
 export function ImagePreview() {
   const path = useImageStore((s) => s.path);
   const doc = useDocStore(selectActiveDoc);
+  const open = path != null;
+  // Esc closes it wherever the focus is (the insert button may be disabled), before anything behind it reacts.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      useImageStore.setState({ path: null });
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open]);
   if (!path) return null;
   const close = () => useImageStore.setState({ path: null });
   const insert = () => {
     const view = editorRef.view;
     if (!view || !doc.path) return;
-    const link = `![${fileName(path).replace(/\.\w+$/, "")}](${encodeURI(relativePath(dirName(doc.path), path))})`;
+    const link = `![${fileName(path).replace(/\.\w+$/, "")}](${linkPath(relativePath(dirName(doc.path), path))})`;
     const { from, to } = view.state.selection.main;
     view.dispatch({ changes: { from, to, insert: link }, selection: { anchor: from + link.length }, userEvent: "input" });
     close();
@@ -28,16 +42,7 @@ export function ImagePreview() {
     flashStatus(t("画像を挿入しました"));
   };
   return (
-    <div
-      className="modal-backdrop"
-      onMouseDown={close}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.stopPropagation();
-          close();
-        }
-      }}
-    >
+    <div className="modal-backdrop" onMouseDown={close}>
       <div className="modal image-preview" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={fileName(path)}>
         <div className="modal-header">
           <h2>{fileName(path)}</h2>

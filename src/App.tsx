@@ -108,10 +108,21 @@ export default function App() {
         return run(() => state.setActive(state.docs[n].id));
       }
       // Text size. Only in the desktop app: in a browser these keys are the browser's own zoom.
-      if (inTauri && (!e.shiftKey || code === "Equal") && (code === "Equal" || code === "NumpadAdd" || code === "Minus" || code === "NumpadSubtract" || code === "Digit0")) {
+      // Matched by the character the key gives, so "+" works wherever the layout has it (Shift+; on a
+      // Japanese keyboard). Never with Alt: on Windows AltGr is Ctrl+Alt and types characters such as "\" or "@".
+      const zoom = !inTauri || e.altKey
+        ? null
+        : e.key === "+" || (e.key === "=" && !e.shiftKey) || code === "NumpadAdd"
+          ? 1
+          : (e.key === "-" && !e.shiftKey) || code === "NumpadSubtract"
+            ? -1
+            : e.key === "0" || (code === "Digit0" && !e.shiftKey) || code === "Numpad0"
+              ? 0
+              : null;
+      if (zoom != null) {
         return run(() => {
           const s = useSettings.getState();
-          const step = code === "Digit0" ? 0 : code === "Minus" || code === "NumpadSubtract" ? -1 : 1;
+          const step = zoom;
           const size = (cur: number, def: number) => (step === 0 ? def : Math.max(9, Math.min(40, cur + step)));
           s.update({ editorFontSize: size(s.editorFontSize, 14), previewFontSize: size(s.previewFontSize, 15) });
         });

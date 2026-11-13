@@ -3,6 +3,7 @@ import { platform } from "../platform";
 import { useDocStore, selectActiveDoc } from "../store/useDocStore";
 import { saveDocument } from "../features/files/fileOps";
 import { t, tError } from "../i18n";
+import { linkPath } from "../preview/paths";
 
 function imageFiles(list: DataTransfer | null): File[] {
   if (!list) return [];
@@ -51,7 +52,7 @@ export async function insertImagePaths(view: EditorView, paths: string[]): Promi
     try {
       const rel = await platform.importImage(docPath, source);
       const name = source.split(/[\\/]/).pop() ?? "";
-      links.push(`![${altText(name)}](${encodeURI(rel)})`);
+      links.push(`![${altText(name)}](${linkPath(rel)})`);
     } catch (e) {
       await platform.message(tError(e), { title: t("画像を保存できませんでした"), kind: "error" });
     }
@@ -69,7 +70,7 @@ export async function insertImages(view: EditorView, files: File[]): Promise<boo
     const bytes = new Uint8Array(await file.arrayBuffer());
     try {
       const rel = await platform.saveImage(docPath, bytes, ext);
-      links.push(`![${altText(file.name)}](${encodeURI(rel)})`);
+      links.push(`![${altText(file.name)}](${linkPath(rel)})`);
     } catch (e) {
       await platform.message(tError(e), { title: t("画像を保存できませんでした"), kind: "error" });
     }

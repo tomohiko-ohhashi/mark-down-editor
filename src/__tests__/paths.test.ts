@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { joinPath, isAbsolutePath, isExternalUrl, relativePath, isImagePath } from "../preview/paths";
+import { joinPath, isAbsolutePath, isExternalUrl, relativePath, isImagePath, linkPath } from "../preview/paths";
 
 describe("paths", () => {
   it("joins posix paths resolving . and ..", () => {
@@ -35,6 +35,14 @@ describe("relativePath", () => {
     expect(relativePath("", "assets/a.png")).toBe("assets/a.png");
     expect(relativePath("docs", "assets/a.png")).toBe("../assets/a.png");
     expect(relativePath("/n/a", "/n/a/a")).toBe("a");
+    // Windows: the drive letter may differ in case; another drive has no relative path
+    expect(relativePath("c:\\n\\docs", "C:\\n\\img\\a.png")).toBe("../img/a.png");
+    expect(relativePath("C:\\n\\docs", "D:\\img\\a.png")).toBe("D:/img/a.png");
+  });
+  it("escapes only what would break a Markdown link", () => {
+    expect(linkPath("img 画像/写真 (1).png")).toBe("img%20画像/写真%20%281%29.png");
+    expect(linkPath("assets/100%.png")).toBe("assets/100%25.png");
+    expect(linkPath("../a/b.png")).toBe("../a/b.png");
   });
   it("knows image files by extension", () => {
     expect(isImagePath("x/Photo.JPG")).toBe(true);

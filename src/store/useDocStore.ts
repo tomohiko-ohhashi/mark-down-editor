@@ -54,7 +54,8 @@ interface DocState {
   /** Where the editor cursor is in the active document (for the status bar). */
   cursor: { line: number; col: number; selected: number };
   /** Set while autosave cannot write a file (shown in the status bar until a save works again). */
-  autosaveError: string | null;
+  /** Documents the autosave could not write (document id -> what went wrong), until a save of that document works. */
+  autosaveErrors: Record<string, string>;
   /** A source line the preview should scroll to once it has rendered the active document. */
   reveal: { line: number; seq: number } | null;
 
@@ -109,7 +110,7 @@ export const useDocStore = create<DocState>((set, get) => ({
   workspace: null,
   treeVersion: 0,
   cursor: { line: 1, col: 1, selected: 0 },
-  autosaveError: null,
+  autosaveErrors: {},
   reveal: null,
 
   addDoc: (partial) => {

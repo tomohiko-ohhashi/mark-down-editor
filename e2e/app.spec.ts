@@ -366,7 +366,10 @@ test("tabs can be dragged into a different order", async ({ page }) => {
   if (!from || !to) throw new Error("tabs not found");
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
   await page.mouse.down();
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  // Just inside the neighbour is not enough: a tab moves once the pointer is past the middle of the other one.
+  await page.mouse.move(from.x - 5, from.y + from.height / 2, { steps: 4 });
+  await expect(page.locator(".tab-name")).toHaveText(["hello.md", "tasks.md", "long.md"]);
+  await page.mouse.move(to.x + to.width / 4, to.y + to.height / 2, { steps: 8 });
   await page.mouse.up();
   await expect(page.locator(".tab-name")).toHaveText(["long.md", "hello.md", "tasks.md"]);
   // A plain click still just selects a tab.

@@ -1,4 +1,5 @@
-import { useDocStore, selectActiveDoc } from "../store/useDocStore";
+import { useDocStore, selectActiveDoc, isDirty } from "../store/useDocStore";
+import { useSettings } from "../store/useSettings";
 import { t } from "../i18n";
 
 function countStats(text: string) {
@@ -16,7 +17,16 @@ export function StatusBar() {
   const doc = useDocStore(selectActiveDoc);
   const typewriter = useDocStore((s) => s.typewriterMode);
   const cursor = useDocStore((s) => s.cursor);
-  const autosaveError = useDocStore((s) => s.autosaveError);
+  const docs = useDocStore((s) => s.docs);
+  const autosaveErrors = useDocStore((s) => s.autosaveErrors);
+  const autosaveOn = useSettings((s) => s.autosaveSeconds > 0);
+  // Only what is still true: the document is open, still has unsaved changes, and autosave is on.
+  const autosaveError = autosaveOn
+    ? docs
+        .filter((d) => autosaveErrors[d.id] && isDirty(d))
+        .map((d) => autosaveErrors[d.id])
+        .join("\n")
+    : "";
   const { lines, chars, words } = countStats(doc.content);
   return (
     <footer className="statusbar">
