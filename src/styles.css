@@ -122,6 +122,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .sidebar { border-right: 1px solid var(--border); }
 .outline { border-left: 1px solid var(--border); }
 .panel-title { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-weight: 600; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-muted); position: sticky; top: 0; background: var(--bg-alt); }
+.panel-actions { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .panel-actions button { background: none; border: none; cursor: pointer; padding: 0 4px; color: var(--fg-muted); }
 .panel-actions button:hover { color: var(--fg); }
 .panel-empty { padding: 8px 12px; color: var(--fg-muted); line-height: 1.6; }
@@ -142,6 +143,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .tree-dir:hover, .tree-file:hover, .outline li button:hover { background: var(--line-highlight); }
 .tree-file.active { color: var(--accent); font-weight: 600; }
 .tree-arrow { display: inline-block; width: 12px; color: var(--fg-muted); }
+.tree-dirty { color: var(--accent); font-size: 9px; margin-left: 6px; vertical-align: middle; }
 .tree-row { display: flex; align-items: center; }
 .tree-row > .tree-dir, .tree-row > .tree-file { flex: 1; min-width: 0; }
 .tree-menu { position: relative; flex-shrink: 0; }
@@ -168,6 +170,24 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .app.focus .editor .cm-gutters { display: none; }
 .app.focus .editor .cm-line { opacity: 0.45; transition: opacity 0.15s; }
 .app.focus .editor .cm-activeLine { opacity: 1; background: transparent; }
+
+/* Exit button: faint until the pointer is near it, always readable on touch screens. */
+.focus-exit {
+  position: fixed; z-index: 60; top: calc(10px + env(safe-area-inset-top)); right: 14px;
+  background: var(--bg-alt); color: var(--fg-muted); border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 12px; font-size: 12px; cursor: pointer; opacity: 0.35; transition: opacity 0.15s;
+}
+.focus-exit:hover, .focus-exit:focus-visible { opacity: 1; color: var(--fg); }
+@media (hover: none) { .focus-exit { opacity: 0.8; padding: 8px 14px; font-size: 13px; } }
+@media print { .focus-exit, .context-menu { display: none !important; } }
+
+.context-menu {
+  position: fixed; z-index: 120; min-width: 220px; padding: 4px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+.context-menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+.context-menu .menu-item:disabled { color: var(--fg-muted); opacity: 0.5; cursor: default; }
+.context-menu .menu-item:disabled:hover { background: none; }
 
 /* ---------- Modals ---------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); display: flex; align-items: center; justify-content: center; z-index: 100; }

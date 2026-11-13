@@ -21,6 +21,19 @@ describe("renderMarkdown", () => {
     const html = await renderMarkdown("```mermaid\ngraph LR\nA-->B\n```");
     expect(html).toContain('class="language-mermaid"');
   });
+  it("tags blocks with their source line when asked", async () => {
+    const html = await renderMarkdown("# A\n\npara\n\n## B\n\n- x\n", { sourceLines: true });
+    expect(html).toContain('<h1 data-line="1">A</h1>');
+    expect(html).toContain('<p data-line="3">para</p>');
+    expect(html).toContain('<h2 data-line="5">B</h2>');
+    expect(html).toContain('<li data-line="7">x</li>');
+    expect(await renderMarkdown("# A")).not.toContain("data-line");
+  });
+  it("hides front matter instead of rendering it as text", async () => {
+    const html = await renderMarkdown("---\ntitle: x\n---\n\n# A\n");
+    expect(html).not.toContain("title: x");
+    expect(html).toContain("<h1>A</h1>");
+  });
   it("does not treat '#text' without a space as a heading", async () => {
     const html = await renderMarkdown("#見出し");
     expect(html).toContain("<p>#見出し</p>");

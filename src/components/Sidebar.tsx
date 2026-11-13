@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { platform } from "../platform";
 import type { DirEntry as Entry, SearchHit } from "../platform";
-import { goToLine } from "../editor/Editor";
+import { revealLine } from "../features/reveal";
 
 /** Focus the workspace search box (Mod+Shift+F). */
 export const searchBoxRef: { el: HTMLInputElement | null } = { el: null };
-import { useDocStore, fileName } from "../store/useDocStore";
+import { useDocStore, fileName, isDirty } from "../store/useDocStore";
+import { useSettings } from "../store/useSettings";
+
+/** Paths of open documents with unsaved changes, newline-joined so the selector result is stable. */
+const selectDirtyPaths = (s: { docs: { path: string | null; content: string; savedContent: string }[] }) =>
+  s.docs
+    .filter((d) => d.path != null && isDirty(d as Parameters<typeof isDirty>[0]))
+    .map((d) => d.path)
+    .join("\n");
+
+function DirtyMark({ show }: { show: boolean }) {
+  return show ? <span className="tree-dirty" title="未保存の変更があります">●</span> : null;
+}
 import { openDocument, openWorkspace } from "../features/files/fileOps";
 import { createFileIn, createFolderIn, renamePath, deletePath } from "../features/files/manage";
 import { Dropdown } from "./Dropdown";
@@ -43,10 +55,18 @@ function closeIfNarrow() {
 }
 
 function Node({ entry, depth }: { entry: Entry; depth: number }) {
-  const [open, setOpen] = useState(false);
+  // Expansion lives in the settings store, not in this component, so it
+  // survives the sidebar being hidden (which unmounts the tree) and restarts.
+  const open = useSettings((s) => entry.is_dir && s.expandedDirs.includes(entry.path));
+  const setOpen = (next: boolean) => useSettings.getState().setDirExpanded(entry.path, next);
   const [children, setChildren] = useState<Entry[] | null>(null);
   const activePath = useDocStore((s) => s.docs.find((d) => d.id === s.activeId)?.path);
   const treeVersion = useDocStore((s) => s.treeVersion);
+  const dirtyPaths = useDocStore(selectDirtyPaths);
+  const dirty = dirtyPaths !== "" &&
+    dirtyPaths.split("\n").some((p) =>
+      entry.is_dir ? p.startsWith(entry.path + "/") || p.startsWith(entry.path + "\\") : p === entry.path,
+    );
 
   const load = useCallback(async () => {
     try {
@@ -64,8 +84,9 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
     return (
       <li>
         <div className="tree-row">
-          <button className="tree-dir" style={{ paddingLeft: 8 + depth * 14 }} onClick={() => setOpen((o) => !o)}>
+          <button className="tree-dir" style={{ paddingLeft: 8 + depth * 14 }} onClick={() => setOpen(!open)}>
             <span className="tree-arrow">{open ? "▾" : "▸"}</span> {entry.name}
+            <DirtyMark show={dirty} />
           </button>
           <EntryMenu path={entry.path} isDir />
         </div>
@@ -97,6 +118,7 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
           title={entry.path}
         >
           {entry.name}
+          <DirtyMark show={dirty} />
         </button>
         <EntryMenu path={entry.path} isDir={false} />
       </div>
@@ -144,7 +166,7 @@ function SearchResults({ workspace, query }: { workspace: string; query: string 
   for (const h of hits) (groups.get(h.path) ?? groups.set(h.path, []).get(h.path)!).push(h);
   const open = async (h: SearchHit) => {
     await openDocument(h.path);
-    goToLine(h.line);
+    revealLine(h.line);
     closeIfNarrow();
   };
   return (

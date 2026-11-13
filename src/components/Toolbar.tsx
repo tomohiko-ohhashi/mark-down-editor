@@ -148,11 +148,11 @@ export function Toolbar() {
       </div>
 
       <div className="toolbar-group tg-panels">
-        <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={`フォルダ (${mod}${shift}E)`}>📁</button>
-        <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={`アウトライン (${mod}${shift}O)`}>☰</button>
         {platform.kind === "tauri" && (
           <button onClick={() => openWorkspace()} title="フォルダを開く…">📂</button>
         )}
+        <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={`サイドバー (ファイル一覧) の表示切替 (${mod}${shift}E)`}>📁</button>
+        <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={`アウトラインの表示切替 (${mod}${shift}O)`}>☰</button>
       </div>
       <div className="toolbar-group segmented tg-view">
         {VIEW_MODES.map((v) => (

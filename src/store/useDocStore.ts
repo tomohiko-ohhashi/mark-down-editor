@@ -11,6 +11,21 @@ export interface Doc {
   savedContent: string;
   /** Modification time (ms) at last load/save; used to detect external changes. */
   mtime: number | null;
+  /** Line ending of the file on disk. In memory the text always uses "\n" (as the editor does). */
+  eol: Eol;
+}
+
+export type Eol = "\n" | "\r\n";
+
+/** Split text loaded from disk into LF-only text and the line ending to write back. */
+export function splitEol(text: string): { text: string; eol: Eol } {
+  const eol: Eol = text.includes("\r\n") ? "\r\n" : "\n";
+  return { text: text.includes("\r") ? text.replace(/\r\n?/g, "\n") : text, eol };
+}
+
+/** The text of a document as it should be written to disk. */
+export function diskText(doc: Pick<Doc, "content" | "eol">): string {
+  return doc.eol === "\r\n" ? doc.content.replace(/\n/g, "\r\n") : doc.content;
 }
 
 interface DocState {
@@ -27,13 +42,15 @@ interface DocState {
   workspace: string | null;
   /** Bumped whenever files are created / renamed / deleted so tree views reload. */
   treeVersion: number;
+  /** A source line the preview should scroll to once it has rendered the active document. */
+  reveal: { line: number; seq: number } | null;
 
-  addDoc: (doc?: Partial<Omit<Doc, "id">>) => string;
+  addDoc: (doc?: Partial<Omit<Doc, "id" | "eol">>) => string;
   removeDoc: (id: string) => void;
   setActive: (id: string) => void;
   setContent: (id: string, content: string) => void;
   loadInto: (id: string, path: string | null, content: string, mtime: number | null) => void;
-  /** Record a successful write. `written` is the exact text that went to disk. */
+  /** Record a successful write. `written` is the in-memory (LF) text that was saved. */
   markSaved: (id: string, path: string, mtime: number, written: string) => void;
   setViewMode: (mode: ViewMode) => void;
   setStatus: (status: string | null) => void;
@@ -44,14 +61,15 @@ interface DocState {
 let seq = 0;
 export const newId = () => `doc-${Date.now().toString(36)}-${(seq++).toString(36)}`;
 
-function makeDoc(partial: Partial<Omit<Doc, "id">> = {}): Doc {
-  const content = partial.content ?? "";
+function makeDoc(partial: Partial<Omit<Doc, "id" | "eol">> = {}): Doc {
+  const { text: content, eol } = splitEol(partial.content ?? "");
   return {
     id: newId(),
     path: partial.path ?? null,
     content,
-    savedContent: partial.savedContent ?? content,
+    savedContent: partial.savedContent != null ? splitEol(partial.savedContent).text : content,
     mtime: partial.mtime ?? null,
+    eol,
   };
 }
 
@@ -70,6 +88,7 @@ export const useDocStore = create<DocState>((set, get) => ({
   cheatSheetOpen: false,
   workspace: null,
   treeVersion: 0,
+  reveal: null,
 
   addDoc: (partial) => {
     const doc = makeDoc(partial);
@@ -94,11 +113,13 @@ export const useDocStore = create<DocState>((set, get) => ({
   setActive: (id) => set({ activeId: id }),
   setContent: (id, content) =>
     set((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, content } : d)) })),
-  loadInto: (id, path, content, mtime) =>
+  loadInto: (id, path, raw, mtime) => {
+    const { text: content, eol } = splitEol(raw);
     set((s) => ({
-      docs: s.docs.map((d) => (d.id === id ? { ...d, path, content, savedContent: content, mtime } : d)),
+      docs: s.docs.map((d) => (d.id === id ? { ...d, path, content, savedContent: content, mtime, eol } : d)),
       status: null,
-    })),
+    }));
+  },
   markSaved: (id, path, mtime, written) =>
     set((s) => ({
       docs: s.docs.map((d) => (d.id === id ? { ...d, path, mtime, savedContent: written } : d)),

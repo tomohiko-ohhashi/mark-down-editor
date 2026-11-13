@@ -20,7 +20,7 @@ import { useDocStore, selectActiveDoc, flashStatus } from "../store/useDocStore"
 import { useSettings } from "../store/useSettings";
 import { baseTheme, markdownHighlight } from "./theme";
 import { toggleBold, toggleItalic, toggleCode, insertLink, setHeading } from "./formatting";
-import { publishScroll, followScroll } from "../preview/useScrollSync";
+import { publishScroll, followScroll, pauseScrollSync } from "../preview/useScrollSync";
 import { handlePaste, handleDrop } from "./images";
 import { typewriterScrolling, tabSizeExt, fullWidthHeadingFix } from "./extensions";
 import { tableNextCell, tablePrevCell } from "./table";
@@ -136,6 +136,8 @@ export function Editor() {
   const fontSize = useSettings((s) => s.editorFontSize);
   const fontFamily = useSettings((s) => s.editorFontFamily);
   const typewriterMode = useDocStore((s) => s.typewriterMode);
+  const viewMode = useDocStore((s) => s.viewMode);
+  const prevMode = useRef(viewMode);
   const listContinuation = useSettings((s) => s.listContinuation);
   const livePreviewOn = useSettings((s) => s.livePreview);
 
@@ -222,6 +224,21 @@ export function Editor() {
     editorRef.view?.dispatch({ effects: preview.reconfigure(livePreviewOn ? livePreview : []) });
   }, [livePreviewOn]);
 
+  // Coming back from preview-only: the editor was hidden, so bring the cursor into view.
+  useEffect(() => {
+    const was = prevMode.current;
+    prevMode.current = viewMode;
+    if (was !== "preview" || viewMode === "preview") return;
+    const id = requestAnimationFrame(() => {
+      const view = editorRef.view;
+      if (!view) return;
+      pauseScrollSync(400);
+      view.requestMeasure();
+      view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head, { y: "start", yMargin: 24 }) });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [viewMode]);
+
   const style = {
     "--editor-font-size": `${fontSize}px`,
     ...(fontFamily ? { "--mono": fontFamily } : {}),
@@ -231,7 +248,7 @@ export function Editor() {
 }
 
 /** Move the cursor to a 1-based line and scroll it into view (used by the outline). */
-export function goToLine(line: number) {
+export function goToLine(line: number, focus = true) {
   const view = editorRef.view;
   if (!view) return;
   const n = Math.max(1, Math.min(line, view.state.doc.lines));
@@ -240,5 +257,11 @@ export function goToLine(line: number) {
     selection: { anchor: pos },
     effects: EditorView.scrollIntoView(pos, { y: "start", yMargin: 24 }),
   });
-  view.focus();
+  if (focus) view.focus();
+}
+
+/** 1-based line of the editor cursor (1 when there is no editor). */
+export function cursorLine(): number {
+  const view = editorRef.view;
+  return view ? view.state.doc.lineAt(view.state.selection.main.head).number : 1;
 }

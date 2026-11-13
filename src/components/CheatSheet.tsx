@@ -52,6 +52,7 @@ const SHORTCUTS: [string, string][] = [
   [k(mod, ","), "設定"],
   ["F1 / " + k(mod, shift, "/"), "このチートシート"],
   ["Esc", "フォーカスモード / パネルを閉じる"],
+  ["右上の「✕ フォーカス解除」 / 右クリック", "フォーカスモードを終了 (Esc 以外の方法)"],
 ];
 
 export function CheatSheet() {

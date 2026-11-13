@@ -24,6 +24,8 @@ export interface Settings {
   recentFiles: string[];
   lastOpenFiles: string[];
   lastWorkspace: string | null;
+  /** Folders expanded in the workspace tree; kept so the tree looks the same after hiding the sidebar or restarting. */
+  expandedDirs: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -42,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   recentFiles: [],
   lastOpenFiles: [],
   lastWorkspace: null,
+  expandedDirs: [],
 };
 
 const MAX_RECENT = 12;
@@ -88,6 +91,7 @@ interface SettingsState extends Settings {
   loaded: boolean;
   update: (patch: Partial<Settings>) => void;
   addRecent: (path: string) => void;
+  setDirExpanded: (path: string, expanded: boolean) => void;
   clearRecent: () => void;
 }
 
@@ -101,6 +105,12 @@ export const useSettings = create<SettingsState>((set, get) => ({
   addRecent: (path) => {
     const recent = [path, ...get().recentFiles.filter((p) => p !== path)].slice(0, MAX_RECENT);
     set({ recentFiles: recent });
+    void persist(get());
+  },
+  setDirExpanded: (path, expanded) => {
+    const cur = get().expandedDirs;
+    if (cur.includes(path) === expanded) return;
+    set({ expandedDirs: expanded ? [...cur, path] : cur.filter((p) => p !== path) });
     void persist(get());
   },
   clearRecent: () => {
@@ -120,10 +130,12 @@ async function persist(s: SettingsState) {
   await backend.save(pick(s));
 }
 
-export async function loadSettings(): Promise<void> {
+/** Load the saved settings into the store and return them as they were on disk. */
+export async function loadSettings(): Promise<Settings> {
   backend = inTauri ? await tauriBackend() : localBackend;
-  const saved = await backend.load();
-  useSettings.setState({ ...DEFAULT_SETTINGS, ...saved, loaded: true });
+  const saved: Settings = { ...DEFAULT_SETTINGS, ...(await backend.load()) };
+  useSettings.setState({ ...saved, loaded: true });
+  return saved;
 }
 
 /** Apply the theme preference to the document root; "system" follows the OS. */

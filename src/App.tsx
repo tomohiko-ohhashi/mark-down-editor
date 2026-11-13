@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { platform, inTauri } from "./platform";
 import { FilePicker } from "./components/FilePicker";
 import { PromptDialog } from "./components/PromptDialog";
+import { FocusControls } from "./components/FocusControls";
 import { searchBoxRef } from "./components/Sidebar";
 import { Toolbar, MobileBar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
@@ -46,15 +47,16 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      await loadSettings();
+      // Use the returned snapshot: once `loaded` flips, effects below start writing to the store.
+      const s = await loadSettings();
       if (cancelled) return;
-      const s = useSettings.getState();
       const startup = await platform.takeStartupFiles();
       if (startup.length > 0) {
         for (const f of startup) await openDocument(f);
       } else if (s.reopenLastFiles) {
-        for (const f of s.lastOpenFiles) await openDocument(f);
+        for (const f of s.lastOpenFiles) await openDocument(f, { silent: true });
       }
+      setSessionRestored(true);
       if (platform.kind === "web") {
         // The server exposes one folder; show it right away on wide screens.
         useDocStore.getState().set({ workspace: "", showSidebar: window.innerWidth >= 768 });
@@ -73,14 +75,16 @@ export default function App() {
 
   useEffect(() => applyTheme(theme), [theme]);
 
-  // Remember the open files for the next launch.
+  // Remember the open files for the next launch (only once the previous session
+  // has been restored, otherwise the empty start-up state would overwrite it).
+  const [sessionRestored, setSessionRestored] = useState(false);
   const openPaths = useDocStore((s) => s.docs.map((d) => d.path).filter((p): p is string => !!p).join("\n"));
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !sessionRestored) return;
     const list = openPaths ? openPaths.split("\n") : [];
     const cur = useSettings.getState().lastOpenFiles;
     if (list.join("\n") !== cur.join("\n")) useSettings.getState().update({ lastOpenFiles: list });
-  }, [openPaths, loaded]);
+  }, [openPaths, loaded, sessionRestored]);
 
   // Window title reflects the document and its dirty state.
   useEffect(() => {
@@ -236,6 +240,7 @@ export default function App() {
       <CheatSheet />
       <FilePicker />
       <PromptDialog />
+      <FocusControls />
     </div>
   );
 }

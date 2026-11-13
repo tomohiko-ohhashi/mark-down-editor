@@ -2,6 +2,7 @@ import { platform } from "../../platform";
 import {
   useDocStore,
   isDirty,
+  diskText,
   fileName,
   flashStatus,
   selectActiveDoc,
@@ -50,7 +51,7 @@ export function newDocument(): void {
 }
 
 /** Open a file into a tab. Reuses the active tab when it is an empty, untitled, clean document. */
-export async function openDocument(presetPath?: string): Promise<void> {
+export async function openDocument(presetPath?: string, opts: { silent?: boolean } = {}): Promise<void> {
   const path = presetPath ?? (await platform.pickOpenPath());
   if (!path) return;
 
@@ -77,7 +78,8 @@ export async function openDocument(presetPath?: string): Promise<void> {
     }
     useSettings.getState().addRecent(path);
   } catch (e) {
-    await message(String(e), { title: "開けませんでした", kind: "error" });
+    // Restoring the last session: a file that has gone away is not worth a dialog.
+    if (!opts.silent) await message(String(e), { title: "開けませんでした", kind: "error" });
     const s = useSettings.getState();
     s.update({ recentFiles: s.recentFiles.filter((p) => p !== path) });
   }
@@ -114,7 +116,7 @@ async function writeTo(id: string, path: string): Promise<boolean> {
   if (!doc) return false;
   const written = doc.content;
   try {
-    const mtime = await writeFile(path, written);
+    const mtime = await writeFile(path, diskText(doc));
     useDocStore.getState().markSaved(id, path, mtime, written);
     useSettings.getState().addRecent(path);
     flashStatus("保存しました");
@@ -131,7 +133,7 @@ export async function autosaveAll(): Promise<void> {
     if (doc.path && isDirty(doc)) {
       const written = doc.content;
       try {
-        const mtime = await writeFile(doc.path, written);
+        const mtime = await writeFile(doc.path, diskText(doc));
         useDocStore.getState().markSaved(doc.id, doc.path, mtime, written);
       } catch {
         /* reported on the next manual save */
@@ -187,5 +189,6 @@ export async function openWorkspace(presetPath?: string): Promise<void> {
   const path = presetPath ?? (await platform.pickDirectory());
   if (path == null) return;
   useDocStore.getState().set({ workspace: path, showSidebar: true });
-  useSettings.getState().update({ lastWorkspace: path });
+  const settings = useSettings.getState();
+  settings.update(settings.lastWorkspace === path ? { lastWorkspace: path } : { lastWorkspace: path, expandedDirs: [] });
 }

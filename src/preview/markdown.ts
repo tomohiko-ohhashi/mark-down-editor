@@ -2,6 +2,7 @@ import { unified, type Plugin } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import remarkFrontmatter from "remark-frontmatter";
 import remarkRehype from "remark-rehype";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
@@ -30,6 +31,8 @@ export interface RenderOptions {
   /** Directory of the document; relative image paths are resolved against it and
    *  converted to Tauri asset URLs so they display in the preview. */
   docDir?: string | null;
+  /** Tag block elements with `data-line` (their source line) so the UI can scroll to them. */
+  sourceLines?: boolean;
   /** Render ```mermaid blocks to inline SVG (requires a DOM). */
   mermaid?: boolean;
   dark?: boolean;
@@ -58,13 +61,28 @@ const rehypeLocalImages: Plugin<[{ docDir: string | null | undefined }], Root> =
   };
 };
 
-function buildProcessor(docDir: string | null | undefined) {
+const LINE_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "pre", "blockquote", "table", "tr", "hr"]);
+
+/** Runs after sanitising, so the attribute needs no schema entry. */
+const rehypeSourceLines: Plugin<[{ enabled: boolean }], Root> = function (this: unknown, { enabled }) {
+  return (tree: Root) => {
+    if (!enabled) return;
+    visit(tree, "element", (node: Element) => {
+      const line = node.position?.start.line;
+      if (line && LINE_TAGS.has(node.tagName)) node.properties.dataLine = line;
+    });
+  };
+};
+
+function buildProcessor(docDir: string | null | undefined, sourceLines: boolean) {
   return unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
+    .use(remarkFrontmatter, ["yaml", "toml"])
     .use(remarkRehype)
     .use(rehypeSanitize, schema)
+    .use(rehypeSourceLines, { enabled: sourceLines })
     .use(rehypeKatex, { throwOnError: false, strict: false })
     .use(rehypeHighlight, { detect: false, plainText: ["mermaid", "math", "txt", "text"] })
     .use(rehypeLocalImages, { docDir })
@@ -104,6 +122,8 @@ async function renderMermaidBlocks(html: string, dark: boolean): Promise<string>
     const source = code.textContent ?? "";
     const wrapper = document.createElement("div");
     wrapper.className = "mermaid-diagram";
+    const line = pre.getAttribute("data-line");
+    if (line) wrapper.setAttribute("data-line", line);
     try {
       const { svg } = await mermaid.render(`mermaid-${mermaidSeq++}`, source);
       wrapper.innerHTML = svg;
@@ -119,7 +139,7 @@ async function renderMermaidBlocks(html: string, dark: boolean): Promise<string>
 }
 
 export async function renderMarkdown(src: string, opts: RenderOptions = {}): Promise<string> {
-  const file = await buildProcessor(opts.docDir).process(src);
+  const file = await buildProcessor(opts.docDir, opts.sourceLines ?? false).process(src);
   let html = String(file);
   if (opts.mermaid) html = await renderMermaidBlocks(html, opts.dark ?? false);
   return html;
