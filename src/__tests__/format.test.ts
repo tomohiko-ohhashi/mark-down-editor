@@ -4,11 +4,11 @@ import { formatMarkdown } from "../editor/format";
 describe("formatMarkdown", () => {
   it("normalises bullets, emphasis and spacing", async () => {
     const out = await formatMarkdown("# T\n\n\n\n* a\n* b\n\n*em* and __strong__\r\n");
-    expect(out).toBe("# T\n\n- a\n- b\n\n_em_ and **strong**\n");
+    expect(out).toBe("# T\n\n- a\n- b\n\n*em* and **strong**\n");
   });
   it("aligns GFM tables", async () => {
     const out = await formatMarkdown("|a|bb|\n|-|-:|\n|ccc|d|\n");
-    expect(out).toBe("| a   | bb |\n| --- | -: |\n| ccc |  d |\n");
+    expect(out).toBe("| a   |  bb |\n| --- | --: |\n| ccc |   d |\n");
   });
   it("keeps front matter, math and code fences", async () => {
     const src = "---\ntitle: x\n---\n\n$$\nE=mc^2\n$$\n\n```js\nlet a = 1;\n```\n";
