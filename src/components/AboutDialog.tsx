@@ -5,6 +5,7 @@ import { UpdateCheck } from "./UpdateCheck";
 import { t } from "../i18n";
 import { version } from "../../package.json";
 import { useEffect, useState } from "react";
+import { IconClose } from "./icons";
 
 const REPO = "https://github.com/tomohiko-ohhashi/toucan-markdown-editor";
 
@@ -39,7 +40,7 @@ export function AboutDialog() {
         <div className="modal licenses" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={t("ライブラリのライセンス")}>
           <div className="modal-header">
             <h2>{t("ライブラリのライセンス")}</h2>
-            <button onClick={close} title={t("閉じる (Esc)")}>×</button>
+            <button onClick={close} title={t("閉じる (Esc)")}><IconClose /></button>
           </div>
           <pre className="licenses-text" tabIndex={0}>{licenses || t("読み込み中…")}</pre>
           <div className="modal-footer">
@@ -67,7 +68,7 @@ export function AboutDialog() {
       <div className="modal about" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={t("バージョン情報")}>
         <div className="modal-header">
           <h2>{t("バージョン情報")}</h2>
-          <button onClick={close} title={t("閉じる (Esc)")}>×</button>
+          <button onClick={close} title={t("閉じる (Esc)")}><IconClose /></button>
         </div>
         <div className="modal-body">
           <div className="about-name">Toucan Markdown Editor</div>

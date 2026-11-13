@@ -3,6 +3,7 @@ import { useDocStore, isDirty } from "../store/useDocStore";
 import { closeDocument, newDocument } from "../features/files/fileOps";
 import { tabLabels } from "../features/files/names";
 import { t } from "../i18n";
+import { IconClose, IconPlus } from "./icons";
 
 export function TabBar() {
   const docs = useDocStore((s) => s.docs);
@@ -79,12 +80,12 @@ export function TabBar() {
               void closeDocument(d.id);
             }}
           >
-            ×
+            <IconClose size={13} />
           </button>
         </div>
       ))}
-      <button className="tab-new" title={t("新規タブ (Ctrl/⌘+N)")} onClick={() => newDocument()}>
-        +
+      <button className="tab-new" title={t("新規タブ (Ctrl/⌘+N)")} aria-label={t("新規タブ (Ctrl/⌘+N)")} onClick={() => newDocument()}>
+        <IconPlus />
       </button>
     </div>
   );

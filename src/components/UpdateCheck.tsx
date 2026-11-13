@@ -2,6 +2,7 @@ import { useState } from "react";
 import { checkForUpdates, type UpdateCheckResult } from "../features/updater";
 import { t } from "../i18n";
 import { version } from "../../package.json";
+import { IconCheck } from "./icons";
 
 /** "Check for updates now" with the outcome shown next to the button. */
 export function UpdateCheck() {
@@ -26,7 +27,7 @@ export function UpdateCheck() {
         {t("今すぐ更新を確認")}
       </button>
       <span className={`update-note ${state === "error" ? "error" : ""}`} role="status">
-        {state === "latest" ? "✓ " : ""}
+        {state === "latest" ? <><IconCheck />{" "}</> : null}
         {note}
       </span>
     </span>

@@ -69,6 +69,7 @@ export const en: Record<string, string> = {
   "アウトライン": "Outline",
   "文字を大きく / 小さく / 元の大きさに戻す": "Larger / smaller / default text size",
   "チートシート / ショートカット": "Cheat sheet / Shortcuts",
+  "最上位のフォルダ": "Top folder",
   "幅を変更": "Resize",
   "ドラッグで幅を変更 (ダブルクリックで元の幅に戻す)": "Drag to resize (double-click to reset)",
   "ワークスペースを全文検索": "Search the workspace",

@@ -5,6 +5,7 @@ import { useDocStore, selectActiveDoc, fileName, dirName, flashStatus } from "..
 import { editorRef } from "../editor/Editor";
 import { relativePath, linkPath } from "../preview/paths";
 import { t } from "../i18n";
+import { IconClose } from "./icons";
 
 const useImageStore = create<{ path: string | null }>(() => ({ path: null }));
 
@@ -46,7 +47,7 @@ export function ImagePreview() {
       <div className="modal image-preview" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={fileName(path)}>
         <div className="modal-header">
           <h2>{fileName(path)}</h2>
-          <button onClick={close} title={t("閉じる")}>×</button>
+          <button onClick={close} title={t("閉じる")}><IconClose /></button>
         </div>
         <div className="image-preview-body">
           <img src={platform.assetUrl(path)} alt={fileName(path)} />

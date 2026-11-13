@@ -3,6 +3,7 @@ import { useDocStore } from "../store/useDocStore";
 import { editorRef } from "../editor/Editor";
 import { MenuCheck } from "./Toolbar";
 import { t } from "../i18n";
+import { IconClose } from "./icons";
 
 interface MenuPos {
   x: number;
@@ -88,7 +89,7 @@ export function FocusControls() {
   return (
     <>
       <button className="focus-exit" onClick={() => toggle("focusMode")} title={t("フォーカスモードを終了 (Esc)")}>
-        ✕ <span>{t("フォーカス解除")}</span>
+        <IconClose size={13} /> <span>{t("フォーカス解除")}</span>
       </button>
       {menu && (
         <div

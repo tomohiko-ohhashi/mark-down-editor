@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { IconMore, IconCaret } from "./icons";
 
 interface Props {
   label: ReactNode;
@@ -13,6 +14,26 @@ interface Props {
 export function Dropdown({ label, title, children, align = "left", up = false }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [fixed, setFixed] = useState<CSSProperties | undefined>(undefined);
+  // On a phone the toolbar scrolls sideways, and a bar that scrolls cuts off whatever hangs below it.
+  // There the menu is placed against the window instead, under its button and kept inside the screen.
+  useLayoutEffect(() => {
+    const button = ref.current?.querySelector("button");
+    const menu = menuRef.current;
+    const bar = ref.current?.closest<HTMLElement>(".toolbar");
+    if (!open || up || !button || !menu || !bar || bar.scrollWidth <= bar.clientWidth) {
+      setFixed(undefined);
+      return;
+    }
+    const box = button.getBoundingClientRect();
+    const left = Math.max(8, Math.min(box.left, window.innerWidth - menu.offsetWidth - 8));
+    setFixed({ position: "fixed", top: box.bottom + 4, left, right: "auto", marginTop: 0, maxHeight: `calc(100vh - ${Math.round(box.bottom) + 16}px)`, overflowY: "auto" });
+    // The button moves away when the bar is scrolled: close rather than leave the menu behind.
+    const onScroll = () => setOpen(false);
+    bar.addEventListener("scroll", onScroll, { passive: true });
+    return () => bar.removeEventListener("scroll", onScroll);
+  }, [open, up]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -30,11 +51,11 @@ export function Dropdown({ label, title, children, align = "left", up = false }:
   }, [open]);
   return (
     <div className="dropdown" ref={ref}>
-      <button className={open ? "active" : ""} title={title} onClick={() => setOpen((o) => !o)}>
-        {label === "" ? "⋯" : <>{label} ▾</>}
+      <button className={open ? "active" : ""} title={title} aria-label={label === "" ? title : undefined} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {label === "" ? <IconMore /> : <>{label} <IconCaret /></>}
       </button>
       {open && (
-        <div className={`dropdown-menu ${align} ${up ? "up" : ""}`}>{children(() => setOpen(false))}</div>
+        <div className={`dropdown-menu ${align} ${up ? "up" : ""}`} ref={menuRef} style={fixed}>{children(() => setOpen(false))}</div>
       )}
     </div>
   );

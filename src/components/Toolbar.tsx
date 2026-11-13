@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDocStore, selectActiveDoc, selectActiveIsDirty, fileName, type ViewMode } from "../store/useDocStore";
 import { useSettings } from "../store/useSettings";
 import { newDocument, openDocument, saveDocument, saveDocumentAs } from "../features/files/fileOps";
@@ -19,6 +19,7 @@ import { formatDocument } from "../editor/format";
 import { flashStatus } from "../store/useDocStore";
 import type { StateCommand } from "@codemirror/state";
 import { t } from "../i18n";
+import { IconTreeClosed, IconH1, IconH2, IconH3, IconBold, IconItalic, IconCode, IconLink, IconSidebar, IconOutline, IconHelp, IconCheck } from "./icons";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl+";
@@ -73,7 +74,7 @@ function TableInsert({ close }: { close: () => void }) {
  * with such switches gets one (empty when it does not apply), so the labels line up.
  */
 export function MenuCheck({ on }: { on?: boolean }) {
-  return <span className="menu-check" aria-hidden="true">{on ? "✓" : ""}</span>;
+  return <span className="menu-check" aria-hidden="true">{on ? <IconCheck /> : null}</span>;
 }
 
 export function Toolbar() {
@@ -90,9 +91,29 @@ export function Toolbar() {
   const diffOpen = useDocStore((s) => s.diffOpen);
   const recent = useSettings((s) => s.recentFiles);
   const clearRecent = useSettings((s) => s.clearRecent);
+  // On a phone the bar scrolls sideways; mark whether there is more to either side, so the edges can show it.
+  const bar = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const update = () => {
+      const scrolls = el.scrollWidth - el.clientWidth > 2;
+      el.toggleAttribute("data-more-left", scrolls && el.scrollLeft > 2);
+      el.toggleAttribute("data-more-right", scrolls && el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, []);
 
   return (
-    <header className="toolbar">
+    <header className="toolbar" ref={bar}>
+      <span className="toolbar-more left" aria-hidden="true"><IconTreeClosed size={14} /></span>
       <div className="toolbar-group tg-file">
         <button onClick={() => newDocument()} title={t("新規 ({0}N)", mod)}>{t("新規")}</button>
         <button onClick={() => openDocument()} title={t("開く ({0}O)", mod)}>{t("開く")}</button>
@@ -128,13 +149,13 @@ export function Toolbar() {
       </div>
 
       <div className="toolbar-group tg-format">
-        <button className="tb-heading" onClick={() => runInEditor(setHeading(1))} title={t("見出し1 ({0}1)", mod)}>H1</button>
-        <button className="tb-heading" onClick={() => runInEditor(setHeading(2))} title={t("見出し2 ({0}2)", mod)}>H2</button>
-        <button className="tb-heading" onClick={() => runInEditor(setHeading(3))} title={t("見出し3 ({0}3)", mod)}>H3</button>
-        <button onClick={() => runInEditor(toggleBold)} title={t("太字 ({0}B)", mod)}><b>B</b></button>
-        <button onClick={() => runInEditor(toggleItalic)} title={t("斜体 ({0}I)", mod)}><i>I</i></button>
-        <button onClick={() => runInEditor(toggleCode)} title={t("コード ({0}E)", mod)}><code>{"<>"}</code></button>
-        <button onClick={() => runInEditor(insertLink)} title={t("リンク ({0}K)", mod)}>🔗</button>
+        <button className="tb-heading" onClick={() => runInEditor(setHeading(1))} title={t("見出し1 ({0}1)", mod)}><IconH1 /></button>
+        <button className="tb-heading" onClick={() => runInEditor(setHeading(2))} title={t("見出し2 ({0}2)", mod)}><IconH2 /></button>
+        <button className="tb-heading" onClick={() => runInEditor(setHeading(3))} title={t("見出し3 ({0}3)", mod)}><IconH3 /></button>
+        <button onClick={() => runInEditor(toggleBold)} title={t("太字 ({0}B)", mod)}><IconBold /></button>
+        <button onClick={() => runInEditor(toggleItalic)} title={t("斜体 ({0}I)", mod)}><IconItalic /></button>
+        <button onClick={() => runInEditor(toggleCode)} title={t("コード ({0}E)", mod)}><IconCode /></button>
+        <button onClick={() => runInEditor(insertLink)} title={t("リンク ({0}K)", mod)}><IconLink /></button>
         <Dropdown label={t("表")} title={t("表の挿入と編集")}>
           {(close) => (
             <>
@@ -161,9 +182,9 @@ export function Toolbar() {
       </div>
 
       <div className="toolbar-group tg-panels">
-        <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={t("サイドバー (ファイル一覧) の表示切替 ({0}{1}E)", mod, shift)}>📁</button>
-        <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={t("アウトラインの表示切替 ({0}{1}O)", mod, shift)}>☰</button>
-        <button className={cheatSheetOpen ? "active" : ""} onClick={() => toggle("cheatSheetOpen")} title={t("チートシートの表示切替 (F1)")}>？</button>
+        <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={t("サイドバー (ファイル一覧) の表示切替 ({0}{1}E)", mod, shift)}><IconSidebar /></button>
+        <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={t("アウトラインの表示切替 ({0}{1}O)", mod, shift)}><IconOutline /></button>
+        <button className={cheatSheetOpen ? "active" : ""} onClick={() => toggle("cheatSheetOpen")} title={t("チートシートの表示切替 (F1)")}><IconHelp /></button>
       </div>
       <div className="toolbar-group segmented tg-view">
         {viewModes().map((v) => (
@@ -177,7 +198,7 @@ export function Toolbar() {
         </button>
       </div>
       <div className="toolbar-group tg-more">
-        <Dropdown label="⋯" title={t("その他")} align="right">
+        <Dropdown label="" title={t("その他")} align="right">
           {(close) => (
             <>
               <button className="menu-item" role="menuitemcheckbox" aria-checked={false} onClick={() => { close(); toggle("focusMode"); }}><MenuCheck />{t("フォーカスモード")} <kbd>{mod}{shift}D</kbd></button>
@@ -190,6 +211,7 @@ export function Toolbar() {
           )}
         </Dropdown>
       </div>
+      <span className="toolbar-more right" aria-hidden="true"><IconTreeClosed size={14} /></span>
     </header>
   );
 }
@@ -210,8 +232,8 @@ export function MobileBar() {
   const dirty = useDocStore(selectActiveIsDirty);
   return (
     <nav className="mobilebar">
-      <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={t("フォルダ")}>📁</button>
-      <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={t("アウトライン")}>☰</button>
+      <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={t("フォルダ")} aria-label={t("フォルダ")}><IconSidebar size={20} /></button>
+      <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={t("アウトライン")} aria-label={t("アウトライン")}><IconOutline size={20} /></button>
       <div className="segmented">
         {viewModes().map((v) => (
           <button key={v.mode} className={viewMode === v.mode ? "active" : ""} onClick={() => setViewMode(v.mode)} title={v.title}>
@@ -222,7 +244,7 @@ export function MobileBar() {
       <button className={dirty ? "attention" : ""} onClick={() => saveDocument()} title={t("保存")}>
         {dirty ? t("● 保存") : t("保存")}
       </button>
-      <Dropdown label="⋯" title={t("その他")} align="right" up>
+      <Dropdown label="" title={t("その他")} align="right" up>
         {(close) => (
           <>
             <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}><MenuCheck />{t("名前を付けて保存…")}</button>

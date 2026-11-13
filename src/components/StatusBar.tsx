@@ -1,6 +1,7 @@
 import { useDocStore, selectActiveDoc, isDirty } from "../store/useDocStore";
 import { useSettings } from "../store/useSettings";
 import { t } from "../i18n";
+import { IconWarning } from "./icons";
 
 function countStats(text: string) {
   // An empty document still has its one (empty) line, where the cursor is.
@@ -33,7 +34,7 @@ export function StatusBar() {
       <span className="statusbar-path">{doc.path ?? t("未保存のドキュメント")}</span>
       {autosaveError && (
         <span className="statusbar-error" title={autosaveError}>
-          ⚠ {t("自動保存できません")}
+          <IconWarning /> {t("自動保存できません")}
         </span>
       )}
       {typewriter && <span>{t("タイプライター")}</span>}

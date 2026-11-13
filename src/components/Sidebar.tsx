@@ -84,6 +84,7 @@ function revealActiveInTree(): boolean {
 }
 import { Dropdown } from "./Dropdown";
 import { t, tError } from "../i18n";
+import { IconTreeOpen, IconTreeClosed, IconImage, IconReveal, IconRefresh, IconOpenFolder } from "./icons";
 
 /** "⋯" menu for a folder (new file / folder inside, rename, delete) or a file (rename, delete). */
 function EntryMenu({ path, isDir, isRoot }: { path: string; isDir: boolean; isRoot?: boolean }) {
@@ -148,7 +149,7 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
       <li>
         <div className="tree-row">
           <button className="tree-dir" style={{ paddingLeft: 8 + depth * 14 }} onClick={() => setOpen(!open)}>
-            <span className="tree-arrow">{open ? "▾" : "▸"}</span> {entry.name}
+            <span className="tree-arrow">{open ? <IconTreeOpen /> : <IconTreeClosed />}</span> {entry.name}
             <DirtyMark show={dirty} />
           </button>
           <EntryMenu path={entry.path} isDir />
@@ -181,7 +182,7 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
           }}
           title={entry.path}
         >
-          {isImagePath(entry.path) && <span className="tree-image" aria-hidden>🖼</span>}
+          {isImagePath(entry.path) && <span className="tree-image" aria-hidden><IconImage /></span>}
           {entry.name}
           <DirtyMark show={dirty} />
         </button>
@@ -317,12 +318,12 @@ export function Sidebar() {
               if (revealActiveInTree()) setQuery("");
             }}
           >
-            ◎
+            <IconReveal />
           </button>
           {workspace != null && <EntryMenu path={workspace} isDir isRoot />}
-          <button title={t("再読込")} onClick={() => void refresh()} disabled={workspace == null}>↻</button>
+          <button title={t("再読込")} aria-label={t("再読込")} onClick={() => void refresh()} disabled={workspace == null}><IconRefresh /></button>
           {platform.kind === "tauri" && (
-            <button title={t("別のフォルダを開く…")} aria-label={t("別のフォルダを開く")} onClick={() => void openWorkspace()}>📂</button>
+            <button title={t("別のフォルダを開く…")} aria-label={t("別のフォルダを開く")} onClick={() => void openWorkspace()}><IconOpenFolder /></button>
           )}
         </span>
       </div>

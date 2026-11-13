@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { create } from "zustand";
 import { t } from "../i18n";
+import { IconClose } from "./icons";
 
 export interface Choice {
   id: string;
@@ -76,11 +77,12 @@ export function ConfirmDialog() {
       <div className="modal confirm" onMouseDown={(e) => e.stopPropagation()} role="alertdialog" aria-label={request.title}>
         <div className="modal-header">
           <h2>{request.title}</h2>
-          <button onClick={() => finish(null)} title={t("閉じる (Esc)")}>×</button>
+          <button onClick={() => finish(null)} title={t("閉じる (Esc)")}><IconClose /></button>
         </div>
         <div className="modal-body">
           <p className="confirm-message">{request.message}</p>
-          <div className="prompt-actions">
+        </div>
+        <div className="modal-footer prompt-actions">
             {request.choices.map((c, i) => (
               <button
                 key={c.id}
@@ -91,7 +93,6 @@ export function ConfirmDialog() {
                 {c.label}
               </button>
             ))}
-          </div>
         </div>
       </div>
     </div>

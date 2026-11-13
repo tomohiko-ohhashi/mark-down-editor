@@ -9,6 +9,7 @@ import { editorRef, goToLine } from "../editor/Editor";
 import { baseTheme, markdownHighlight } from "../editor/theme";
 import { Splitter } from "./Splitter";
 import { t } from "../i18n";
+import { IconClose, IconUp, IconDown, ARROW_RIGHT_SVG } from "./icons";
 
 /** True on screens too narrow for two columns of text (the phone layout). */
 function useNarrowScreen(): boolean {
@@ -111,7 +112,7 @@ export function DiffPanel() {
         renderRevertControl: () => {
           const b = document.createElement("button");
           b.className = "diff-revert";
-          b.textContent = "→";
+          b.innerHTML = ARROW_RIGHT_SVG;
           b.title = t("この変更を元に戻す");
           return b;
         },
@@ -199,10 +200,10 @@ export function DiffPanel() {
         {/* The count, the arrows and the close button stay together, so a narrow header wraps them as one group. */}
         <span className="diff-nav">
           <span className="diff-count">{changes === 0 ? t("違いはありません") : changes === 1 ? t("変更 1 箇所") : t("変更 {0} 箇所", changes)}</span>
-          <button onClick={() => step(-1)} disabled={changes === 0} title={t("前の変更")}>↑</button>
-          <button onClick={() => step(1)} disabled={changes === 0} title={t("次の変更")}>↓</button>
+          <button onClick={() => step(-1)} disabled={changes === 0} title={t("前の変更")}><IconUp /></button>
+          <button onClick={() => step(1)} disabled={changes === 0} title={t("次の変更")}><IconDown /></button>
           {/* Kept with the arrows so it never wraps onto a line of its own. */}
-          <button className="diff-close" onClick={close} title={t("閉じる (Esc)")}>×</button>
+          <button className="diff-close" onClick={close} title={t("閉じる (Esc)")}><IconClose /></button>
         </span>
       </div>
       <div className="diff-cols" hidden={narrow}>
