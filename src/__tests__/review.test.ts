@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { tabLabels, suggestFileName } from "../features/files/names";
 import { taskToggle } from "../editor/tasks";
 import { droppedKind } from "../features/files/dropped";
+import { dropAliases } from "../features/fonts";
 
 describe("tabLabels", () => {
   it("shows plain file names when they differ", () => {
@@ -58,5 +59,35 @@ describe("droppedKind", () => {
     expect(droppedKind("/a/photo.jpeg")).toBe("image");
     expect(droppedKind("/a/folder")).toBe("other");
     expect(droppedKind("/a/archive.zip")).toBe("other");
+  });
+});
+
+describe("dropAliases", () => {
+  const f = (name: string) => ({ name, label: name, monospace: false });
+  it("keeps one font of each group that measures the same, preferring a native name", () => {
+    const sig = (n: string) => ({ Arial: "A", Helvetica: "A", "Liberation Sans": "A", Inter: "B", "Helvetica Neue": "C", Roboto: "C" })[n] ?? n;
+    expect(dropAliases(["Arial", "Helvetica", "Inter", "Liberation Sans", "Helvetica Neue", "Roboto"].map(f), sig).map((x) => x.name)).toEqual([
+      "Arial",
+      "Inter",
+      "Helvetica Neue",
+    ]);
+  });
+  it("leaves fonts with different measurements alone", () => {
+    expect(dropAliases(["Inter", "Roboto"].map(f), (n) => n)).toHaveLength(2);
+  });
+});
+
+describe("third-party license file", () => {
+  const text = Object.values(import.meta.glob<string>("../../public/THIRD-PARTY-LICENSES.txt", { query: "?raw", import: "default", eager: true }))[0] ?? "";
+  const deps = Object.keys(
+    (Object.values(import.meta.glob<{ dependencies: Record<string, string> }>("../../package.json", { eager: true }))[0] as { dependencies: Record<string, string> }).dependencies,
+  );
+  it("lists every runtime dependency of the app (run `pnpm licenses` after changing dependencies)", () => {
+    expect(deps.length).toBeGreaterThan(10);
+    expect(deps.filter((d) => !text.includes(`  - ${d} `))).toEqual([]);
+  });
+  it("contains the license texts themselves", () => {
+    expect(text).toContain("Permission is hereby granted, free of charge");
+    expect(text).toContain("Apache License");
   });
 });

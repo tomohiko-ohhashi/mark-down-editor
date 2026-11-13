@@ -168,6 +168,19 @@ export function SettingsDialog() {
               {t("前回終了時の状態を復元する (開いていたファイル・フォルダ・表示)")}
             </label>
             <label className="check">
+              <input type="checkbox" checked={s.restoreUnsaved} onChange={(e) => s.preview({ restoreUnsaved: e.target.checked })} />
+              {t("保存していない変更を、次回の起動時に復元する")}
+            </label>
+            <label className="check sub">
+              <input
+                type="checkbox"
+                disabled={!s.restoreUnsaved}
+                checked={s.restoreUnsaved && s.quitWithoutAsking}
+                onChange={(e) => s.preview({ quitWithoutAsking: e.target.checked })}
+              />
+              {t("復元する場合、終了時に確認しない")}
+            </label>
+            <label className="check">
               <input type="checkbox" checked={s.checkUpdatesOnStartup} onChange={(e) => s.preview({ checkUpdatesOnStartup: e.target.checked })} />
               {t("起動時にアップデートを確認する")}
             </label>

@@ -39,6 +39,7 @@ interface DocState {
   focusMode: boolean;
   typewriterMode: boolean;
   settingsOpen: boolean;
+  aboutOpen: boolean;
   cheatSheetOpen: boolean;
   workspace: string | null;
   /** Bumped whenever files are created / renamed / deleted so tree views reload. */
@@ -57,7 +58,7 @@ interface DocState {
   markSaved: (id: string, path: string, mtime: number, written: string) => void;
   setViewMode: (mode: ViewMode) => void;
   setStatus: (status: string | null) => void;
-  toggle: (key: "showSidebar" | "showOutline" | "focusMode" | "typewriterMode" | "settingsOpen" | "cheatSheetOpen") => void;
+  toggle: (key: "showSidebar" | "showOutline" | "focusMode" | "typewriterMode" | "settingsOpen" | "aboutOpen" | "cheatSheetOpen") => void;
   set: (partial: Partial<DocState>) => void;
 }
 
@@ -88,6 +89,7 @@ export const useDocStore = create<DocState>((set, get) => ({
   focusMode: false,
   typewriterMode: false,
   settingsOpen: false,
+  aboutOpen: false,
   cheatSheetOpen: false,
   workspace: null,
   treeVersion: 0,

@@ -15,12 +15,13 @@ import { StatusBar } from "./components/StatusBar";
 import { Sidebar } from "./components/Sidebar";
 import { Outline } from "./components/Outline";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { AboutDialog } from "./components/AboutDialog";
 import { CheatSheet } from "./components/CheatSheet";
 import { Editor } from "./editor/Editor";
 import { Preview } from "./preview/Preview";
 import { useDocStore, selectActiveDoc, selectActiveIsDirty, fileName } from "./store/useDocStore";
 import { useSettings, applyTheme, loadSettings } from "./store/useSettings";
-import { restoreSession, saveSessionNow } from "./features/session";
+import { restoreSession, saveSessionNow, confirmQuit } from "./features/session";
 import { resolveLanguage, setLanguage } from "./i18n";
 import {
   newDocument,
@@ -28,7 +29,6 @@ import {
   saveDocument,
   saveDocumentAs,
   closeDocument,
-  confirmDiscardAll,
   checkExternalChanges,
   autosaveAll,
 } from "./features/files/fileOps";
@@ -85,7 +85,8 @@ export default function App() {
       }
       if (e.key === "Escape") {
         // The cheat sheet is a side panel now and stays open; F1 toggles it.
-        if (state.settingsOpen) toggle("settingsOpen");
+        if (state.aboutOpen) toggle("aboutOpen");
+        else if (state.settingsOpen) toggle("settingsOpen");
         else if (state.focusMode) toggle("focusMode");
         return;
       }
@@ -136,7 +137,11 @@ export default function App() {
   useEffect(() => {
     if (inTauri) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (useDocStore.getState().docs.some((d) => d.content !== d.savedContent)) e.preventDefault();
+      if (!useDocStore.getState().docs.some((d) => d.content !== d.savedContent)) return;
+      const s = useSettings.getState();
+      // The text is kept for the next visit; only ask when the user wants to be asked.
+      if (s.restoreUnsaved) saveSessionNow();
+      if (!(s.restoreUnsaved && s.quitWithoutAsking)) e.preventDefault();
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
@@ -150,7 +155,7 @@ export default function App() {
       saveSessionNow();
       if (!useDocStore.getState().docs.some((d) => d.content !== d.savedContent)) return;
       event.preventDefault();
-      if (await confirmDiscardAll()) await win.destroy();
+      if (await confirmQuit()) await win.destroy();
     });
     return () => {
       unlisten.then((f) => f());
@@ -188,8 +193,7 @@ export default function App() {
   useEffect(() => {
     if (!inTauri) return;
     const unlisten = listen("quit-requested", async () => {
-      saveSessionNow();
-      if (await confirmDiscardAll()) {
+      if (await confirmQuit()) {
         const { exit } = await import("@tauri-apps/plugin-process");
         await exit(0);
       }
@@ -239,6 +243,7 @@ export default function App() {
       <StatusBar />
       <MobileBar />
       <SettingsDialog />
+      <AboutDialog />
       <FilePicker />
       <PromptDialog />
       <ConfirmDialog />

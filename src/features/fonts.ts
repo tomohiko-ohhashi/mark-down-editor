@@ -46,16 +46,39 @@ const CANDIDATES: [name: string, monospace: boolean][] = [
 export function detectFonts(): FontInfo[] {
   const ctx = document.createElement("canvas").getContext("2d");
   if (!ctx) return [];
-  const sample = "mmmmmmmmmmlli 0O あいう漢字";
+  const samples = ["mmmmmmmmmmlli 0O あいう漢字", "The quick brown fox, 1234567890", "WAVE Illyria fjord @#&"];
   const generics = ["monospace", "sans-serif", "serif"];
-  const width = (family: string) => {
+  const width = (family: string, sample: string) => {
     ctx.font = `72px ${family}`;
     return ctx.measureText(sample).width;
   };
-  const base = generics.map(width);
-  return CANDIDATES.filter(([name]) => generics.some((g, i) => width(`"${name}", ${g}`) !== base[i])).map(
-    ([name, monospace]) => ({ name, label: name, monospace }),
+  const base = generics.map((g) => width(g, samples[0]));
+  const present = CANDIDATES.filter(([name]) => generics.some((g, i) => width(`"${name}", ${g}`, samples[0]) !== base[i]));
+  return dropAliases(
+    present.map(([name, monospace]) => ({ name, label: name, monospace })),
+    (name) => samples.map((s) => width(`"${name}", monospace`, s)).join("/"),
   );
+}
+
+/** Fonts that really are what their name says on the systems that ship them (kept when an alias collides with them). */
+const NATIVE = /^(Liberation|DejaVu|Noto|Ubuntu|Arial|Segoe UI|Consolas|Menlo|Yu |Meiryo|Hiragino|Courier New|Times New Roman)/;
+
+/**
+ * Some systems answer for fonts they do not have by substituting another one
+ * (Linux maps "Helvetica" and "Arial" to Liberation Sans, Windows maps
+ * "Helvetica" to Arial). Such names measure exactly like the font they are
+ * replaced with, so of every group with the same measurements only one is
+ * kept: a name known to be native where there is one, otherwise the first.
+ */
+export function dropAliases(fonts: FontInfo[], signature: (name: string) => string): FontInfo[] {
+  const groups = new Map<string, FontInfo[]>();
+  for (const f of fonts) {
+    const key = signature(f.name);
+    groups.set(key, [...(groups.get(key) ?? []), f]);
+  }
+  const keep = new Set<string>();
+  for (const group of groups.values()) keep.add((group.find((f) => NATIVE.test(f.name)) ?? group[0]).name);
+  return fonts.filter((f) => keep.has(f.name));
 }
 
 let cache: Promise<FontInfo[]> | null = null;

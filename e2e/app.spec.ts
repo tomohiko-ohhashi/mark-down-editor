@@ -1,0 +1,246 @@
+import { test, expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const workspace = process.env.E2E_WORKSPACE as string;
+const onDisk = (name: string) => readFileSync(join(workspace, name), "utf8");
+
+async function start(page: Page) {
+  await page.goto("/?token=e2e");
+  await page.waitForSelector(".sidebar .tree");
+}
+
+async function openFile(page: Page, path: string) {
+  await page.click(`.tree-file[title="${path}"]`);
+  const name = path.split("/").pop() as string;
+  await expect(page).toHaveTitle(new RegExp(`^(● )?${name.replace(".", "\\.")} `));
+}
+
+const editor = (page: Page) => page.locator(".cm-content");
+const stored = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem("settings") ?? "{}") as Record<string, unknown>);
+
+/** Japanese text left in the UI itself (not in the user's documents). */
+const japaneseInUi = (page: Page) =>
+  page.evaluate(() => {
+    const jp = /[぀-ヿ一-鿿]/;
+    const skip = (el: Element | null) => !!el?.closest(".cm-content, .preview, .tree, .tab-name, .outline-list, .toolbar-title, .statusbar-path, option[value='ja']");
+    const found = new Set<string>();
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const text = (n.textContent ?? "").trim();
+      if (text && jp.test(text) && !skip(n.parentElement) && text !== "言語 / Language") found.add(text);
+    }
+    for (const el of Array.from(document.querySelectorAll("[title], [placeholder], [aria-label]"))) {
+      if (skip(el)) continue;
+      for (const a of ["title", "placeholder", "aria-label"]) {
+        const v = el.getAttribute(a);
+        if (v && jp.test(v)) found.add(`${a}=${v}`);
+      }
+    }
+    return Array.from(found);
+  });
+
+test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  // A native confirm()/alert() would mean an in-app dialog was bypassed.
+  page.on("dialog", (d) => void d.accept());
+  test.info().annotations.push({ type: "errors", description: "" });
+  (page as unknown as { __errors: string[] }).__errors = errors;
+});
+
+test.afterEach(async ({ page }) => {
+  expect((page as unknown as { __errors: string[] }).__errors, "uncaught errors in the page").toEqual([]);
+});
+
+test("open a file, edit it, see the preview follow and save to disk", async ({ page }) => {
+  await start(page);
+  await openFile(page, "save-me.md");
+  await expect(page.locator(".preview h1")).toHaveText("Save me");
+  await editor(page).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("\nadded by the test");
+  await expect(page.locator(".preview")).toContainText("added by the test");
+  await expect(page).toHaveTitle(/^● save-me\.md/);
+  await page.keyboard.press("Control+S");
+  await expect(page).toHaveTitle(/^save-me\.md/);
+  expect(onDisk("save-me.md")).toContain("added by the test");
+});
+
+test("closing a changed tab asks with three labelled choices", async ({ page }) => {
+  await start(page);
+  await editor(page).click();
+  await page.keyboard.type("draft");
+  await page.keyboard.press("Control+W");
+  await expect(page.locator(".modal.confirm .prompt-actions button")).toHaveText(["キャンセル", "保存しない", "保存する"]);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".tab")).toHaveCount(1);
+  await expect(editor(page)).toContainText("draft");
+  await page.keyboard.press("Control+W");
+  await page.click('.modal.confirm button:has-text("保存しない")');
+  await expect(page.locator(".cm-placeholder")).toBeVisible();
+});
+
+test("the session comes back after a restart: tabs, front tab, cursor, panels, view", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  await openFile(page, "long.md");
+  await editor(page).click();
+  await page.keyboard.press("Control+Home");
+  for (let i = 0; i < 40; i++) await page.keyboard.press("ArrowDown");
+  await openFile(page, "tasks.md");
+  await page.click('.tab:has-text("long.md")');
+  await page.keyboard.press("Control+Shift+O");
+  await page.keyboard.press("F1");
+  await page.keyboard.press("Control+Shift+Digit1");
+  const cursor = page.locator('.statusbar span[title="カーソル位置"]');
+  const before = await cursor.textContent();
+  await page.waitForTimeout(900); // the session is written half a second after the last change
+
+  await page.reload();
+  await page.waitForSelector(".sidebar .tree");
+  await expect(page.locator(".tab-name")).toHaveText(["hello.md", "long.md", "tasks.md"]);
+  await expect(page.locator(".tab.active .tab-name")).toHaveText("long.md");
+  await expect(cursor).toHaveText(before as string);
+  await expect(page.locator(".outline")).toBeVisible();
+  await expect(page.locator(".cheatsheet")).toBeVisible();
+  await expect(page.locator(".panes")).toHaveClass(/mode-editor/);
+  await expect(page.locator(".cm-activeLine")).toBeInViewport();
+});
+
+test("settings show at once but are kept only by Save", async ({ page }) => {
+  await start(page);
+  const theme = () => page.locator('.modal label:has-text("テーマ") select');
+  const applied = () => page.evaluate(() => document.documentElement.getAttribute("data-theme") ?? "system");
+
+  await page.keyboard.press("Control+Comma");
+  await theme().selectOption("dark");
+  expect(await applied()).toBe("dark");
+  await expect(page.locator(".modal-footer-note")).not.toBeEmpty();
+  await page.waitForTimeout(700);
+  expect((await stored(page)).theme ?? "system").toBe("system");
+  await page.click('.modal-footer button:has-text("キャンセル")');
+  expect(await applied()).toBe("system");
+
+  await page.keyboard.press("Control+Comma");
+  await theme().selectOption("dark");
+  await page.keyboard.press("Escape");
+  expect(await applied()).toBe("system");
+
+  await page.keyboard.press("Control+Comma");
+  await theme().selectOption("dark");
+  await page.click(".modal-footer button.primary");
+  await expect(page.locator(".modal-footer")).toHaveCount(0);
+  await page.waitForTimeout(300);
+  expect((await stored(page)).theme).toBe("dark");
+  await page.reload();
+  await page.waitForSelector(".cm-content");
+  expect(await applied()).toBe("dark");
+});
+
+test("unsaved changes are restored at the next start when that is switched on", async ({ page }) => {
+  await start(page);
+  await page.keyboard.press("Control+Comma");
+  await page.check('label:has-text("次回の起動時に復元する") input');
+  await page.check('label:has-text("終了時に確認しない") input');
+  await page.click(".modal-footer button.primary");
+  await openFile(page, "unsaved.md");
+  await editor(page).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("\nnot saved yet");
+  await page.keyboard.press("Control+N");
+  await editor(page).click();
+  await page.keyboard.type("# untitled draft");
+  await page.waitForTimeout(900);
+
+  await page.reload();
+  await page.waitForSelector(".sidebar .tree");
+  await expect(page.locator(".tab-name")).toHaveText(["● unsaved.md", "● 無題"]);
+  await expect(editor(page)).toContainText("untitled draft");
+  await page.click('.tab:has-text("unsaved.md")');
+  await expect(editor(page)).toContainText("not saved yet");
+  expect(onDisk("unsaved.md")).not.toContain("not saved yet");
+});
+
+test("task boxes in the preview tick the item in the source", async ({ page }) => {
+  await start(page);
+  await openFile(page, "tasks.md");
+  const boxes = page.locator(".preview input[type=checkbox]");
+  await expect(boxes).toHaveCount(2);
+  await boxes.nth(0).click();
+  await expect(editor(page)).toContainText("- [x] 一つ目");
+  await expect(boxes.nth(0)).toBeChecked();
+  await boxes.nth(1).click();
+  await expect(editor(page)).toContainText("- [ ] 二つ目");
+});
+
+test("tabs of files with the same name show their folder", async ({ page }) => {
+  await start(page);
+  await page.click('.tree-dir:has-text("docs")');
+  await openFile(page, "docs/README.md");
+  await page.click('.tree-dir:has-text("notes")');
+  await openFile(page, "notes/README.md");
+  await expect(page.locator(".tab-name")).toHaveText(["README.md — docs", "README.md — notes"]);
+  await page.click('.tab:has-text("README.md — docs")');
+  await expect(page.locator(".preview")).toContainText("docs のファイル");
+});
+
+test("the UI is English for an English system and can be switched in the settings", async ({ browser }) => {
+  const context = await browser.newContext({ locale: "en-US", viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  await start(page);
+  await expect(page.locator(".toolbar .tg-file > button").first()).toHaveText("New");
+  // A document without Japanese in it, so everything Japanese on screen would be UI text.
+  await openFile(page, "hello.md");
+  await page.keyboard.press("Control+Shift+O");
+  await page.keyboard.press("F1");
+  await page.keyboard.press("Control+Comma");
+  await page.waitForSelector(".modal-footer");
+  expect(await japaneseInUi(page)).toEqual([]);
+
+  await page.locator('label:has-text("Language") select').selectOption("ja");
+  await expect(page.locator(".modal h2")).toHaveText("設定");
+  await page.click(".modal-footer button.primary");
+  await expect(page.locator(".toolbar .tg-file > button").first()).toHaveText("新規");
+  await context.close();
+});
+
+test("the About dialog shows the version and the bundled license texts", async ({ page }) => {
+  await start(page);
+  await page.click(".toolbar .tg-more .dropdown > button");
+  await page.click('.menu-item:has-text("バージョン情報")');
+  await expect(page.locator(".about-version")).toContainText(/バージョン \d+\.\d+\.\d+/);
+  await expect(page.locator(".modal.about")).toContainText("All rights reserved");
+  await page.click('button:has-text("すべてのライブラリとライセンス文を表示")');
+  await expect(page.locator(".licenses-text")).toContainText("THIRD-PARTY LICENSES");
+  await expect(page.locator(".licenses-text")).toContainText("Permission is hereby granted, free of charge");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".modal")).toHaveCount(0);
+});
+
+test("printing shows only the document: no phone bar, no panels", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  await page.keyboard.press("F1");
+  // A printed page is narrower than the phone breakpoint; the phone layout must not apply to it.
+  await page.setViewportSize({ width: 600, height: 800 });
+  await page.emulateMedia({ media: "print" });
+  for (const part of [".mobilebar", ".toolbar", ".tabbar", ".statusbar", ".sidebar", ".cheatsheet", ".pane-editor"]) {
+    await expect(page.locator(part).first(), part).toBeHidden();
+  }
+  await expect(page.locator(".preview h1")).toBeVisible();
+});
+
+test("on a phone the bottom bar drives the app", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 760 }, hasTouch: true, isMobile: true, locale: "ja-JP" });
+  const page = await context.newPage();
+  await page.goto("/?token=e2e");
+  await page.waitForSelector(".mobilebar");
+  await page.tap('.mobilebar button[title="フォルダ"]');
+  await page.tap('.tree-file[title="hello.md"]');
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(editor(page)).toContainText("# Hello");
+  await page.tap('.mobilebar .segmented button:has-text("閲覧")');
+  await expect(page.locator(".preview h1")).toBeVisible();
+  await context.close();
+});

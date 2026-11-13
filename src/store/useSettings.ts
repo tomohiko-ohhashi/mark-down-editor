@@ -21,6 +21,13 @@ export interface SessionState {
   cursors: Record<string, number>;
 }
 
+/** A document with changes that were not saved when the app was closed. */
+export interface UnsavedDoc {
+  /** File the changes belong to, or null for a document that was never saved. */
+  path: string | null;
+  content: string;
+}
+
 export interface Settings {
   theme: Theme;
   /** UI language; "system" follows the OS (Japanese there, otherwise English). */
@@ -41,6 +48,12 @@ export interface Settings {
   /** Restore the previous session (files, folder, layout) on start. */
   reopenLastFiles: boolean;
   checkUpdatesOnStartup: boolean;
+  /** Keep unsaved changes when the app is closed and bring them back on the next start. */
+  restoreUnsaved: boolean;
+  /** With restoreUnsaved: close without asking. */
+  quitWithoutAsking: boolean;
+  /** The unsaved changes kept for the next start (only filled while restoreUnsaved is on). */
+  unsavedDocs: UnsavedDoc[];
   recentFiles: string[];
   lastOpenFiles: string[];
   lastWorkspace: string | null;
@@ -64,6 +77,9 @@ export const DEFAULT_SETTINGS: Settings = {
   autosaveSeconds: 0,
   reopenLastFiles: true,
   checkUpdatesOnStartup: true,
+  restoreUnsaved: false,
+  quitWithoutAsking: false,
+  unsavedDocs: [],
   recentFiles: [],
   lastOpenFiles: [],
   lastWorkspace: null,
@@ -77,6 +93,8 @@ const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
 interface Backend {
   load(): Promise<Partial<Settings>>;
   save(s: Settings): Promise<void>;
+  /** Make sure what was saved has reached the disk. */
+  flush(): Promise<void>;
 }
 
 const localBackend: Backend = {
@@ -94,6 +112,7 @@ const localBackend: Backend = {
       /* ignore */
     }
   },
+  async flush() {},
 };
 
 async function tauriBackend(): Promise<Backend> {
@@ -105,6 +124,9 @@ async function tauriBackend(): Promise<Backend> {
     },
     async save(s) {
       await store.set("settings", s);
+    },
+    async flush() {
+      await store.save();
     },
   };
 }
@@ -185,6 +207,13 @@ function pick(s: SettingsState): Settings {
 async function persist(s: SettingsState) {
   if (!backend) return;
   await backend.save(pick(s));
+}
+
+/** Write the settings and wait until they are on disk (before the window is closed). */
+export async function flushSettings(): Promise<void> {
+  if (!backend) return;
+  await backend.save(pick(useSettings.getState()));
+  await backend.flush();
 }
 
 /** Load the saved settings into the store and return them as they were on disk. */

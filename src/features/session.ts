@@ -1,7 +1,10 @@
 import { platform } from "../platform";
 import { useDocStore, selectActiveDoc, type ViewMode } from "../store/useDocStore";
-import { useSettings, type SessionState, type Settings } from "../store/useSettings";
-import { openDocument } from "./files/fileOps";
+import { useSettings, type SessionState, type Settings, type UnsavedDoc } from "../store/useSettings";
+import { openDocument, confirmDiscardAll } from "./files/fileOps";
+import { choose } from "../components/ConfirmDialog";
+import { flushSettings } from "../store/useSettings";
+import { t } from "../i18n";
 
 /**
  * Session = what the window looked like when it was last closed: the open
@@ -100,6 +103,48 @@ export function snapshotSession(
   };
 }
 
+/** The documents with unsaved changes, to be kept for the next start (nothing when the feature is off). */
+export function unsavedSnapshot(
+  docs: { path: string | null; content: string; savedContent: string }[],
+  enabled: boolean,
+): UnsavedDoc[] {
+  if (!enabled) return [];
+  return docs.filter((d) => d.content !== d.savedContent).map((d) => ({ path: d.path, content: d.content }));
+}
+
+/** Make stored unsaved documents safe to use. */
+export function normalizeUnsaved(raw: unknown): UnsavedDoc[] {
+  if (!Array.isArray(raw)) return [];
+  const out: UnsavedDoc[] = [];
+  for (const item of raw as unknown[]) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    if (typeof r.content !== "string") continue;
+    out.push({ path: typeof r.path === "string" && r.path ? r.path : null, content: r.content });
+  }
+  return out;
+}
+
+/** Bring back documents that had unsaved changes when the app was last closed. */
+async function restoreUnsaved(list: UnsavedDoc[]): Promise<void> {
+  for (const u of list) {
+    let state = useDocStore.getState();
+    if (u.path) {
+      if (!state.docs.some((d) => d.path === u.path)) await openDocument(u.path, { silent: true });
+      state = useDocStore.getState();
+      const doc = state.docs.find((d) => d.path === u.path);
+      if (doc) {
+        state.setContent(doc.id, u.content);
+        continue;
+      }
+      // The file is gone: keep the text as a new, unsaved document rather than lose it.
+    }
+    const active = selectActiveDoc(state);
+    if (!active.path && active.content === "" && active.savedContent === "") state.setContent(active.id, u.content);
+    else state.addDoc({ content: u.content, savedContent: "" });
+  }
+}
+
 let tracking = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -114,11 +159,13 @@ export function saveSessionNow(): void {
   if (timer) clearTimeout(timer);
   timer = null;
   if (!tracking) return;
-  const next = snapshotSession(useDocStore.getState(), cursors);
   const cur = useSettings.getState();
+  const docState = useDocStore.getState();
+  const next = { ...snapshotSession(docState, cursors), unsavedDocs: unsavedSnapshot(docState.docs, cur.restoreUnsaved) };
   if (
     JSON.stringify(next.session) === JSON.stringify(cur.session) &&
-    next.lastOpenFiles.join("\n") === cur.lastOpenFiles.join("\n")
+    next.lastOpenFiles.join("\n") === cur.lastOpenFiles.join("\n") &&
+    JSON.stringify(next.unsavedDocs) === JSON.stringify(cur.unsavedDocs)
   ) {
     return;
   }
@@ -129,6 +176,10 @@ function startTracking() {
   if (tracking) return;
   tracking = true;
   useDocStore.subscribe(scheduleSave);
+  // Turning "restore unsaved changes" on or off changes what has to be kept.
+  useSettings.subscribe((s, prev) => {
+    if (s.restoreUnsaved !== prev.restoreUnsaved) scheduleSave();
+  });
   // Closing a tab / the app: don't lose the last half second.
   window.addEventListener("pagehide", saveSessionNow);
   document.addEventListener("visibilitychange", () => {
@@ -160,11 +211,13 @@ export async function restoreSession(saved: Settings): Promise<void> {
       }
     }
     for (const f of saved.lastOpenFiles) await openDocument(f, { silent: true });
-    if (session?.activeFile) {
-      const state = useDocStore.getState();
-      const front = state.docs.find((d) => d.path === session.activeFile);
-      if (front && front.id !== selectActiveDoc(state).id) state.setActive(front.id);
-    }
+  }
+  // Unsaved changes come back however the app was started.
+  if (saved.restoreUnsaved) await restoreUnsaved(normalizeUnsaved(saved.unsavedDocs));
+  if (session?.activeFile) {
+    const state = useDocStore.getState();
+    const front = state.docs.find((d) => d.path === session.activeFile);
+    if (front && front.id !== selectActiveDoc(state).id) state.setActive(front.id);
   }
 
   const store = useDocStore.getState();
@@ -186,4 +239,31 @@ export async function restoreSession(saved: Settings): Promise<void> {
   }
 
   startTracking();
+}
+
+/**
+ * The window is about to close with unsaved changes. Returns true when it may
+ * close. With "restore unsaved changes" the text is kept for the next start
+ * (after a short notice, unless that is switched off); otherwise every
+ * document is offered for saving.
+ */
+export async function confirmQuit(): Promise<boolean> {
+  saveSessionNow();
+  if (!useDocStore.getState().docs.some((d) => d.content !== d.savedContent)) return true;
+  const s = useSettings.getState();
+  if (!s.restoreUnsaved) return confirmDiscardAll();
+  if (!s.quitWithoutAsking) {
+    const answer = await choose({
+      title: t("未保存の変更"),
+      message: t("保存されていない変更があります。次回の起動時に復元されます。終了しますか？"),
+      choices: [
+        { id: "cancel", label: t("キャンセル") },
+        { id: "quit", label: t("終了する"), kind: "primary" },
+      ],
+    });
+    if (answer !== "quit") return false;
+  }
+  saveSessionNow();
+  await flushSettings();
+  return true;
 }

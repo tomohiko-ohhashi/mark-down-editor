@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "licenses": "node scripts/licenses.mjs",
+    "e2e": "playwright test",
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
@@ -47,6 +49,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@tauri-apps/cli": "^2",
     "@types/hast": "^3.0.5",
     "@types/katex": "^0.16.8",
