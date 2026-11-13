@@ -105,7 +105,9 @@ function baseExtensions(opts: {
     listKeys.of(keymap.of(listKeymap(opts.listContinuation))),
     // addKeymap: false — lang-markdown's own Enter binding (always continues
     // lists) would override the user's list-continuation setting.
-    markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: false }),
+    // pasteURLAsLink off: the Markdown package would turn every URL pasted over a selection into a link
+    // before our own handler runs, so the "ask / always / off" setting never had a say.
+    markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: false, pasteURLAsLink: false }),
     preview.of(opts.livePreview ? livePreview : []),
     fullWidthHeadingFix,
     baseTheme,

@@ -8,6 +8,7 @@ import { useDocStore, selectActiveDoc, fileName } from "../store/useDocStore";
 import { editorRef, goToLine } from "../editor/Editor";
 import { baseTheme, markdownHighlight } from "../editor/theme";
 import { Splitter } from "./Splitter";
+import { handleSmartPaste } from "../editor/smartPaste";
 import { t } from "../i18n";
 import { IconClose, IconUp, IconDown, ARROW_RIGHT_SVG } from "./icons";
 
@@ -26,7 +27,7 @@ function useNarrowScreen(): boolean {
 
 type Base = "opened" | "saved";
 
-const shared = [lineNumbers(), drawSelection(), EditorView.lineWrapping, markdown({ base: markdownLanguage, addKeymap: false }), baseTheme, markdownHighlight];
+const shared = [lineNumbers(), drawSelection(), EditorView.lineWrapping, markdown({ base: markdownLanguage, addKeymap: false, pasteURLAsLink: false }), baseTheme, markdownHighlight];
 
 /**
  * Side-by-side view of what changed in the active document, like a merge
@@ -64,6 +65,8 @@ export function DiffPanel() {
       highlightActiveLine(),
       history(),
       keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap]),
+      // Same behaviour as the main editor when a URL is pasted over selected text.
+      EditorView.domEventHandlers({ paste: (e, v) => handleSmartPaste(e, v) }),
       EditorView.updateListener.of((u) => {
         count(u.state);
         if (!u.docChanged) return;

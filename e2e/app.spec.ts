@@ -599,3 +599,58 @@ test("on a phone the toolbar shows that it scrolls, and its menus open on screen
   expect(onTop).toBe(true);
   await context.close();
 });
+
+test("a URL pasted over selected text follows the setting: ask, always a link, or plain", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  const thirdLine = () => page.locator(".pane-editor .cm-line").nth(2);
+  const selectFirstWord = async () => {
+    await editor(page).click();
+    await page.keyboard.press("Control+Home");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Home");
+    for (let i = 0; i < 5; i++) await page.keyboard.press("Shift+ArrowRight");
+  };
+  const paste = (text: string) =>
+    page.evaluate((t) => {
+      const data = new DataTransfer();
+      data.setData("text/plain", t);
+      document.querySelector(".pane-editor .cm-content")?.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    }, text);
+  const setMode = async (label: string) => {
+    await page.keyboard.press("Control+Comma");
+    await page.locator(".modal label").filter({ hasText: "URL を選択範囲に貼り付けたとき" }).locator("select").selectOption({ label });
+    await page.click(".modal-footer button.primary");
+    await expect(page.locator(".modal")).toHaveCount(0);
+  };
+  const undo = async () => {
+    await editor(page).click();
+    await page.keyboard.press("Control+Z");
+    await expect(thirdLine()).toHaveText("First paragraph.");
+  };
+
+  // Default: ask. Nothing changes until the question is answered.
+  await selectFirstWord();
+  await paste("https://example.com/a");
+  await expect(page.locator(".modal.confirm")).toBeVisible();
+  await expect(thirdLine()).toHaveText("First paragraph.");
+  await page.locator(".modal.confirm button.primary").click();
+  await expect(thirdLine()).toHaveText("[First](https://example.com/a) paragraph.");
+  await undo();
+
+  // Plain: the URL replaces the selection, no question, no link.
+  await setMode("そのまま貼り付ける");
+  await selectFirstWord();
+  await paste("https://example.com/b");
+  await expect(page.locator(".modal.confirm")).toHaveCount(0);
+  await expect(thirdLine()).toHaveText("https://example.com/b paragraph.");
+  await undo();
+
+  // Always: a link at once.
+  await setMode("常にリンクにする");
+  await selectFirstWord();
+  await paste("https://example.com/c");
+  await expect(page.locator(".modal.confirm")).toHaveCount(0);
+  await expect(thirdLine()).toHaveText("[First](https://example.com/c) paragraph.");
+});
