@@ -140,7 +140,8 @@ export const useDocStore = create<DocState>((set, get) => ({
     set((s) => ({
       docs: s.docs.map((d) => (d.id === id ? { ...d, path, mtime, savedContent: written } : d)),
     })),
-  setViewMode: (viewMode) => set({ viewMode }),
+  // The changes view covers the panes; choosing a view means going back to them.
+  setViewMode: (viewMode) => set({ viewMode, diffOpen: false }),
   setStatus: (status) => set({ status }),
   toggle: (key) => set((s) => ({ [key]: !s[key] }) as Partial<DocState>),
   set: (partial) => set(partial),

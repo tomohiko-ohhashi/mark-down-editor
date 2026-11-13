@@ -26,6 +26,8 @@ export interface UnsavedDoc {
   /** File the changes belong to, or null for a document that was never saved. */
   path: string | null;
   content: string;
+  /** The saved text the changes were made on; lets the next start notice that the file changed meanwhile. */
+  base?: string;
 }
 
 export interface Settings {

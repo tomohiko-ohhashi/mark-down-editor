@@ -34,7 +34,16 @@ export function scrollPreviewToLine(container: HTMLElement, line: number): boole
  * active document). On phones the keyboard is not raised.
  */
 export function revealLine(line: number): void {
-  pauseScrollSync(700);
-  goToLine(line, !isNarrow());
-  useDocStore.setState({ reveal: { line, seq: ++seq } });
+  const go = () => {
+    pauseScrollSync(700);
+    goToLine(line, !isNarrow());
+    useDocStore.setState({ reveal: { line, seq: ++seq } });
+  };
+  if (useDocStore.getState().diffOpen) {
+    // The editor is hidden under the changes view: close that first, then move once the editor is laid out.
+    useDocStore.setState({ diffOpen: false });
+    requestAnimationFrame(() => requestAnimationFrame(go));
+  } else {
+    go();
+  }
 }

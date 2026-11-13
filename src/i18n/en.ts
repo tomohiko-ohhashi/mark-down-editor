@@ -150,6 +150,9 @@ export const en: Record<string, string> = {
   "復元する場合、終了時に確認しない": "When restoring, close without asking",
   "保存されていない変更があります。次回の起動時に復元されます。終了しますか？": "There are unsaved changes. They will be restored at the next start. Close now?",
   "終了する": "Close",
+  "次のファイルは、前回の終了後に他のプログラムで変更されています。復元した内容を保存すると、その変更は上書きされます。差分表示で確認できます。\n{0}": "These files were changed by another program since the app was last closed. Saving the restored text will overwrite those changes. The changes view shows the difference.\n{0}",
+  "次のファイルは見つからなかったため、内容を無題のドキュメントとして復元しました。\n{0}": "These files were not found, so their text was restored as untitled documents.\n{0}",
+  "未保存の変更を復元しました": "Unsaved changes restored",
   // ---- Changes view ----
   "変更箇所": "Changes",
   "ダブルクリックでエディタのこの行へ移動": "Double-click to go to this line in the editor",

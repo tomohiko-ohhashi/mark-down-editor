@@ -115,6 +115,9 @@ function baseExtensions(opts: {
       { key: "Mod-1", run: setHeading(1) },
       { key: "Mod-2", run: setHeading(2) },
       { key: "Mod-3", run: setHeading(3) },
+      // The app's shortcut for the changes view (handled in App.tsx). Claimed here so
+      // the editor's own binding for it, "find previous", does not open the search panel too.
+      { key: "Mod-Shift-g", run: () => true },
       {
         key: "Shift-Alt-f",
         run: (view) => {

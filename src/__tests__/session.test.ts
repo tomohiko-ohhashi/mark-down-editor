@@ -125,7 +125,7 @@ describe("unsaved changes kept for the next start", () => {
   ];
   it("keeps only documents with unsaved changes, untitled ones included", () => {
     expect(unsavedSnapshot(docs, true)).toEqual([
-      { path: "/n/a.md", content: "changed" },
+      { path: "/n/a.md", content: "changed", base: "original" },
       { path: null, content: "draft" },
     ]);
   });
