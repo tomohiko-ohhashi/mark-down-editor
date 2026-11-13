@@ -43,16 +43,16 @@ Linux のビルドには次のパッケージが必要: `libwebkit2gtk-4.1-dev l
 
 1. `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` のバージョンを揃えて上げる
 2. develop → main の PR をマージする
-3. 次のどちらかでリリースワークフローを起動する
-   - `git tag vX.Y.Z && git push origin vX.Y.Z`
-   - GitHub の Actions タブ → Release → Run workflow でタグ名を入力 (main に release.yml がある必要あり)
-4. 4 ジョブ (macOS Apple Silicon / macOS Intel / Linux / Windows) が完了するとドラフトリリースができる。内容を確認して Publish する。Publish するとタグも作られる
+3. GitHub の Actions タブ → Release → Run workflow でタグ名 (`vX.Y.Z`) を入力して起動する。タグの push では起動しない (下記)
+4. 4 ジョブ (macOS Apple Silicon / macOS Intel / Linux / Windows) とサーバーのジョブが完了するとドラフトリリースができる。**全ジョブの完了を待ってから** Publish する。Publish するとタグも作られる
+
+タグの push で起動しない理由: 以前はタグでも起動していたため、Publish (= タグ作成) のたびに同じビルドがもう一度走り、公開直後のリリースのファイルを置き換えていた。v0.3.3 では手動起動のビルドと重なり、片方を取り消す必要があった。置き換えの最中はインストーラと `latest.json` の署名が一致せず、その間に更新しようとしたアプリは失敗する。
 
 ### 署名について
 
 - **macOS**: Apple の署名用 Secrets (`APPLE_CERTIFICATE` など、README 参照) が無い場合はアドホック署名になる。初回起動時は右クリック →「開く」が必要
 - **Windows**: 未署名。SmartScreen の警告が出る場合は「詳細情報」→「実行」
-- **自動アップデート**: `TAURI_SIGNING_PRIVATE_KEY` を Secrets に登録したリリースから有効。公開鍵は `tauri.conf.json` に入っている。秘密鍵を紛失した場合は `pnpm tauri signer generate` で作り直し、公開鍵を貼り替える
+- **自動アップデート**: v0.3.3 から有効 (`TAURI_SIGNING_PRIVATE_KEY` を Secrets に登録済み)。リリースに `latest.json` と各インストーラの `.sig` が付き、インストール済みのアプリが起動時に更新を見つける。v0.3.2 → v0.3.3 の更新を実機で確認済み。公開鍵は `tauri.conf.json` に入っている。Secrets は登録後に読み出せないので、秘密鍵の控えは別に保管しておく。紛失した場合は `pnpm tauri signer generate` で作り直して公開鍵を貼り替える (その時点でインストール済みのアプリは一度だけ手動で入れ直し)
 
 ## 5. セルフレビューで直した問題
 
@@ -205,17 +205,18 @@ pnpm install && pnpm tauri dev      # 開発モード
 pnpm tauri build                    # .app / .dmg を作る (src-tauri/target/release/bundle/)
 ```
 
-### v0.3.0 をリリースする
+### リリースする
 
-1. GitHub の Actions タブ → Release → Run workflow → tag に `v0.3.0` を入力 (または `git tag v0.3.0 && git push origin v0.3.0`)
-2. 4 OS 分のインストーラと `markdown-editor-server-linux-x86_64` 付きのドラフトリリースができる
-3. ブラウザ (スマホアプリ不可) で Releases → 鉛筆アイコン → Publish release
+1. バージョンを上げる PR をマージする (`package.json` / `src-tauri/tauri.conf.json` / `Cargo.toml`)
+2. GitHub の Actions タブ → Release → Run workflow → tag に `vX.Y.Z` を入力
+3. 全ジョブが完了すると、4 OS 分のインストーラ、`latest.json` と署名、`markdown-editor-server-linux-x86_64` 付きのドラフトリリースができる
+4. ブラウザ (スマホアプリ不可) で Releases → 鉛筆アイコン → Publish release。公開すると、インストール済みのデスクトップ版が次の起動時に更新を案内する
 
 ### GitHub Secrets に登録すると有効になるもの
 
 | Secret | 効果 | 状態 |
 | --- | --- | --- |
-| `TAURI_SIGNING_PRIVATE_KEY` | 自動アップデート用の署名。秘密鍵はこのセッションの作業フォルダにしか無いので、紛失していれば `pnpm tauri signer generate` で作り直し、`src-tauri/tauri.conf.json` の `pubkey` を貼り替える | 未登録 |
+| `TAURI_SIGNING_PRIVATE_KEY` | 自動アップデート用の署名。登録後は読み出せないので、秘密鍵の控えを別に保管しておく。紛失したら `pnpm tauri signer generate` で作り直し、`src-tauri/tauri.conf.json` の `pubkey` を貼り替える | 登録済み (v0.3.3 から有効) |
 | `APPLE_CERTIFICATE` ほか (README 参照) | macOS の署名と公証。無い間はアドホック署名 (初回は右クリック → 開く) | 未登録 |
 
 ### まだ実機で確認していないこと

@@ -120,14 +120,9 @@ cargo test --workspace
 
 ## リリース
 
-`v*` タグを push すると GitHub Actions が macOS (Apple Silicon / Intel)、Linux (AppImage / deb / rpm)、Windows (msi / exe) のパッケージをビルドし、ドラフトリリースに添付します。
+GitHub の Actions タブから「Release」ワークフローを手動実行 (Run workflow) し、タグ名 (例: `v0.3.4`) を入力します。macOS (Apple Silicon / Intel)、Linux (AppImage / deb / rpm)、Windows (msi / exe) のパッケージと Web サーバーのバイナリがビルドされ、ドラフトリリースに添付されます。内容を確認して Publish すると公開され、タグもそのとき作られます。
 
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-GitHub の Actions タブから「Release」ワークフローを手動実行 (Run workflow) し、タグ名を入力して起動することもできます。手動実行は release.yml がデフォルトブランチ (main) に含まれている必要があります。
+タグの push では起動しません。Publish でタグが作られるたびに同じビルドがもう一度走り、公開直後のリリースのファイルを置き換えてしまうためです (置き換え中はインストーラと `latest.json` の署名が一致せず、自動アップデートが失敗します)。
 
 ### コード署名
 

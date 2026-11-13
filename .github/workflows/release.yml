@@ -1,8 +1,11 @@
 name: Release
 
+# Started by hand only (Actions tab > Release > Run workflow). There is no tag
+# trigger on purpose: publishing the draft release creates the tag, and a tag
+# trigger would then build everything a second time and replace the files of
+# the release that was just published. While they are being replaced, the
+# installers and latest.json do not match and auto-updates fail.
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
@@ -105,8 +108,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ inputs.tag || github.ref_name }}
-          releaseName: "Markdown Editor ${{ inputs.tag || github.ref_name }}"
+          tagName: ${{ inputs.tag }}
+          releaseName: "Markdown Editor ${{ inputs.tag }}"
           releaseBody: "See the assets below to download and install this version."
           releaseDraft: true
           prerelease: false
@@ -134,6 +137,6 @@ jobs:
       - run: cp target/release/markdown-editor-server markdown-editor-server-linux-x86_64
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
+          tag_name: ${{ inputs.tag }}
           draft: true
           files: markdown-editor-server-linux-x86_64
