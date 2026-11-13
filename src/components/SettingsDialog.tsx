@@ -1,13 +1,55 @@
 import { useDocStore } from "../store/useDocStore";
 import { useSettings, type Theme, type ListContinuation, type SmartPaste } from "../store/useSettings";
 import { checkForUpdates } from "../features/updater";
+import { availableFonts } from "../features/fonts";
+import type { FontInfo } from "../platform/types";
+import { useEffect, useState } from "react";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
+
+/** Pick a font from the ones this computer has. `monoFirst` lists fixed-pitch fonts first (editor). */
+function FontSelect(props: { value: string; fonts: FontInfo[] | null; monoFirst: boolean; onChange: (v: string) => void }) {
+  const { value, fonts, monoFirst, onChange } = props;
+  const mono = (fonts ?? []).filter((f) => f.monospace);
+  const other = (fonts ?? []).filter((f) => !f.monospace);
+  const group = (label: string, list: FontInfo[]) =>
+    list.length > 0 && (
+      <optgroup label={label} key={label}>
+        {list.map((f) => (
+          <option key={f.name} value={f.name}>
+            {f.label === f.name ? f.name : `${f.label} (${f.name})`}
+          </option>
+        ))}
+      </optgroup>
+    );
+  const groups = [group("等幅フォント", mono), group("その他のフォント", other)];
+  // A font that is not installed (any more), or a hand-written list from an older version.
+  const unknown = value !== "" && !(fonts ?? []).some((f) => f.name === value);
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">既定</option>
+      {unknown && <option value={value}>{value}</option>}
+      {fonts == null && <option disabled>フォントを読み込み中…</option>}
+      {monoFirst ? groups : groups.reverse()}
+    </select>
+  );
+}
 
 export function SettingsDialog() {
   const open = useDocStore((s) => s.settingsOpen);
   const toggle = useDocStore((s) => s.toggle);
   const s = useSettings();
+  const [fonts, setFonts] = useState<FontInfo[] | null>(null);
+  useEffect(() => {
+    if (!open || fonts) return;
+    let cancelled = false;
+    void availableFonts().then((list) => {
+      if (!cancelled) setFonts(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, fonts]);
   if (!open) return null;
 
   const num = (key: "editorFontSize" | "previewFontSize" | "tabSize" | "autosaveSeconds", min: number, max: number) =>
@@ -41,16 +83,15 @@ export function SettingsDialog() {
             </label>
             <label>
               エディタのフォント
-              <input
-                type="text"
-                placeholder="例: 'JetBrains Mono', Menlo, monospace（空欄で既定）"
-                value={s.editorFontFamily}
-                onChange={(e) => s.update({ editorFontFamily: e.target.value })}
-              />
+              <FontSelect value={s.editorFontFamily} fonts={fonts} monoFirst onChange={(v) => s.update({ editorFontFamily: v })} />
             </label>
             <label>
               プレビューのフォントサイズ
               <input type="number" min={9} max={40} value={s.previewFontSize} onChange={num("previewFontSize", 9, 40)} />
+            </label>
+            <label>
+              プレビューのフォント
+              <FontSelect value={s.previewFontFamily} fonts={fonts} monoFirst={false} onChange={(v) => s.update({ previewFontFamily: v })} />
             </label>
           </section>
           <section>
@@ -101,7 +142,7 @@ export function SettingsDialog() {
             <h3>起動</h3>
             <label className="check">
               <input type="checkbox" checked={s.reopenLastFiles} onChange={(e) => s.update({ reopenLastFiles: e.target.checked })} />
-              前回開いていたファイルを復元する
+              前回終了時の状態を復元する (開いていたファイル・フォルダ・表示)
             </label>
             <label className="check">
               <input type="checkbox" checked={s.checkUpdatesOnStartup} onChange={(e) => s.update({ checkUpdatesOnStartup: e.target.checked })} />

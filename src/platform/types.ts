@@ -22,6 +22,14 @@ export interface SearchHit {
   text: string;
 }
 
+export interface FontInfo {
+  /** Family name as used in CSS. */
+  name: string;
+  /** Name to show (may be the localized family name). */
+  label: string;
+  monospace: boolean;
+}
+
 export interface AskOptions {
   title?: string;
   kind?: "info" | "warning" | "error";
@@ -47,6 +55,9 @@ export interface Platform {
   /** Save image bytes next to `docPath`; returns the Markdown-relative path. */
   saveImage(docPath: string, bytes: Uint8Array, ext: string): Promise<string>;
 
+  /** Desktop only: copy an image file next to `docPath`; returns the Markdown-relative path. */
+  importImage(docPath: string, sourcePath: string): Promise<string>;
+
   /** Let the user choose an existing file; null when cancelled. */
   pickOpenPath(): Promise<string | null>;
   /** Let the user choose where to save; null when cancelled. */
@@ -56,6 +67,9 @@ export interface Platform {
 
   ask(message: string, opts?: AskOptions): Promise<boolean>;
   message(message: string, opts?: AskOptions): Promise<void>;
+
+  /** Installed font families. Empty when the host cannot list them (browsers). */
+  listFonts(): Promise<FontInfo[]>;
 
   /** URL the webview can load for a file on disk (images in the preview). */
   assetUrl(path: string): string;

@@ -2,6 +2,7 @@ import { platform } from "../platform";
 import { useDocStore, selectActiveDoc, fileName, flashStatus } from "../store/useDocStore";
 import { renderMarkdown } from "../preview/markdown";
 import { writeFile } from "./files/fileOps";
+import { beginPrint, endPrint } from "./printPage";
 import previewCss from "../preview/preview.css?raw";
 
 import katex from "katex";
@@ -58,9 +59,26 @@ export async function exportHtml(): Promise<void> {
   }
 }
 
+const printName = () => fileName(selectActiveDoc(useDocStore.getState()).path);
+
+/**
+ * Printing started from the browser's own menu (web mode) gets the same page
+ * header / footer as the PDF export. Returns a function that removes the hooks.
+ */
+export function installPrintHooks(): () => void {
+  const before = () => beginPrint(printName());
+  window.addEventListener("beforeprint", before);
+  window.addEventListener("afterprint", endPrint);
+  return () => {
+    window.removeEventListener("beforeprint", before);
+    window.removeEventListener("afterprint", endPrint);
+  };
+}
+
 /**
  * PDF export uses the OS print dialog (choose "Save as PDF" there). The print
- * stylesheet shows only the preview pane. On macOS, where WKWebView has no
+ * stylesheet shows only the preview pane, and the page header / footer carry
+ * just the file name, the time and the page number (see printPage.ts). On macOS, where WKWebView has no
  * native window.print, Tauri replaces window.print with its webview print
  * command; that needs the `core:webview:allow-print` permission (granted in
  * src-tauri/capabilities/default.json).
@@ -71,9 +89,16 @@ export async function exportPdf(): Promise<void> {
   if (prevMode === "editor") state.setViewMode("preview");
   // Give the preview a frame to render before printing.
   await new Promise((r) => setTimeout(r, 150));
+  beginPrint(printName());
+  const started = Date.now();
   try {
     await Promise.resolve(window.print());
   } finally {
+    // Where print() blocks until the dialog is closed, we are done. Where it returns at
+    // once, the page is still being laid out: leave the clean-up to `afterprint`,
+    // with a late backstop for webviews that never fire it.
+    if (Date.now() - started > 1000) endPrint();
+    else setTimeout(endPrint, 60_000);
     if (prevMode === "editor") useDocStore.getState().setViewMode(prevMode);
   }
 }

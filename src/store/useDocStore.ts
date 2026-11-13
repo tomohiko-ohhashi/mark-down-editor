@@ -42,6 +42,8 @@ interface DocState {
   workspace: string | null;
   /** Bumped whenever files are created / renamed / deleted so tree views reload. */
   treeVersion: number;
+  /** Where the editor cursor is in the active document (for the status bar). */
+  cursor: { line: number; col: number; selected: number };
   /** A source line the preview should scroll to once it has rendered the active document. */
   reveal: { line: number; seq: number } | null;
 
@@ -88,6 +90,7 @@ export const useDocStore = create<DocState>((set, get) => ({
   cheatSheetOpen: false,
   workspace: null,
   treeVersion: 0,
+  cursor: { line: 1, col: 1, selected: 0 },
   reveal: null,
 
   addDoc: (partial) => {

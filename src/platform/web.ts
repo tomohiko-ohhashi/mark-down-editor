@@ -1,4 +1,5 @@
 import type { Platform, FileContent, DirEntry, SearchHit } from "./types";
+import { choose } from "../components/ConfirmDialog";
 import { openPicker } from "../components/FilePicker";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -54,14 +55,32 @@ export const webPlatform: Platform = {
       body: new Blob([bytes as BlobPart]),
     })).path,
 
+  // A browser hands over dropped files as data, never as paths.
+  importImage: async () => {
+    throw new Error("この環境ではファイルのパスから画像を取り込めません");
+  },
+
   pickOpenPath: () => openPicker({ mode: "open" }),
   pickSavePath: (defaultPath, filters) =>
     openPicker({ mode: "save", defaultPath, extensions: filters?.[0]?.extensions ?? ["md"] }),
   // The server exposes exactly one folder, so the workspace is always its root.
   pickDirectory: async () => "",
+  // A browser cannot list fonts; the settings fall back to detecting well-known ones.
+  listFonts: async () => [],
 
-  ask: async (msg) => window.confirm(msg),
-  message: async (msg) => window.alert(msg),
+  // In-app dialogs: confirm() / alert() cannot show the button labels the callers ask for.
+  ask: async (msg, opts) =>
+    (await choose({
+      title: opts?.title ?? "確認",
+      message: msg,
+      choices: [
+        { id: "cancel", label: opts?.cancelLabel ?? "キャンセル" },
+        { id: "ok", label: opts?.okLabel ?? "OK", kind: "primary" },
+      ],
+    })) === "ok",
+  message: async (msg, opts) => {
+    await choose({ title: opts?.title ?? "お知らせ", message: msg, choices: [{ id: "ok", label: "OK", kind: "primary" }] });
+  },
 
   assetUrl: (path) => `/api/raw${q({ path })}`,
   openExternal: async (url) => {

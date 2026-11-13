@@ -1,4 +1,5 @@
 mod commands;
+mod fonts;
 
 /// Files passed on the command line (e.g. by double-clicking a .md file on
 /// Windows/Linux) are handed to the frontend once it asks for them.
@@ -87,10 +88,12 @@ pub fn run() {
             commands::file_mtime,
             commands::read_dir,
             commands::save_image,
+            commands::import_image,
             commands::search_workspace,
             commands::create_dir,
             commands::rename_path,
             commands::delete_path,
+            fonts::list_fonts,
             take_startup_files,
         ])
         .build(tauri::generate_context!())

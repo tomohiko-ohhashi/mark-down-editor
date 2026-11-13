@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useDocStore, selectActiveDoc, selectActiveIsDirty, fileName, type ViewMode } from "../store/useDocStore";
 import { useSettings } from "../store/useSettings";
-import { newDocument, openDocument, openWorkspace, saveDocument, saveDocumentAs } from "../features/files/fileOps";
+import { newDocument, openDocument, saveDocument, saveDocumentAs } from "../features/files/fileOps";
 import { exportHtml, exportPdf } from "../features/export";
 import { editorRef } from "../editor/Editor";
 import { toggleBold, toggleItalic, toggleCode, insertLink, setHeading } from "../editor/formatting";
@@ -15,7 +15,6 @@ import {
   tableCycleAlign,
 } from "../editor/table";
 import { Dropdown } from "./Dropdown";
-import { platform } from "../platform";
 import { formatDocument } from "../editor/format";
 import { flashStatus } from "../store/useDocStore";
 import type { StateCommand } from "@codemirror/state";
@@ -149,9 +148,6 @@ export function Toolbar() {
       </div>
 
       <div className="toolbar-group tg-panels">
-        {platform.kind === "tauri" && (
-          <button onClick={() => openWorkspace()} title="フォルダを開く…">📂</button>
-        )}
         <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={`サイドバー (ファイル一覧) の表示切替 (${mod}${shift}E)`}>📁</button>
         <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={`アウトラインの表示切替 (${mod}${shift}O)`}>☰</button>
         <button className={cheatSheetOpen ? "active" : ""} onClick={() => toggle("cheatSheetOpen")} title="チートシートの表示切替 (F1)">？</button>

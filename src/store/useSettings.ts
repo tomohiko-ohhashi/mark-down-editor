@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ViewMode } from "./useDocStore";
 
 export type Theme = "system" | "light" | "dark";
 /** How Enter behaves inside lists and quotes. */
@@ -6,11 +7,26 @@ export type ListContinuation = "shift" | "enter" | "off";
 /** What to do when a URL is pasted over selected text. */
 export type SmartPaste = "always" | "ask" | "off";
 
+/** How the window looked when it was last closed (the open files themselves are in `lastOpenFiles`). */
+export interface SessionState {
+  /** Path of the tab that was in front, or null when it was an untitled document. */
+  activeFile: string | null;
+  showSidebar: boolean;
+  showOutline: boolean;
+  cheatSheetOpen: boolean;
+  viewMode: ViewMode;
+  typewriterMode: boolean;
+  /** Cursor line (1-based) per open file. */
+  cursors: Record<string, number>;
+}
+
 export interface Settings {
   theme: Theme;
   editorFontSize: number;
+  /** Font name picked in the settings ("" = default). Older versions stored a CSS font list here. */
   editorFontFamily: string;
   previewFontSize: number;
+  previewFontFamily: string;
   tabSize: number;
   lineWrap: boolean;
   listContinuation: ListContinuation;
@@ -19,11 +35,13 @@ export interface Settings {
   smartPaste: SmartPaste;
   /** Seconds between autosaves of dirty documents that have a path; 0 disables. */
   autosaveSeconds: number;
+  /** Restore the previous session (files, folder, layout) on start. */
   reopenLastFiles: boolean;
   checkUpdatesOnStartup: boolean;
   recentFiles: string[];
   lastOpenFiles: string[];
   lastWorkspace: string | null;
+  session: SessionState | null;
   /** Folders expanded in the workspace tree; kept so the tree looks the same after hiding the sidebar or restarting. */
   expandedDirs: string[];
 }
@@ -33,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   editorFontSize: 14,
   editorFontFamily: "",
   previewFontSize: 15,
+  previewFontFamily: "",
   tabSize: 2,
   lineWrap: true,
   listContinuation: "shift",
@@ -44,6 +63,7 @@ export const DEFAULT_SETTINGS: Settings = {
   recentFiles: [],
   lastOpenFiles: [],
   lastWorkspace: null,
+  session: null,
   expandedDirs: [],
 };
 

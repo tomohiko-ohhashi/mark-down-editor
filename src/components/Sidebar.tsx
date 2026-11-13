@@ -284,6 +284,18 @@ export function Sidebar() {
     void refresh();
   }, [refresh, treeVersion]);
 
+  // Coming back to the window: files may have been added or removed by other programs.
+  useEffect(() => {
+    let last = Date.now();
+    const onFocus = () => {
+      if (Date.now() - last < 3000) return;
+      last = Date.now();
+      useDocStore.setState((s) => ({ treeVersion: s.treeVersion + 1 }));
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
   return (
     <aside className="sidebar">
       <div className="panel-title">
@@ -305,7 +317,7 @@ export function Sidebar() {
           {workspace != null && <EntryMenu path={workspace} isDir isRoot />}
           <button title="再読込" onClick={() => void refresh()} disabled={workspace == null}>↻</button>
           {platform.kind === "tauri" && (
-            <button title="フォルダを開く" onClick={() => void openWorkspace()}>📂</button>
+            <button title="別のフォルダを開く…" aria-label="別のフォルダを開く" onClick={() => void openWorkspace()}>📂</button>
           )}
         </span>
       </div>

@@ -1,13 +1,15 @@
-import { useDocStore, isDirty, fileName } from "../store/useDocStore";
+import { useDocStore, isDirty } from "../store/useDocStore";
 import { closeDocument, newDocument } from "../features/files/fileOps";
+import { tabLabels } from "../features/files/names";
 
 export function TabBar() {
   const docs = useDocStore((s) => s.docs);
   const activeId = useDocStore((s) => s.activeId);
   const setActive = useDocStore((s) => s.setActive);
+  const labels = tabLabels(docs.map((d) => d.path));
   return (
     <div className="tabbar" role="tablist">
-      {docs.map((d) => (
+      {docs.map((d, i) => (
         <div
           key={d.id}
           role="tab"
@@ -21,7 +23,7 @@ export function TabBar() {
         >
           <span className="tab-name">
             {isDirty(d) ? "● " : ""}
-            {fileName(d.path)}
+            {labels[i]}
           </span>
           <button
             className="tab-close"

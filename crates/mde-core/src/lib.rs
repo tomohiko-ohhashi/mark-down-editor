@@ -118,7 +118,13 @@ pub fn save_image(doc_path: &Path, bytes: &[u8], ext: &str) -> Result<String, St
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    let file_name = format!("{stem}-{stamp}.{ext}");
+    // Several images saved within the same millisecond must not overwrite each other.
+    let mut file_name = format!("{stem}-{stamp}.{ext}");
+    let mut n = 1;
+    while assets.join(&file_name).exists() {
+        n += 1;
+        file_name = format!("{stem}-{stamp}-{n}.{ext}");
+    }
     let target = assets.join(&file_name);
     fs::write(&target, bytes).map_err(|e| format!("画像を保存できません: {e}"))?;
     Ok(format!("assets/{file_name}"))

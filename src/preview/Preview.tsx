@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fontFamilyCss, SANS_FALLBACK } from "../features/fonts";
 import { renderMarkdown } from "./markdown";
 import { useDocStore, selectActiveDoc, dirName } from "../store/useDocStore";
 import { useSettings, isDarkTheme } from "../store/useSettings";
@@ -7,16 +8,31 @@ import { openDocument } from "../features/files/fileOps";
 import { joinPath, isAbsolutePath } from "./paths";
 import { platform } from "../platform";
 import { scrollPreviewToLine } from "../features/reveal";
+import { toggleTaskAtLine } from "../editor/tasks";
 import { pauseScrollSync } from "./useScrollSync";
-import { cursorLine } from "../editor/Editor";
+import { cursorLine, goToLine } from "../editor/Editor";
 
 /**
  * Links in the rendered HTML must not navigate the webview itself:
  * external URLs open in the system browser, #anchors scroll the preview,
  * and relative Markdown links open the target file in a tab.
  */
+/** 1-based source line of the block an element of the preview belongs to. */
+function sourceLineOf(el: HTMLElement): number | null {
+  const line = Number(el.closest<HTMLElement>("[data-line]")?.dataset.line);
+  return Number.isFinite(line) && line > 0 ? line : null;
+}
+
 async function onPreviewClick(e: React.MouseEvent<HTMLDivElement>, docPath: string | null) {
-  const a = (e.target as HTMLElement).closest("a");
+  const target = e.target as HTMLElement;
+  if (target instanceof HTMLInputElement && target.type === "checkbox") {
+    // Tick the task in the source; the preview follows from there. If the
+    // line cannot be found, leave the box as it was.
+    const line = sourceLineOf(target);
+    if (line == null || !toggleTaskAtLine(line)) e.preventDefault();
+    return;
+  }
+  const a = target.closest("a");
   if (!a) return;
   const href = a.getAttribute("href") ?? "";
   e.preventDefault();
@@ -47,6 +63,7 @@ export function Preview() {
   const doc = useDocStore(selectActiveDoc);
   const theme = useSettings((s) => s.theme);
   const previewFontSize = useSettings((s) => s.previewFontSize);
+  const previewFont = useSettings((s) => s.previewFontFamily);
   const [html, setHtml] = useState("");
   /** Bumped after every finished render; `rendered` is the text that render was for. */
   const [renderTick, setRenderTick] = useState(0);
@@ -66,27 +83,42 @@ export function Preview() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
+  // Rendering waits for a short pause in typing, but another tab is shown at
+  // once, and during a long burst of typing the preview still catches up every
+  // now and then instead of standing still until the burst ends.
+  const timing = useRef({ shownDoc: null as string | null, pendingSince: null as number | null, seq: 0, applied: 0, cost: 0 });
+  const activeId = useRef(doc.id);
+  activeId.current = doc.id;
   useEffect(() => {
-    let cancelled = false;
-    const t = setTimeout(() => {
+    const t = timing.current;
+    const now = Date.now();
+    t.pendingSince ??= now;
+    const maxWait = Math.max(500, t.cost * 4);
+    const delay = t.shownDoc !== doc.id ? 0 : Math.min(120, Math.max(0, maxWait - (now - t.pendingSince)));
+    const timer = setTimeout(() => {
+      t.pendingSince = null;
       const content = doc.content;
-      renderMarkdown(content, {
+      const id = doc.id;
+      const seq = ++t.seq;
+      const started = Date.now();
+      void renderMarkdown(content, {
         docDir: doc.path != null ? dirName(doc.path) : null,
         sourceLines: true,
         mermaid: true,
         dark: isDarkTheme(),
       }).then((h) => {
-        if (cancelled) return;
+        t.cost = Date.now() - started;
+        // A newer render already landed, or the user moved to another tab meanwhile.
+        if (seq < t.applied || activeId.current !== id) return;
+        t.applied = seq;
+        t.shownDoc = id;
         setHtml(h);
         rendered.current = content;
-        setRenderTick((t) => t + 1);
+        setRenderTick((n) => n + 1);
       });
-    }, 120);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [doc.content, doc.path, theme, systemDark]);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [doc.id, doc.content, doc.path, theme, systemDark]);
 
   // Jump requested by the outline / search: wait until this document's HTML is on screen.
   useEffect(() => {
@@ -114,8 +146,15 @@ export function Preview() {
     <div
       ref={ref}
       className="preview markdown-body"
-      style={{ fontSize: previewFontSize }}
+      style={{ fontSize: previewFontSize, fontFamily: fontFamilyCss(previewFont, SANS_FALLBACK) ?? undefined }}
       onClick={(e) => void onPreviewClick(e, doc.path)}
+      onDoubleClick={(e) => {
+        // Find this spot in the source: the editor cursor moves to the block's line.
+        const line = sourceLineOf(e.target as HTMLElement);
+        if (line == null) return;
+        pauseScrollSync(700);
+        goToLine(line, false);
+      }}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

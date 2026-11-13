@@ -25,6 +25,8 @@ export const tauriPlatform: Platform = {
     // Raw body avoids JSON-encoding every byte; metadata travels in headers.
     invoke("save_image", bytes, { headers: { "doc-path": encodeURIComponent(docPath), ext } }),
 
+  importImage: (docPath, source) => invoke("import_image", { docPath, source }),
+
   pickOpenPath: () => open({ multiple: false, directory: false, filters: MD_FILTERS }),
   pickSavePath: (defaultPath, filters = MD_FILTERS) => save({ defaultPath, filters }),
   pickDirectory: () => open({ directory: true, multiple: false }),
@@ -33,6 +35,8 @@ export const tauriPlatform: Platform = {
   message: async (msg, opts) => {
     await message(msg, opts);
   },
+
+  listFonts: () => invoke("list_fonts"),
 
   assetUrl: (path) => convertFileSrc(path),
   openExternal: async (url) => {

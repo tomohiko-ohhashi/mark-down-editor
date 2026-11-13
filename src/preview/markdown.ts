@@ -70,6 +70,8 @@ const rehypeSourceLines: Plugin<[{ enabled: boolean }], Root> = function (this: 
     visit(tree, "element", (node: Element) => {
       const line = node.position?.start.line;
       if (line && LINE_TAGS.has(node.tagName)) node.properties.dataLine = line;
+      // Task-list checkboxes come out disabled; in the live preview a click ticks the item in the source.
+      if (node.tagName === "input" && node.properties.type === "checkbox") delete node.properties.disabled;
     });
   };
 };
