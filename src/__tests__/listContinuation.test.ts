@@ -10,12 +10,17 @@ function run(doc: string, cursor: number) {
 
 describe("parseLinePrefix", () => {
   it("recognises bullets, ordered items, quotes and tasks", () => {
-    expect(parseLinePrefix("- item")).toEqual({ indent: "", marker: "- ", rest: "item" });
-    expect(parseLinePrefix("  1. item")).toEqual({ indent: "  ", marker: "1. ", rest: "item" });
-    expect(parseLinePrefix("> quote")).toEqual({ indent: "", marker: "> ", rest: "quote" });
-    expect(parseLinePrefix("> - nested")).toEqual({ indent: "", marker: "> - ", rest: "nested" });
-    expect(parseLinePrefix("- [x] done")).toEqual({ indent: "", marker: "- [ ] ", rest: "done" });
+    expect(parseLinePrefix("- item")).toEqual({ indent: "", marker: "- ", rest: "item", length: 2 });
+    expect(parseLinePrefix("  1. item")).toEqual({ indent: "  ", marker: "1. ", rest: "item", length: 5 });
+    expect(parseLinePrefix("> quote")).toEqual({ indent: "", marker: "> ", rest: "quote", length: 2 });
+    expect(parseLinePrefix("> - nested")).toEqual({ indent: "", marker: "> - ", rest: "nested", length: 4 });
+    expect(parseLinePrefix("- [x] done")).toEqual({ indent: "", marker: "- [ ] ", rest: "done", length: 6 });
     expect(parseLinePrefix("plain")).toBeNull();
+  });
+  it("does not take ordinary text for a list marker", () => {
+    for (const text of ["**注意** これは", "*強調* です", "-5度です", "1.5 倍です", "+1 する", "---", "* * *", "- - -", "___", "#タグ"]) {
+      expect(parseLinePrefix(text), text).toBeNull();
+    }
   });
 });
 
@@ -36,6 +41,17 @@ describe("continueList command", () => {
   it("leaves the list on an empty item", () => {
     const r = run("- a\n- ", 6);
     expect(r.text).toBe("- a\n");
+  });
+  it("is an ordinary line break in front of or inside the marker", () => {
+    expect(run("- item", 0).ok).toBe(false);
+    expect(run("- item", 1).ok).toBe(false);
+    expect(run("  - item", 1).ok).toBe(false);
+    expect(run("- item", 2).text).toBe("- \n- item");
+  });
+  it("removes only the marker of an empty item, never the next line", () => {
+    expect(run("-\nnext", 1).text).toBe("\nnext");
+    expect(run("  - \nnext", 4).text).toBe("  \nnext");
+    expect(run("- [ ] \nnext", 6).text).toBe("\nnext");
   });
   it("does nothing outside lists", () => {
     expect(run("text", 4).ok).toBe(false);

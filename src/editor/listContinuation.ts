@@ -9,18 +9,25 @@ export interface LinePrefix {
   marker: string;
   /** Text after the marker. */
   rest: string;
+  /** How many characters of the line the indent and the marker take, as written. */
+  length: number;
 }
 
-const PREFIX_RE = /^(\s*)((?:>\s*)*)([-*+]|\d+[.)])?(\s+\[[ xX]\])?\s*/;
+// A list marker counts only when a space (or the end of the line) follows it, as in Markdown itself:
+// "**bold** at the start", "-5", "1.5" and "+1" are ordinary text.
+const PREFIX_RE = /^(\s*)((?:>\s*)*)((?:[-*+]|\d{1,9}[.)])(?=\s|$))?(\s+\[[ xX]\](?=\s|$))?\s*/;
+/** A thematic break ("---", "* * *"): not a list item. */
+const RULE_RE = /^\s*(?:>\s*)*([-*_])(?:\s*\1){2,}\s*$/;
 
 export function parseLinePrefix(text: string): LinePrefix | null {
+  if (RULE_RE.test(text)) return null;
   const m = PREFIX_RE.exec(text);
   if (!m) return null;
   const [all, indent, quotes, bullet, task] = m;
   if (!quotes && !bullet) return null;
   let marker = quotes ? quotes.replace(/>\s*/g, "> ") : "";
   if (bullet) marker += bullet + (task ? " [ ]" : "") + " ";
-  return { indent, marker, rest: text.slice(all.length) };
+  return { indent, marker, rest: text.slice(all.length), length: all.length };
 }
 
 /**
@@ -42,13 +49,15 @@ export const continueList: StateCommand = ({ state, dispatch }) => {
   const line = state.doc.lineAt(head);
   const c = continuationFor(line.text);
   if (!c) return false;
+  const p = parseLinePrefix(line.text)!;
+  // The cursor is in front of (or inside) the marker: an ordinary line break. Adding a marker
+  // there would put it before the existing one ("- - item").
+  if (head < line.from + p.length) return false;
   if (c.exitList) {
     // Empty item: remove the marker instead of adding another one.
-    const p = parseLinePrefix(line.text)!;
-    const markerEnd = line.from + p.indent.length + p.marker.length;
     dispatch(
       state.update({
-        changes: { from: line.from + p.indent.length, to: Math.max(markerEnd, head), insert: "" },
+        changes: { from: line.from + p.indent.length, to: line.to, insert: "" },
         selection: EditorSelection.cursor(line.from + p.indent.length),
         userEvent: "delete",
       }),

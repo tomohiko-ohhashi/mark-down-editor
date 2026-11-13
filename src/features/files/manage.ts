@@ -40,6 +40,17 @@ export async function createFileIn(dir: string): Promise<void> {
   if (!name) return;
   const withExt = /\.[A-Za-z0-9]+$/.test(name) ? name : `${name}.md`;
   const path = childPath(dir, withExt);
+  // Writing would empty a file that is already there.
+  let exists = true;
+  try {
+    await platform.fileMtime(path);
+  } catch {
+    exists = false;
+  }
+  if (exists) {
+    await platform.message(t("同じ名前のフォルダかファイルが既にあります"), { title: t("作成できませんでした"), kind: "error" });
+    return;
+  }
   try {
     await platform.writeFile(path, "");
     expand(dir);

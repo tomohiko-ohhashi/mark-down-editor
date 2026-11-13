@@ -4,17 +4,19 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkRehype from "remark-rehype";
+import rehypeRaw from "rehype-raw";
+import rehypeSlug from "rehype-slug";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize, { defaultSchema, type Options as SanitizeSchema } from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
-import { visit } from "unist-util-visit";
+import { visit, EXIT } from "unist-util-visit";
 import type { Root, Element } from "hast";
 import { platform } from "../platform";
 import { isAbsolutePath, isExternalUrl, joinPath } from "./paths";
 
-// Allow the class names rehype-highlight / remark-math emit, GFM task-list
-// checkboxes, and heading ids used by the outline.
+// What may appear in the preview: the sanitiser's default list (the one GitHub uses for
+// Markdown), plus the class names rehype-highlight / remark-math emit and GFM task-list checkboxes.
 const schema: SanitizeSchema = {
   ...defaultSchema,
   attributes: {
@@ -24,7 +26,10 @@ const schema: SanitizeSchema = {
     div: [...(defaultSchema.attributes?.div ?? []), ["className", /^math.*/]],
     input: [...(defaultSchema.attributes?.input ?? []), "checked", "disabled", ["type", "checkbox"]],
   },
-  tagNames: [...(defaultSchema.tagNames ?? []), "input"],
+  // <u> and <mark> are harmless and commonly written by hand.
+  tagNames: [...(defaultSchema.tagNames ?? []), "input", "u", "mark"],
+  // Drop the text inside <style> too; left as it is, the CSS would show up as a paragraph.
+  strip: [...(defaultSchema.strip ?? []), "style"],
 };
 
 export interface RenderOptions {
@@ -61,6 +66,52 @@ const rehypeLocalImages: Plugin<[{ docDir: string | null | undefined }], Root> =
   };
 };
 
+/**
+ * Parse the HTML written in the document into elements. Parsing goes over the whole
+ * tree again, so it is skipped for the many documents that contain no HTML at all.
+ */
+const rehypeDocumentHtml: Plugin<[], Root> = function (this: unknown) {
+  const parse = rehypeRaw();
+  return (tree, file) => {
+    let found = false;
+    visit(tree, "raw", () => {
+      found = true;
+      return EXIT;
+    });
+    return found ? parse(tree, file) : undefined;
+  };
+};
+
+/** What the sanitiser puts in front of every id, so that a document cannot shadow the page's own names. */
+const ID_PREFIX = "user-content-";
+
+/**
+ * Links inside the document ("#heading", footnotes). The sanitiser has renamed the ids they
+ * point at, so point the links at the new names; then they work in the preview and in exported HTML.
+ */
+const rehypeAnchorLinks: Plugin<[], Root> = function (this: unknown) {
+  return (tree: Root) => {
+    const ids = new Set<string>();
+    visit(tree, "element", (node: Element) => {
+      if (typeof node.properties?.id === "string") ids.add(node.properties.id);
+    });
+    visit(tree, "element", (node: Element) => {
+      const href = node.tagName === "a" ? node.properties?.href : null;
+      if (typeof href !== "string" || !href.startsWith("#") || href.length < 2) return;
+      let name = href.slice(1);
+      try {
+        name = decodeURIComponent(name);
+      } catch {
+        /* not percent-encoded */
+      }
+      if (ids.has(name)) return;
+      // Heading ids are lower case; links to them are often written as the heading is.
+      const target = [ID_PREFIX + name, ID_PREFIX + name.toLowerCase()].find((id) => ids.has(id));
+      if (target) node.properties.href = `#${target}`;
+    });
+  };
+};
+
 const LINE_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "pre", "blockquote", "table", "tr", "hr"]);
 
 /** Runs after sanitising, so the attribute needs no schema entry. */
@@ -82,8 +133,15 @@ function buildProcessor(docDir: string | null | undefined, sourceLines: boolean)
     .use(remarkGfm)
     .use(remarkMath)
     .use(remarkFrontmatter, ["yaml", "toml"])
-    .use(remarkRehype)
+    // HTML written in the document is part of Markdown ("<br>" in a table cell, <details>, <kbd>, <img width>):
+    // it is parsed here and then goes through the sanitiser like everything else, which keeps the
+    // harmless tags and drops scripts, styles, frames, forms and event handlers.
+    // clobberPrefix "": the sanitiser already prefixes ids; with both, footnote links pointed nowhere.
+    .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: "" })
+    .use(rehypeDocumentHtml)
+    .use(rehypeSlug)
     .use(rehypeSanitize, schema)
+    .use(rehypeAnchorLinks)
     .use(rehypeSourceLines, { enabled: sourceLines })
     .use(rehypeKatex, { throwOnError: false, strict: false })
     .use(rehypeHighlight, { detect: false, plainText: ["mermaid", "math", "txt", "text"] })

@@ -694,3 +694,102 @@ test("saving a file that was not changed leaves it untouched", async ({ page }) 
   await expect(page.locator(".toolbar-status")).toHaveText("変更はありません");
   expect(statSync(join(workspace, "save-me.md")).mtimeMs).toBe(before);
 });
+
+test("headings and list continuation put the marker where the writer expects it", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  const lines = () => page.locator(".pane-editor .cm-line").allTextContents();
+  const clear = async () => {
+    await editor(page).click();
+    await page.keyboard.press("Control+a");
+    await page.keyboard.press("Delete");
+  };
+
+  // The heading button on an empty line: what is typed next is the heading's text.
+  await clear();
+  await page.click(".toolbar .tb-heading >> nth=0");
+  await page.keyboard.type("Title");
+  expect(await lines()).toEqual(["# Title"]);
+  await expect(page.locator(".preview h1")).toHaveText("Title");
+  // ... and the shortcut with the cursor at the start of a line of text.
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("abc");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Control+2");
+  await page.keyboard.type("X");
+  expect(await lines()).toEqual(["# Title", "## Xabc"]);
+
+  // Continuing a list (Shift+Enter): ordinary text that starts like a marker is not a list item.
+  for (const text of ["**注意** これは文です", "-5度です", "1.5 倍です", "---"]) {
+    await clear();
+    await page.keyboard.type(text);
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.type("Z");
+    expect(await lines(), text).toEqual([text, "Z"]);
+  }
+  await clear();
+  await page.keyboard.type("- item");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("next");
+  expect(await lines()).toEqual(["- item", "- next"]);
+  // In front of the marker it is a plain line break, not a second marker.
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+Enter");
+  expect(await lines()).toEqual(["- item", "", "- next"]);
+});
+
+test("the preview shows the HTML of a document, safely, and links inside the document work", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  await editor(page).click();
+  await page.keyboard.press("Control+a");
+  const filler = Array.from({ length: 60 }, (_, i) => `段落 ${i}`).join("\n\n");
+  await page.keyboard.insertText(
+    [
+      "[先頭へのリンク](#最後の見出し) と脚注[^1]",
+      "",
+      "| a |",
+      "| - |",
+      "| 1<br>2 |",
+      "",
+      "<kbd>Ctrl</kbd> <details><summary>詳細</summary>中身</details>",
+      "",
+      '<script>window.__hacked = 1</script><img src="x" onerror="window.__hacked = 2"><a href="javascript:window.__hacked=3">罠</a>',
+      "",
+      filler,
+      "",
+      "## 最後の見出し",
+      "",
+      "[^1]: 脚注の本文",
+    ].join("\n"),
+  );
+  const preview = page.locator(".preview");
+  await expect(preview.locator("td br")).toHaveCount(1);
+  await expect(preview.locator("kbd")).toHaveText("Ctrl");
+  await expect(preview.locator("details summary")).toHaveText("詳細");
+  await expect(preview.locator("script, [onerror]")).toHaveCount(0);
+  await preview.locator("a", { hasText: "罠" }).click();
+  expect(await page.evaluate(() => (window as unknown as { __hacked?: number }).__hacked)).toBeUndefined();
+
+  // A link to a heading and a footnote reference both scroll the preview to their target.
+  const top = () => preview.evaluate((el) => el.scrollTop);
+  expect(await top()).toBe(0);
+  await preview.locator("a", { hasText: "先頭へのリンク" }).click();
+  await expect.poll(top).toBeGreaterThan(200);
+  await preview.evaluate((el) => (el.scrollTop = 0));
+  await preview.locator("sup a").click();
+  await expect.poll(top).toBeGreaterThan(200);
+  // The page itself did not go anywhere.
+  expect(new URL(page.url()).hash).toBe("");
+});
+
+test("creating a file with a name that is taken does not empty the existing file", async ({ page }) => {
+  await start(page);
+  await page.locator(".sidebar .panel-title .dropdown > button").click();
+  await page.locator(".sidebar .panel-title .dropdown-menu .menu-item", { hasText: "新規ファイル…" }).click();
+  await page.fill(".modal input", "tasks.md");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".modal.confirm")).toContainText("同じ名前のフォルダかファイルが既にあります");
+  await page.click(".modal.confirm button.primary");
+  expect(onDisk("tasks.md")).toContain("- [ ] 一つ目");
+});

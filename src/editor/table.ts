@@ -58,6 +58,8 @@ export interface TableInfo {
   rows: string[][];
   /** Column alignment taken from the delimiter row. */
   aligns: ("left" | "center" | "right" | "none")[];
+  /** White space in front of the table (a table inside a list item); kept when the table is rewritten. */
+  indent?: string;
 }
 
 /** Find the pipe table around the cursor, if any. */
@@ -84,7 +86,7 @@ export function tableAt(state: EditorState, pos: number): TableInfo | null {
   const cols = Math.max(aligns.length, ...rows.map((r) => r.length));
   for (const r of rows) while (r.length < cols) r.push("");
   while (aligns.length < cols) aligns.push("none");
-  return { startLine: start, endLine: end, rows, aligns };
+  return { startLine: start, endLine: end, rows, aligns, indent: /^\s*/.exec(doc.line(start).text)?.[0] ?? "" };
 }
 
 function pad(s: string, width: number, align: TableInfo["aligns"][number]) {
@@ -103,9 +105,12 @@ export function formatTable(t: TableInfo): string {
   const widths = Array.from({ length: cols }, (_, c) =>
     Math.max(3, ...t.rows.map((r) => displayWidth(r[c] ?? ""))),
   );
+  // Without its indent, a table inside a list item would drop out of the list.
+  const indent = t.indent ?? "";
   const line = (cells: string[]) =>
-    "| " + cells.map((c, i) => pad(c, widths[i], t.aligns[i])).join(" | ") + " |";
+    indent + "| " + cells.map((c, i) => pad(c, widths[i], t.aligns[i])).join(" | ") + " |";
   const delim =
+    indent +
     "| " +
     t.aligns
       .map((a, i) => {

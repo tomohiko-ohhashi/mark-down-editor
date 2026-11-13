@@ -32,7 +32,17 @@
 .markdown-body ul.contains-task-list { list-style: none; padding-left: 1em; }
 .markdown-body input[type="checkbox"] { margin: 0 0.5em 0.2em 0; vertical-align: middle; }
 .markdown-body del { color: var(--fg-muted); }
-.markdown-body .footnotes { font-size: 0.9em; color: var(--fg-muted); }
+.markdown-body .footnotes { font-size: 0.9em; color: var(--fg-muted); border-top: 1px solid var(--border); margin-top: 2em; }
+/* The heading of the footnote list is for screen readers only. */
+.markdown-body .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+/* HTML written in the document. */
+.markdown-body kbd {
+  font-family: var(--mono); font-size: 0.85em; color: inherit; margin: 0; padding: 0.1em 0.4em;
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--bg-alt);
+}
+.markdown-body details { margin: 1em 0; }
+.markdown-body summary { cursor: pointer; }
+.markdown-body mark { background: rgba(255, 212, 0, 0.4); color: inherit; }
 .markdown-body .mermaid-diagram { margin: 1em 0; text-align: center; }
 .markdown-body .mermaid-diagram svg { max-width: 100%; height: auto; }
 .markdown-body .mermaid-error { color: var(--code); font-family: var(--mono); font-size: 0.85em; white-space: pre-wrap; }

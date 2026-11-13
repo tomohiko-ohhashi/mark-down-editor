@@ -14,6 +14,20 @@ describe("setHeading", () => {
     expect(run("# 見出し", [0, 0], setHeading(2)).doc.toString()).toBe("## 見出し");
     expect(run("## 見出し", [0, 0], setHeading(2)).doc.toString()).toBe("見出し");
   });
+  it("leaves the cursor after the marker, so typing continues the heading", () => {
+    const empty = run("", [0, 0], setHeading(1));
+    expect(empty.doc.toString()).toBe("# ");
+    expect(empty.selection.main.head).toBe(2);
+    const start = run("abc", [0, 0], setHeading(2));
+    expect(start.selection.main.head).toBe(3);
+    const end = run("abc", [3, 3], setHeading(3));
+    expect(end.selection.main.head).toBe(7);
+    const changed = run("## abc", [0, 0], setHeading(1));
+    expect(changed.doc.toString()).toBe("# abc");
+    expect(changed.selection.main.head).toBe(2);
+    const removed = run("# abc", [5, 5], setHeading(1));
+    expect(removed.selection.main.head).toBe(3);
+  });
   it("re-applies after the marker was deleted by hand", () => {
     const s = run("見出し", [0, 0], setHeading(1));
     expect(s.doc.toString()).toBe("# 見出し");

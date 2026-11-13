@@ -84,7 +84,18 @@ export function setHeading(level: number): StateCommand {
         }
       }
     }
-    dispatch(state.update({ changes, userEvent: "input" }));
+    // A cursor at the start of the line (or in the old marker) goes after the new "# ". The default
+    // would leave it in front, and what is typed next would land before the marker: "Title# ".
+    const changeSet = state.changes(changes);
+    const place = (pos: number) => {
+      const marker = changes.find((c) => pos >= c.from && pos <= c.to);
+      return changeSet.mapPos(marker ? marker.to : pos, 1);
+    };
+    const selection = EditorSelection.create(
+      state.selection.ranges.map((r) => EditorSelection.range(place(r.anchor), place(r.head))),
+      state.selection.mainIndex,
+    );
+    dispatch(state.update({ changes: changeSet, selection, scrollIntoView: true, userEvent: "input" }));
     return true;
   };
 }
