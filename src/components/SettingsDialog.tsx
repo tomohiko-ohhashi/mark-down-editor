@@ -178,10 +178,6 @@ export function SettingsDialog() {
               />
               {t("復元する場合、終了時に確認しない")}
             </label>
-            <label className="check">
-              <input type="checkbox" checked={s.checkUpdatesOnStartup} onChange={(e) => s.preview({ checkUpdatesOnStartup: e.target.checked })} />
-              {t("起動時にアップデートを確認する")}
-            </label>
           </section>
         </div>
         <div className="modal-footer">
