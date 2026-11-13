@@ -10,6 +10,8 @@ export interface Doc {
   content: string;
   /** Content as it was at the last load/save; used to compute dirty state. */
   savedContent: string;
+  /** Content when the file was first opened since the app started ("" for a new document); the base of the changes view. */
+  originalContent: string;
   /** Modification time (ms) at last load/save; used to detect external changes. */
   mtime: number | null;
   /** Line ending of the file on disk. In memory the text always uses "\n" (as the editor does). */
@@ -40,6 +42,7 @@ interface DocState {
   typewriterMode: boolean;
   settingsOpen: boolean;
   aboutOpen: boolean;
+  diffOpen: boolean;
   cheatSheetOpen: boolean;
   workspace: string | null;
   /** Bumped whenever files are created / renamed / deleted so tree views reload. */
@@ -54,11 +57,13 @@ interface DocState {
   setActive: (id: string) => void;
   setContent: (id: string, content: string) => void;
   loadInto: (id: string, path: string | null, content: string, mtime: number | null) => void;
+  /** Set the text the changes view compares against ("first opened"). */
+  setOriginal: (id: string, content: string) => void;
   /** Record a successful write. `written` is the in-memory (LF) text that was saved. */
   markSaved: (id: string, path: string, mtime: number, written: string) => void;
   setViewMode: (mode: ViewMode) => void;
   setStatus: (status: string | null) => void;
-  toggle: (key: "showSidebar" | "showOutline" | "focusMode" | "typewriterMode" | "settingsOpen" | "aboutOpen" | "cheatSheetOpen") => void;
+  toggle: (key: "showSidebar" | "showOutline" | "focusMode" | "typewriterMode" | "settingsOpen" | "aboutOpen" | "diffOpen" | "cheatSheetOpen") => void;
   set: (partial: Partial<DocState>) => void;
 }
 
@@ -67,11 +72,13 @@ export const newId = () => `doc-${Date.now().toString(36)}-${(seq++).toString(36
 
 function makeDoc(partial: Partial<Omit<Doc, "id" | "eol">> = {}): Doc {
   const { text: content, eol } = splitEol(partial.content ?? "");
+  const savedContent = partial.savedContent != null ? splitEol(partial.savedContent).text : content;
   return {
     id: newId(),
     path: partial.path ?? null,
     content,
-    savedContent: partial.savedContent != null ? splitEol(partial.savedContent).text : content,
+    savedContent,
+    originalContent: partial.originalContent != null ? splitEol(partial.originalContent).text : savedContent,
     mtime: partial.mtime ?? null,
     eol,
   };
@@ -90,6 +97,7 @@ export const useDocStore = create<DocState>((set, get) => ({
   typewriterMode: false,
   settingsOpen: false,
   aboutOpen: false,
+  diffOpen: false,
   cheatSheetOpen: false,
   workspace: null,
   treeVersion: 0,
@@ -126,6 +134,8 @@ export const useDocStore = create<DocState>((set, get) => ({
       status: null,
     }));
   },
+  setOriginal: (id, raw) =>
+    set((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, originalContent: splitEol(raw).text } : d)) })),
   markSaved: (id, path, mtime, written) =>
     set((s) => ({
       docs: s.docs.map((d) => (d.id === id ? { ...d, path, mtime, savedContent: written } : d)),

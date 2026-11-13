@@ -159,6 +159,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
   commitPreview: () => {
     unsaved = {};
+    // Nothing in the store changes, but what counts as saved does: let subscribers know.
+    set({});
     void persist(get());
   },
   cancelPreview: () => {
@@ -191,6 +193,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
  * must not carry an unsaved preference along.
  */
 let unsaved: Record<string, unknown> = {};
+
+/** The saved value of a setting, ignoring a change that is only being previewed in the settings dialog. */
+export function savedSetting<K extends keyof Settings>(key: K): Settings[K] {
+  return (key in unsaved ? unsaved[key] : useSettings.getState()[key]) as Settings[K];
+}
 
 /** True when the settings dialog holds changes that have not been saved. */
 export function hasUnsavedSettings(): boolean {
