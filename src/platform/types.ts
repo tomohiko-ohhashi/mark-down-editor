@@ -55,6 +55,9 @@ export interface Platform {
   /** Save image bytes next to `docPath`; returns the Markdown-relative path. */
   saveImage(docPath: string, bytes: Uint8Array, ext: string): Promise<string>;
 
+  /** Desktop only: copy an image file next to `docPath`; returns the Markdown-relative path. */
+  importImage(docPath: string, sourcePath: string): Promise<string>;
+
   /** Let the user choose an existing file; null when cancelled. */
   pickOpenPath(): Promise<string | null>;
   /** Let the user choose where to save; null when cancelled. */

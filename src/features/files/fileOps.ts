@@ -9,6 +9,9 @@ import {
   type Doc,
 } from "../../store/useDocStore";
 import { useSettings } from "../../store/useSettings";
+import { choose } from "../../components/ConfirmDialog";
+import { suggestFileName } from "./names";
+import { joinPath } from "../../preview/paths";
 
 const { readFile, writeFile, fileMtime, ask, message } = platform;
 export { readFile, writeFile, fileMtime };
@@ -23,17 +26,17 @@ function docById(id: string): Doc | undefined {
  */
 export async function confirmDiscardChanges(doc: Doc): Promise<boolean> {
   if (!isDirty(doc)) return true;
-  const wantSave = await ask(
-    `「${fileName(doc.path)}」には保存されていない変更があります。保存しますか？`,
-    { title: "未保存の変更", kind: "warning", okLabel: "保存する", cancelLabel: "保存しない" },
-  );
-  if (wantSave) return saveDocument(doc.id);
-  return ask("変更を破棄してもよいですか？", {
-    title: "確認",
-    kind: "warning",
-    okLabel: "破棄する",
-    cancelLabel: "キャンセル",
+  const answer = await choose({
+    title: "未保存の変更",
+    message: `「${fileName(doc.path)}」には保存されていない変更があります。保存しますか？`,
+    choices: [
+      { id: "cancel", label: "キャンセル" },
+      { id: "discard", label: "保存しない", kind: "danger" },
+      { id: "save", label: "保存する", kind: "primary" },
+    ],
   });
+  if (answer === "save") return saveDocument(doc.id);
+  return answer === "discard";
 }
 
 /** Confirm every dirty document (used before quitting). */
@@ -106,7 +109,14 @@ export async function saveDocument(id?: string): Promise<boolean> {
 export async function saveDocumentAs(id?: string): Promise<boolean> {
   const doc = id ? docById(id) : selectActiveDoc(useDocStore.getState());
   if (!doc) return false;
-  const path = await platform.pickSavePath(doc.path ?? "untitled.md");
+  // A new document: propose a name from its first heading, in the workspace folder if one is open.
+  let proposal = doc.path;
+  if (!proposal) {
+    const name = suggestFileName(doc.content);
+    const workspace = useDocStore.getState().workspace;
+    proposal = platform.kind === "tauri" && workspace ? joinPath(workspace, name) : name;
+  }
+  const path = await platform.pickSavePath(proposal);
   if (!path) return false;
   return writeTo(doc.id, path);
 }

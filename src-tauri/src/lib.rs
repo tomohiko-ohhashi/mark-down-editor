@@ -88,6 +88,7 @@ pub fn run() {
             commands::file_mtime,
             commands::read_dir,
             commands::save_image,
+            commands::import_image,
             commands::search_workspace,
             commands::create_dir,
             commands::rename_path,

@@ -284,6 +284,18 @@ export function Sidebar() {
     void refresh();
   }, [refresh, treeVersion]);
 
+  // Coming back to the window: files may have been added or removed by other programs.
+  useEffect(() => {
+    let last = Date.now();
+    const onFocus = () => {
+      if (Date.now() - last < 3000) return;
+      last = Date.now();
+      useDocStore.setState((s) => ({ treeVersion: s.treeVersion + 1 }));
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
   return (
     <aside className="sidebar">
       <div className="panel-title">

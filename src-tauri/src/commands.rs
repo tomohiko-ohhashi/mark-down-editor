@@ -46,6 +46,20 @@ pub fn save_image(request: tauri::ipc::Request<'_>) -> Result<String, String> {
     mde_core::save_image(Path::new(&doc_path), &bytes, &ext)
 }
 
+/// Copy an image file (dropped onto the window) into the `assets` folder next
+/// to the document. Returns the path to use in Markdown.
+#[tauri::command]
+pub fn import_image(doc_path: String, source: String) -> Result<String, String> {
+    let source = Path::new(&source);
+    let ext = source
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png")
+        .to_lowercase();
+    let bytes = std::fs::read(source).map_err(|e| format!("画像を読み込めません: {e}"))?;
+    mde_core::save_image(Path::new(&doc_path), &bytes, &ext)
+}
+
 #[tauri::command]
 pub fn create_dir(path: String) -> Result<(), String> {
     mde_core::create_dir(Path::new(&path))

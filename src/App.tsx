@@ -1,9 +1,12 @@
 import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { handleDroppedPaths } from "./features/files/dropped";
 import { platform, inTauri } from "./platform";
 import { FilePicker } from "./components/FilePicker";
 import { PromptDialog } from "./components/PromptDialog";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { FocusControls } from "./components/FocusControls";
 import { searchBoxRef } from "./components/Sidebar";
 import { Toolbar, MobileBar } from "./components/Toolbar";
@@ -162,6 +165,21 @@ export default function App() {
     };
   }, []);
 
+  // Files, images or a folder dragged onto the window. The desktop shell takes
+  // these over from the page (which never sees a path), so they arrive as an event.
+  useEffect(() => {
+    if (!inTauri) return;
+    const unlisten = getCurrentWebview().onDragDropEvent((e) => {
+      if (e.payload.type !== "drop") return;
+      const scale = window.devicePixelRatio || 1;
+      const at = { x: e.payload.position.x / scale, y: e.payload.position.y / scale };
+      void handleDroppedPaths(e.payload.paths, at);
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+
   // Quit from the macOS menu (Cmd+Q) goes through the same unsaved-changes check.
   useEffect(() => {
     if (!inTauri) return;
@@ -219,6 +237,7 @@ export default function App() {
       <SettingsDialog />
       <FilePicker />
       <PromptDialog />
+      <ConfirmDialog />
       <FocusControls />
     </div>
   );

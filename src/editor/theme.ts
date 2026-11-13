@@ -38,6 +38,18 @@ export const baseTheme = EditorView.theme({
     border: "1px solid var(--border)",
     borderRadius: "4px",
   },
+  // The search panel's default controls are tiny; make them readable and easy to hit.
+  ".cm-panel.cm-search": { padding: "8px 10px", fontFamily: "var(--sans)", fontSize: "13px", lineHeight: "2.1" },
+  ".cm-panel.cm-search input.cm-textfield": { fontSize: "13px", padding: "4px 8px", width: "min(16em, calc(100% - 34px))", margin: "0 6px 0 0", boxSizing: "border-box" },
+  ".cm-panel.cm-search button.cm-button": {
+    fontSize: "12.5px",
+    padding: "4px 10px",
+    margin: "0 6px 0 0",
+    backgroundImage: "none",
+    cursor: "pointer",
+  },
+  ".cm-panel.cm-search label": { fontSize: "12.5px", margin: "0 10px 0 0", whiteSpace: "nowrap" },
+  ".cm-panel.cm-search button[name=close]": { fontSize: "18px", padding: "0 8px", border: "none", backgroundColor: "transparent", cursor: "pointer" },
 });
 
 export const markdownHighlight = syntaxHighlighting(
