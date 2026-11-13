@@ -24,3 +24,20 @@ export function joinPath(dir: string, rel: string): string {
   const joined = parts.join(sep);
   return leadingSlash && !joined.startsWith("/") ? "/" + joined : joined;
 }
+
+const IMAGE = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
+
+/** True for the image files the workspace tree lists next to the documents. */
+export function isImagePath(path: string): boolean {
+  return IMAGE.test(path);
+}
+
+/** Path of `target` as seen from the folder `fromDir` (both absolute, or both relative to the same root), with "/" separators. */
+export function relativePath(fromDir: string, target: string): string {
+  const split = (p: string) => p.split(/[\\/]/).filter((seg) => seg !== "");
+  const from = split(fromDir);
+  const to = split(target);
+  let common = 0;
+  while (common < from.length && common < to.length - 1 && from[common].toLowerCase() === to[common].toLowerCase() && from[common] === to[common]) common++;
+  return [...Array(from.length - common).fill(".."), ...to.slice(common)].join("/");
+}

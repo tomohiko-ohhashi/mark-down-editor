@@ -7,6 +7,8 @@
 export interface FileContent {
   content: string;
   mtime: number;
+  /** Character encoding of the file on disk ("UTF-8", "Shift_JIS", ...). */
+  encoding?: string;
 }
 
 export interface DirEntry {
@@ -41,7 +43,8 @@ export interface Platform {
   readonly kind: "tauri" | "web";
 
   readFile(path: string): Promise<FileContent>;
-  writeFile(path: string, content: string): Promise<number>;
+  /** `encoding`: the encoding to store the text in, as reported by readFile (UTF-8 when omitted). */
+  writeFile(path: string, content: string, encoding?: string): Promise<number>;
   fileMtime(path: string): Promise<number>;
   readDir(path: string): Promise<DirEntry[]>;
   /** Case-insensitive full-text search of Markdown/text files under `root`. */

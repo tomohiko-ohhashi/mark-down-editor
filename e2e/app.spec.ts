@@ -322,3 +322,54 @@ test("undo stops at the text the file was opened with", async ({ page }) => {
   for (let i = 0; i < 10; i++) await page.keyboard.press("Control+Shift+Z");
   await expect(editor(page)).toContainText("typed");
 });
+
+test("a Shift_JIS file opens readable and is saved in Shift_JIS again", async ({ page }) => {
+  await start(page);
+  await openFile(page, "sjis.txt");
+  await expect(editor(page)).toContainText("日本語のテキスト");
+  await expect(page.locator('.statusbar span[title="文字コード"]')).toHaveText("Shift_JIS");
+  await expect(page).toHaveTitle(/^sjis\.txt/); // opening it does not mark it as changed
+  await editor(page).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("追記");
+  await page.keyboard.press("Control+S");
+  await expect(page).toHaveTitle(/^sjis\.txt/);
+  const bytes = readFileSync(join(workspace, "sjis.txt"));
+  // "追記" in Shift_JIS is 92 C7 8B 4C; in UTF-8 it would be E8 BF BD E8 A8 98.
+  expect(bytes.includes(Buffer.from([0x92, 0xc7, 0x8b, 0x4c]))).toBe(true);
+  expect(bytes.includes(Buffer.from("追記", "utf8"))).toBe(false);
+  expect(bytes.includes(Buffer.from([0x0d, 0x0a]))).toBe(true);
+});
+
+test("an image in the tree can be looked at and inserted", async ({ page }) => {
+  await start(page);
+  await page.click('.tree-dir:has-text("docs")');
+  await openFile(page, "docs/README.md");
+  await page.click('.tree-dir:has-text("assets")');
+  await editor(page).click();
+  await page.keyboard.press("Control+End");
+  await page.click('.tree-file[title="docs/assets/dot.png"]');
+  await expect(page.locator(".image-preview img")).toBeVisible();
+  await page.click('.image-preview button:has-text("ドキュメントに挿入")');
+  await expect(editor(page)).toContainText("![dot](assets/dot.png)");
+  await expect(page.locator('.preview img[alt="dot"]')).toBeVisible();
+});
+
+test("tabs can be dragged into a different order", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  await openFile(page, "tasks.md");
+  await openFile(page, "long.md");
+  await expect(page.locator(".tab-name")).toHaveText(["hello.md", "tasks.md", "long.md"]);
+  const from = await page.locator('.tab:has-text("long.md")').boundingBox();
+  const to = await page.locator('.tab:has-text("hello.md")').boundingBox();
+  if (!from || !to) throw new Error("tabs not found");
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator(".tab-name")).toHaveText(["long.md", "hello.md", "tasks.md"]);
+  // A plain click still just selects a tab.
+  await page.click('.tab:has-text("tasks.md")');
+  await expect(page.locator(".tab.active .tab-name")).toHaveText("tasks.md");
+});

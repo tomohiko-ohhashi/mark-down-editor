@@ -19,6 +19,8 @@ function DirtyMark({ show }: { show: boolean }) {
   return show ? <span className="tree-dirty" title={t("未保存の変更があります")}>●</span> : null;
 }
 import { openDocument, openWorkspace } from "../features/files/fileOps";
+import { isImagePath } from "../preview/paths";
+import { showImage } from "./ImagePreview";
 import { createFileIn, createFolderIn, renamePath, deletePath, childPath } from "../features/files/manage";
 import { flashStatus, selectActiveDoc } from "../store/useDocStore";
 
@@ -173,11 +175,13 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
           className={`tree-file ${activePath === entry.path ? "active" : ""}`}
           style={{ paddingLeft: 8 + depth * 14 + 14 }}
           onClick={() => {
-            void openDocument(entry.path);
+            if (isImagePath(entry.path)) showImage(entry.path);
+            else void openDocument(entry.path);
             closeIfNarrow();
           }}
           title={entry.path}
         >
+          {isImagePath(entry.path) && <span className="tree-image" aria-hidden>🖼</span>}
           {entry.name}
           <DirtyMark show={dirty} />
         </button>

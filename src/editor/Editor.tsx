@@ -71,6 +71,8 @@ const typewriter = new Compartment();
 const listKeys = new Compartment();
 const preview = new Compartment();
 const uiLanguage = new Compartment();
+const spelling = new Compartment();
+const spellingExt = (on: boolean) => EditorView.contentAttributes.of({ spellcheck: on ? "true" : "false" });
 
 /** Editor state (undo history, selection, scroll) is kept per tab. */
 const states = new Map<string, EditorState>();
@@ -94,6 +96,7 @@ function baseExtensions(opts: {
     bracketMatching(),
     indentOnInput(),
     uiLanguage.of(languageExtensions()),
+    spelling.of(spellingExt(useSettings.getState().spellCheck)),
     highlightSelectionMatches(),
     lineWrap.of(opts.lineWrap ? EditorView.lineWrapping : []),
     tabSize.of([tabSizeExt(opts.tabSize), indentUnit.of(" ".repeat(opts.tabSize))]),
@@ -209,6 +212,7 @@ export function Editor() {
   const listContinuation = useSettings((s) => s.listContinuation);
   const livePreviewOn = useSettings((s) => s.livePreview);
   const language = useSettings((s) => s.language);
+  const spellCheck = useSettings((s) => s.spellCheck);
 
   // Create the view once.
   useEffect(() => {
@@ -247,6 +251,7 @@ export function Editor() {
           listKeys.reconfigure(keymap.of(listKeymap(s.listContinuation))),
           preview.reconfigure(s.livePreview ? livePreview : []),
           uiLanguage.reconfigure(languageExtensions()),
+          spelling.reconfigure(spellingExt(s.spellCheck)),
         ],
       });
     } else {
@@ -313,6 +318,10 @@ export function Editor() {
   useEffect(() => {
     editorRef.view?.dispatch({ effects: uiLanguage.reconfigure(languageExtensions()) });
   }, [language]);
+
+  useEffect(() => {
+    editorRef.view?.dispatch({ effects: spelling.reconfigure(spellingExt(spellCheck)) });
+  }, [spellCheck]);
 
   // A different font changes the character metrics the editor has cached.
   useEffect(() => {

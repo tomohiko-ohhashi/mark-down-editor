@@ -15,7 +15,7 @@ export const tauriPlatform: Platform = {
   pollIntervalMs: 2000,
 
   readFile: (path) => invoke("read_file", { path }),
-  writeFile: (path, content) => invoke("write_file", { path, content }),
+  writeFile: (path, content, encoding) => invoke("write_file", { path, content, encoding: encoding ?? null }),
   fileMtime: (path) => invoke("file_mtime", { path }),
   readDir: (path) => invoke("read_dir", { path }),
   searchWorkspace: (root, query) => invoke("search_workspace", { root, query }),

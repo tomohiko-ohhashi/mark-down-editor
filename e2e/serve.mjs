@@ -37,6 +37,17 @@ const files = {
 };
 for (const [name, text] of Object.entries(files)) writeFileSync(join(workspace, name), text);
 
+// A Shift_JIS text file ("# 見出し\r\n日本語のテキスト\r\n") and a tiny PNG, for the encoding and image tests.
+writeFileSync(
+  join(workspace, "sjis.txt"),
+  Buffer.from([0x23, 0x20, 0x8c, 0xa9, 0x8f, 0x6f, 0x82, 0xb5, 0x0d, 0x0a, 0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea, 0x82, 0xcc, 0x83, 0x65, 0x83, 0x4c, 0x83, 0x58, 0x83, 0x67, 0x0d, 0x0a]),
+);
+mkdirSync(join(workspace, "docs", "assets"), { recursive: true });
+writeFileSync(
+  join(workspace, "docs", "assets", "dot.png"),
+  Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"),
+);
+
 const server = spawn(binary, ["--root", workspace, "--port", process.env.E2E_PORT ?? "36670", "--token", "e2e", "--dist", join(root, "dist")], {
   stdio: "inherit",
 });

@@ -16,6 +16,8 @@ export interface Doc {
   mtime: number | null;
   /** Line ending of the file on disk. In memory the text always uses "\n" (as the editor does). */
   eol: Eol;
+  /** Character encoding of the file on disk; the text in memory is always Unicode. */
+  encoding: string;
 }
 
 export type Eol = "\n" | "\r\n";
@@ -45,10 +47,14 @@ interface DocState {
   diffOpen: boolean;
   cheatSheetOpen: boolean;
   workspace: string | null;
+  /** Move the tab `id` to the position of the tab `beforeId` (drag to reorder). */
+  moveDoc: (id: string, toId: string) => void;
   /** Bumped whenever files are created / renamed / deleted so tree views reload. */
   treeVersion: number;
   /** Where the editor cursor is in the active document (for the status bar). */
   cursor: { line: number; col: number; selected: number };
+  /** Set while autosave cannot write a file (shown in the status bar until a save works again). */
+  autosaveError: string | null;
   /** A source line the preview should scroll to once it has rendered the active document. */
   reveal: { line: number; seq: number } | null;
 
@@ -56,7 +62,7 @@ interface DocState {
   removeDoc: (id: string) => void;
   setActive: (id: string) => void;
   setContent: (id: string, content: string) => void;
-  loadInto: (id: string, path: string | null, content: string, mtime: number | null) => void;
+  loadInto: (id: string, path: string | null, content: string, mtime: number | null, encoding?: string) => void;
   /** Set the text the changes view compares against ("first opened"). */
   setOriginal: (id: string, content: string) => void;
   /** Record a successful write. `written` is the in-memory (LF) text that was saved. */
@@ -81,6 +87,7 @@ function makeDoc(partial: Partial<Omit<Doc, "id" | "eol">> = {}): Doc {
     originalContent: partial.originalContent != null ? splitEol(partial.originalContent).text : savedContent,
     mtime: partial.mtime ?? null,
     eol,
+    encoding: partial.encoding ?? "UTF-8",
   };
 }
 
@@ -102,6 +109,7 @@ export const useDocStore = create<DocState>((set, get) => ({
   workspace: null,
   treeVersion: 0,
   cursor: { line: 1, col: 1, selected: 0 },
+  autosaveError: null,
   reveal: null,
 
   addDoc: (partial) => {
@@ -125,12 +133,21 @@ export const useDocStore = create<DocState>((set, get) => ({
     set({ docs: next, activeId: nextActive });
   },
   setActive: (id) => set({ activeId: id }),
+  moveDoc: (id, toId) =>
+    set((s) => {
+      const from = s.docs.findIndex((d) => d.id === id);
+      const to = s.docs.findIndex((d) => d.id === toId);
+      if (from < 0 || to < 0 || from === to) return {};
+      const docs = s.docs.slice();
+      docs.splice(to, 0, ...docs.splice(from, 1));
+      return { docs };
+    }),
   setContent: (id, content) =>
     set((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, content } : d)) })),
-  loadInto: (id, path, raw, mtime) => {
+  loadInto: (id, path, raw, mtime, encoding) => {
     const { text: content, eol } = splitEol(raw);
     set((s) => ({
-      docs: s.docs.map((d) => (d.id === id ? { ...d, path, content, savedContent: content, mtime, eol } : d)),
+      docs: s.docs.map((d) => (d.id === id ? { ...d, path, content, savedContent: content, mtime, eol, encoding: encoding ?? "UTF-8" } : d)),
       status: null,
     }));
   },

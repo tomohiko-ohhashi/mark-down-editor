@@ -259,6 +259,9 @@ fn serde_urlencoded_parse(q: &str) -> HashMap<String, String> {
 struct PathQuery {
     #[serde(default)]
     path: String,
+    /// For writes: the encoding to store the text in (UTF-8 when absent).
+    #[serde(default)]
+    encoding: Option<String>,
 }
 
 fn api_error(status: StatusCode, msg: &str) -> Response {
@@ -319,7 +322,7 @@ async fn api_write_file(
     if q.path.trim().is_empty() {
         return bad("ファイル名が空です".into());
     }
-    match mde_core::write_file(&p, &body) {
+    match mde_core::write_file(&p, &body, q.encoding.as_deref()) {
         Ok(mtime) => axum::Json(json!({ "mtime": mtime })).into_response(),
         Err(e) => bad(e),
     }

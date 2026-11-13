@@ -7,3 +7,5 @@ authors.workspace = true
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+encoding_rs = "0.8"
+chardetng = "0.1"

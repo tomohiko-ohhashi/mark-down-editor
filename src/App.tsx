@@ -16,6 +16,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Outline } from "./components/Outline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { AboutDialog } from "./components/AboutDialog";
+import { ImagePreview } from "./components/ImagePreview";
 import { DiffPanel } from "./components/DiffPanel";
 import { CheatSheet } from "./components/CheatSheet";
 import { Editor } from "./editor/Editor";
@@ -105,6 +106,15 @@ export default function App() {
         const i = state.docs.findIndex((d) => d.id === state.activeId);
         const n = (i + (e.shiftKey ? -1 : 1) + state.docs.length) % state.docs.length;
         return run(() => state.setActive(state.docs[n].id));
+      }
+      // Text size. Only in the desktop app: in a browser these keys are the browser's own zoom.
+      if (inTauri && (!e.shiftKey || code === "Equal") && (code === "Equal" || code === "NumpadAdd" || code === "Minus" || code === "NumpadSubtract" || code === "Digit0")) {
+        return run(() => {
+          const s = useSettings.getState();
+          const step = code === "Digit0" ? 0 : code === "Minus" || code === "NumpadSubtract" ? -1 : 1;
+          const size = (cur: number, def: number) => (step === 0 ? def : Math.max(9, Math.min(40, cur + step)));
+          s.update({ editorFontSize: size(s.editorFontSize, 14), previewFontSize: size(s.previewFontSize, 15) });
+        });
       }
       if (e.shiftKey) {
         if (code === "KeyS") return run(() => void saveDocumentAs());
@@ -251,6 +261,7 @@ export default function App() {
       <MobileBar />
       <SettingsDialog />
       <AboutDialog />
+      <ImagePreview />
       <FilePicker />
       <PromptDialog />
       <ConfirmDialog />

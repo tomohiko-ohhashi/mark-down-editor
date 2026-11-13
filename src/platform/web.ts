@@ -30,8 +30,8 @@ export const webPlatform: Platform = {
   pollIntervalMs: 5000,
 
   readFile: (path) => api<FileContent>(`/file${q({ path })}`),
-  writeFile: async (path, content) =>
-    (await api<{ mtime: number }>(`/file${q({ path })}`, {
+  writeFile: async (path, content, encoding) =>
+    (await api<{ mtime: number }>(`/file${q(encoding ? { path, encoding } : { path })}`, {
       method: "PUT",
       headers: { "Content-Type": "text/plain; charset=utf-8" },
       body: content,
