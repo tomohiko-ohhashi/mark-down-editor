@@ -1,5 +1,6 @@
 import { EditorSelection, type EditorState, type StateCommand } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
+import { t as tr } from "../i18n";
 
 /** Display width: CJK and full-width characters count as 2 columns. */
 export function displayWidth(s: string): number {
@@ -253,7 +254,7 @@ export const tableCycleAlign = edit((t, c) => {
 
 /** Insert an empty rows×cols table at the cursor (on its own paragraph). */
 export function insertTable(view: EditorView, rows: number, cols: number) {
-  const headers = Array.from({ length: cols }, (_, i) => `列${i + 1}`);
+  const headers = Array.from({ length: cols }, (_, i) => tr("列{0}", i + 1));
   const t: TableInfo = {
     startLine: 0,
     endLine: 0,

@@ -1,3 +1,5 @@
+import { getLanguage } from "../i18n";
+
 /**
  * Page header / footer for printing (PDF export).
  *
@@ -51,7 +53,7 @@ export function beginPrint(name: string, now = new Date()): void {
   document.title = name;
   printTitle = name;
   if (!supportsMarginBoxes(navigator.userAgent)) return;
-  const when = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(now);
+  const when = new Intl.DateTimeFormat(getLanguage(), { dateStyle: "short", timeStyle: "short" }).format(now);
   let style = document.getElementById(STYLE_ID);
   if (!style) {
     style = document.createElement("style");

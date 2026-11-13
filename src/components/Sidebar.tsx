@@ -16,7 +16,7 @@ const selectDirtyPaths = (s: { docs: { path: string | null; content: string; sav
     .join("\n");
 
 function DirtyMark({ show }: { show: boolean }) {
-  return show ? <span className="tree-dirty" title="未保存の変更があります">●</span> : null;
+  return show ? <span className="tree-dirty" title={t("未保存の変更があります")}>●</span> : null;
 }
 import { openDocument, openWorkspace } from "../features/files/fileOps";
 import { createFileIn, createFolderIn, renamePath, deletePath, childPath } from "../features/files/manage";
@@ -52,12 +52,12 @@ function revealActiveInTree(): boolean {
   const doc = selectActiveDoc(state);
   if (state.workspace == null) return false;
   if (doc.path == null) {
-    flashStatus("まだ保存されていないドキュメントです");
+    flashStatus(t("まだ保存されていないドキュメントです"));
     return false;
   }
   const dirs = ancestorDirs(state.workspace, doc.path);
   if (dirs === null) {
-    flashStatus("このファイルはワークスペースの外にあります");
+    flashStatus(t("このファイルはワークスペースの外にあります"));
     return false;
   }
   for (const d of dirs) useSettings.getState().setDirExpanded(d, true);
@@ -75,31 +75,32 @@ function revealActiveInTree(): boolean {
       return;
     }
     if (++tries < 25) setTimeout(look, 80);
-    else flashStatus("ツリーに見つかりませんでした（再読込を試してください）");
+    else flashStatus(t("ツリーに見つかりませんでした（再読込を試してください）"));
   };
   setTimeout(look, 0);
   return true;
 }
 import { Dropdown } from "./Dropdown";
+import { t, tError } from "../i18n";
 
 /** "⋯" menu for a folder (new file / folder inside, rename, delete) or a file (rename, delete). */
 function EntryMenu({ path, isDir, isRoot }: { path: string; isDir: boolean; isRoot?: boolean }) {
   return (
     <span className="tree-menu" onClick={(e) => e.stopPropagation()}>
-      <Dropdown label="" title="操作" align="right">
+      <Dropdown label="" title={t("操作")} align="right">
         {(close) => (
           <>
             {isDir && (
               <>
-                <button className="menu-item" onClick={() => { close(); void createFileIn(path); }}>新規ファイル…</button>
-                <button className="menu-item" onClick={() => { close(); void createFolderIn(path); }}>新規フォルダ…</button>
+                <button className="menu-item" onClick={() => { close(); void createFileIn(path); }}>{t("新規ファイル…")}</button>
+                <button className="menu-item" onClick={() => { close(); void createFolderIn(path); }}>{t("新規フォルダ…")}</button>
               </>
             )}
             {!isRoot && (
               <>
                 {isDir && <hr />}
-                <button className="menu-item" onClick={() => { close(); void renamePath(path, isDir); }}>名前の変更…</button>
-                <button className="menu-item danger" onClick={() => { close(); void deletePath(path, isDir); }}>削除…</button>
+                <button className="menu-item" onClick={() => { close(); void renamePath(path, isDir); }}>{t("名前の変更…")}</button>
+                <button className="menu-item danger" onClick={() => { close(); void deletePath(path, isDir); }}>{t("削除…")}</button>
               </>
             )}
           </>
@@ -157,7 +158,7 @@ function Node({ entry, depth }: { entry: Entry; depth: number }) {
             ))}
             {children.length === 0 && (
               <li className="panel-empty" style={{ paddingLeft: 8 + (depth + 1) * 14 }}>
-                (空)
+                {t("(空)")}
               </li>
             )}
           </ul>
@@ -207,7 +208,7 @@ function SearchResults({ workspace, query }: { workspace: string; query: string 
         .catch((e) => {
           if (!cancelled) {
             setHits([]);
-            setError(String(e));
+            setError(tError(e));
           }
         });
     }, 250);
@@ -217,10 +218,10 @@ function SearchResults({ workspace, query }: { workspace: string; query: string 
     };
   }, [workspace, query]);
 
-  if (query.trim().length < 2) return <div className="panel-empty">2 文字以上で検索します</div>;
-  if (hits === null) return <div className="panel-empty">検索中…</div>;
+  if (query.trim().length < 2) return <div className="panel-empty">{t("2 文字以上で検索します")}</div>;
+  if (hits === null) return <div className="panel-empty">{t("検索中…")}</div>;
   if (error) return <div className="panel-empty">{error}</div>;
-  if (hits.length === 0) return <div className="panel-empty">見つかりませんでした</div>;
+  if (hits.length === 0) return <div className="panel-empty">{t("見つかりませんでした")}</div>;
 
   const groups = new Map<string, SearchHit[]>();
   for (const h of hits) (groups.get(h.path) ?? groups.set(h.path, []).get(h.path)!).push(h);
@@ -237,7 +238,7 @@ function SearchResults({ workspace, query }: { workspace: string; query: string 
           <ul>
             {items.map((h) => (
               <li key={h.line}>
-                <button onClick={() => void open(h)} title={`${h.line} 行目`}>
+                <button onClick={() => void open(h)} title={t("{0} 行目", h.line)}>
                   <span className="search-line">{h.line}</span> {h.text}
                 </button>
               </li>
@@ -245,7 +246,7 @@ function SearchResults({ workspace, query }: { workspace: string; query: string 
           </ul>
         </li>
       ))}
-      {hits.length >= 500 && <li className="panel-empty">500 件で打ち切りました</li>}
+      {hits.length >= 500 && <li className="panel-empty">{t("500 件で打ち切りました")}</li>}
     </ul>
   );
 }
@@ -276,7 +277,7 @@ export function Sidebar() {
       setError(null);
     } catch (e) {
       setRoot([]);
-      setError(String(e));
+      setError(tError(e));
     }
   }, [workspace]);
 
@@ -300,12 +301,12 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="panel-title">
         <span title={workspace ?? ""}>
-          {workspace == null ? "ワークスペース" : workspace === "" ? (rootName ?? "ワークスペース") : fileName(workspace)}
+          {workspace == null ? t("ワークスペース") : workspace === "" ? (rootName ?? t("ワークスペース")) : fileName(workspace)}
         </span>
         <span className="panel-actions">
           <button
-            title="開いているファイルをツリーで表示"
-            aria-label="開いているファイルをツリーで表示"
+            title={t("開いているファイルをツリーで表示")}
+            aria-label={t("開いているファイルをツリーで表示")}
             disabled={workspace == null}
             onClick={() => {
               // The tree is replaced by results while searching; go back to it first.
@@ -315,9 +316,9 @@ export function Sidebar() {
             ◎
           </button>
           {workspace != null && <EntryMenu path={workspace} isDir isRoot />}
-          <button title="再読込" onClick={() => void refresh()} disabled={workspace == null}>↻</button>
+          <button title={t("再読込")} onClick={() => void refresh()} disabled={workspace == null}>↻</button>
           {platform.kind === "tauri" && (
-            <button title="別のフォルダを開く…" aria-label="別のフォルダを開く" onClick={() => void openWorkspace()}>📂</button>
+            <button title={t("別のフォルダを開く…")} aria-label={t("別のフォルダを開く")} onClick={() => void openWorkspace()}>📂</button>
           )}
         </span>
       </div>
@@ -331,8 +332,8 @@ export function Sidebar() {
             onKeyDown={(e) => {
               if (e.key === "Escape") setQuery("");
             }}
-            placeholder="ワークスペースを検索"
-            aria-label="ワークスペースを検索"
+            placeholder={t("ワークスペースを検索")}
+            aria-label={t("ワークスペースを検索")}
           />
         </div>
       )}
@@ -340,20 +341,20 @@ export function Sidebar() {
         <SearchResults workspace={workspace} query={query} />
       ) : workspace == null ? (
         <div className="panel-empty">
-          フォルダを開くと、Markdown ファイルの一覧が表示されます。
+          {t("フォルダを開くと、Markdown ファイルの一覧が表示されます。")}
           <br />
-          <button className="link" onClick={() => void openWorkspace()}>フォルダを開く…</button>
+          <button className="link" onClick={() => void openWorkspace()}>{t("フォルダを開く…")}</button>
         </div>
       ) : error ? (
         <div className="panel-empty">{error}</div>
       ) : root === null ? (
-        <div className="panel-empty">読み込み中…</div>
+        <div className="panel-empty">{t("読み込み中…")}</div>
       ) : (
         <ul className="tree">
           {root.map((e) => (
             <Node key={e.path} entry={e} depth={0} />
           ))}
-          {root.length === 0 && <li className="panel-empty">Markdown ファイルがありません</li>}
+          {root.length === 0 && <li className="panel-empty">{t("Markdown ファイルがありません")}</li>}
         </ul>
       )}
     </aside>

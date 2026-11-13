@@ -1,6 +1,7 @@
 # Markdown Editor
 
 macOS / Linux / Windows で動く、単独で動作する Markdown エディタです。
+(A standalone Markdown editor for macOS, Linux and Windows. The UI is available in Japanese and English; this README is in Japanese.)
 [Tauri 2](https://tauri.app) (Rust) + React + CodeMirror 6 で作られています。
 
 ## 機能
@@ -24,6 +25,7 @@ macOS / Linux / Windows で動く、単独で動作する Markdown エディタ�
 - プレビューのリンク: 外部 URL は既定のブラウザで開き、相対パスの .md はタブで開く
 - HTML 書き出し (単独で開ける HTML)、印刷 / PDF (OS の印刷ダイアログ)。PDF のヘッダー・フッターはファイル名・時刻・ページ番号のみ (Windows と Chrome / Edge。URL やアプリ名は出ない)
 - 表示モード: 編集のみ / 分割 / プレビューのみ、フォーカスモード、タイプライターモード。フォーカスモードは Esc、右上の「✕ フォーカス解除」ボタン、右クリックメニューのいずれでも終了できる
+- 日本語 / 英語の UI: 既定は OS の言語に合わせ (日本語以外の OS では英語)、設定の「言語 / Language」で切り替えられる
 - 設定: テーマ (OS 追従 / ライト / ダーク)、エディタとプレビューのフォント (インストール済みフォントの一覧から選択)、文字サイズ、タブ幅、折返し、自動保存
 - チートシート (Markdown 記法とショートカットの一覧): 右側のサイドパネルに表示。F1 またはツールバーの「？」で開閉でき、開いたまま執筆できる
 - ステータスバーにカーソル位置 (行・列)、選択中の文字数、行数・語数・文字数を表示

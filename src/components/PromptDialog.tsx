@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
+import { t } from "../i18n";
 
 interface PromptRequest {
   title: string;
@@ -67,11 +68,11 @@ export function PromptDialog() {
       <div className="modal prompt" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={request.title}>
         <div className="modal-header">
           <h2>{request.title}</h2>
-          <button onClick={() => finish(null)} title="閉じる (Esc)">×</button>
+          <button onClick={() => finish(null)} title={t("閉じる (Esc)")}>×</button>
         </div>
         <div className="modal-body">
           <label>
-            {request.label ?? "名前"}
+            {request.label ?? t("名前")}
             <input
               ref={inputRef}
               type="text"
@@ -85,7 +86,7 @@ export function PromptDialog() {
           </label>
           {error && <div className="prompt-error">{error}</div>}
           <div className="prompt-actions">
-            <button className="secondary" onClick={() => finish(null)}>キャンセル</button>
+            <button className="secondary" onClick={() => finish(null)}>{t("キャンセル")}</button>
             <button className="primary" onClick={submit}>{request.okLabel ?? "OK"}</button>
           </div>
         </div>

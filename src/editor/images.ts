@@ -2,6 +2,7 @@ import type { EditorView } from "@codemirror/view";
 import { platform } from "../platform";
 import { useDocStore, selectActiveDoc } from "../store/useDocStore";
 import { saveDocument } from "../features/files/fileOps";
+import { t, tError } from "../i18n";
 
 function imageFiles(list: DataTransfer | null): File[] {
   if (!list) return [];
@@ -16,8 +17,8 @@ function imageFiles(list: DataTransfer | null): File[] {
 async function savedDocPath(): Promise<string | null> {
   let doc = selectActiveDoc(useDocStore.getState());
   if (!doc.path) {
-    await platform.message("画像を保存するには、先にこのドキュメントを保存してください。", {
-      title: "画像の挿入",
+    await platform.message(t("画像を保存するには、先にこのドキュメントを保存してください。"), {
+      title: t("画像の挿入"),
       kind: "info",
     });
     if (!(await saveDocument(doc.id))) return null;
@@ -52,7 +53,7 @@ export async function insertImagePaths(view: EditorView, paths: string[]): Promi
       const name = source.split(/[\\/]/).pop() ?? "";
       links.push(`![${altText(name)}](${encodeURI(rel)})`);
     } catch (e) {
-      await platform.message(String(e), { title: "画像を保存できませんでした", kind: "error" });
+      await platform.message(tError(e), { title: t("画像を保存できませんでした"), kind: "error" });
     }
   }
   insertLinks(view, links);
@@ -70,7 +71,7 @@ export async function insertImages(view: EditorView, files: File[]): Promise<boo
       const rel = await platform.saveImage(docPath, bytes, ext);
       links.push(`![${altText(file.name)}](${encodeURI(rel)})`);
     } catch (e) {
-      await platform.message(String(e), { title: "画像を保存できませんでした", kind: "error" });
+      await platform.message(tError(e), { title: t("画像を保存できませんでした"), kind: "error" });
     }
   }
   insertLinks(view, links);

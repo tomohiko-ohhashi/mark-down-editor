@@ -6,6 +6,7 @@ import { beginPrint, endPrint } from "./printPage";
 import previewCss from "../preview/preview.css?raw";
 
 import katex from "katex";
+import { getLanguage, t, tError } from "../i18n";
 
 // Same KaTeX version as the one that rendered the markup.
 const KATEX_CSS = `https://cdn.jsdelivr.net/npm/katex@${katex.version}/dist/katex.min.css`;
@@ -21,7 +22,7 @@ export async function buildStandaloneHtml(): Promise<string> {
   const title = fileName(doc.path).replace(/\.\w+$/, "");
   const needsKatex = body.includes("class=\"katex");
   return `<!doctype html>
-<html lang="ja">
+<html lang="${getLanguage()}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -53,9 +54,9 @@ export async function exportHtml(): Promise<void> {
   if (!path) return;
   try {
     await writeFile(path, await buildStandaloneHtml());
-    flashStatus("HTML を書き出しました");
+    flashStatus(t("HTML を書き出しました"));
   } catch (e) {
-    await platform.message(String(e), { title: "書き出せませんでした", kind: "error" });
+    await platform.message(tError(e), { title: t("書き出せませんでした"), kind: "error" });
   }
 }
 

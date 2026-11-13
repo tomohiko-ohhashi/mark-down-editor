@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ViewMode } from "./useDocStore";
+import type { LanguageSetting } from "../i18n";
 
 export type Theme = "system" | "light" | "dark";
 /** How Enter behaves inside lists and quotes. */
@@ -22,6 +23,8 @@ export interface SessionState {
 
 export interface Settings {
   theme: Theme;
+  /** UI language; "system" follows the OS (Japanese there, otherwise English). */
+  language: LanguageSetting;
   editorFontSize: number;
   /** Font name picked in the settings ("" = default). Older versions stored a CSS font list here. */
   editorFontFamily: string;
@@ -48,6 +51,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
+  language: "system",
   editorFontSize: 14,
   editorFontFamily: "",
   previewFontSize: 15,
