@@ -142,6 +142,9 @@ export const en: Record<string, string> = {
   "前回終了時の状態を復元する (開いていたファイル・フォルダ・表示)": "Restore the previous session (open files, folder and layout)",
   "起動時にアップデートを確認する": "Check for updates at start-up",
   "今すぐ更新を確認": "Check for updates now",
+  "保存するまで設定は記録されません": "Changes are not kept until you save",
+  "変更を元に戻して閉じる (Esc)": "Discard the changes and close (Esc)",
+  "設定を保存して閉じる": "Save the settings and close",
   // ---- Sidebar ----
   "未保存の変更があります": "Has unsaved changes",
   "まだ保存されていないドキュメントです": "This document has not been saved yet",
