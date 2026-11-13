@@ -37,6 +37,8 @@ export interface AskOptions {
   kind?: "info" | "warning" | "error";
   okLabel?: string;
   cancelLabel?: string;
+  /** The confirming button does something that cannot be undone: shown in red where the dialog is ours. */
+  danger?: boolean;
 }
 
 export interface Platform {

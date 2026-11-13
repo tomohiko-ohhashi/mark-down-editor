@@ -76,7 +76,7 @@ export const webPlatform: Platform = {
       message: msg,
       choices: [
         { id: "cancel", label: opts?.cancelLabel ?? t("キャンセル") },
-        { id: "ok", label: opts?.okLabel ?? "OK", kind: "primary" },
+        { id: "ok", label: opts?.okLabel ?? "OK", kind: opts?.danger ? "danger-primary" : "primary" },
       ],
     })) === "ok",
   message: async (msg, opts) => {

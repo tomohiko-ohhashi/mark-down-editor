@@ -53,6 +53,11 @@ html, body, #root {
 
 .app { display: flex; flex-direction: column; height: 100%; }
 button { font: inherit; color: inherit; }
+/* Keyboard focus: one ring in the accent colour everywhere, instead of each browser's own. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
+.tree-dir:focus-visible, .tree-file:focus-visible, .outline li button:focus-visible, .menu-item:focus-visible, .tab:focus-visible, .search-results button:focus-visible { outline-offset: -2px; }
+.cm-content:focus-visible, .cm-editor:focus-visible, .preview:focus-visible { outline: none; }
 kbd { font-family: var(--sans); font-size: 11px; color: var(--fg-muted); margin-left: auto; padding-left: 16px; }
 
 /* ---------- Toolbar ---------- */
@@ -111,8 +116,8 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .tabbar { display: flex; align-items: stretch; background: var(--bg-alt); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; user-select: none; }
 .tab { display: flex; align-items: center; gap: 6px; padding: 5px 8px 5px 12px; border-right: 1px solid var(--border); cursor: pointer; color: var(--fg-muted); max-width: 220px; }
 .tab.active { background: var(--bg); color: var(--fg); box-shadow: inset 0 2px 0 var(--accent); }
-.tab-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.tab-close { background: none; border: none; border-radius: 4px; padding: 0 5px; cursor: pointer; color: var(--fg-muted); line-height: 1.2; }
+.tab-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 16px; }
+.tab-close { background: none; border: none; border-radius: 4px; padding: 0 5px; cursor: pointer; color: var(--fg-muted); line-height: 16px; }
 .tab-close:hover { background: var(--border); color: var(--fg); }
 .tab-new { background: none; border: none; padding: 0 12px; cursor: pointer; color: var(--fg-muted); font-size: 16px; }
 .tab-new:hover { color: var(--fg); }
@@ -130,7 +135,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .editor .cm-editor { height: 100%; }
 
 /* The text area keeps a usable width; in a small window the side panels give way first. */
-.workbench > .panes, .workbench > .diff { min-width: min(360px, 100%); }
+.workbench > .panes, .workbench > .diff { min-width: min(440px, 100%); }
 .sidebar, .outline { width: var(--sidebar-w, 240px); max-width: 60vw; flex-shrink: 1; min-width: 120px; overflow: auto; background: var(--bg-alt); font-size: 12.5px; }
 .sidebar { border-right: 1px solid var(--border); }
 .outline { width: var(--outline-w, 240px); border-left: 1px solid var(--border); }
@@ -146,8 +151,11 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 body.resizing, body.resizing * { cursor: col-resize !important; user-select: none !important; }
 .panel-title { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-weight: 600; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-muted); position: sticky; top: 0; background: var(--bg-alt); }
 .panel-actions { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
-.panel-actions button { background: none; border: none; cursor: pointer; padding: 0 4px; color: var(--fg-muted); }
-.panel-actions button:hover { color: var(--fg); }
+/* Only the icons in the heading, not the items of a menu opened from it. */
+.panel-actions > button, .panel-actions .dropdown > button { background: none; border: none; cursor: pointer; padding: 0 4px; color: var(--fg-muted); }
+.panel-actions > button:hover, .panel-actions .dropdown > button:hover { color: var(--fg); }
+/* A menu opened from a panel heading looks like every other menu, not like the heading. */
+.panel-title .dropdown-menu { font-size: 13px; font-weight: normal; letter-spacing: 0; text-transform: none; color: var(--fg); }
 .panel-empty { padding: 8px 12px; color: var(--fg-muted); line-height: 1.6; }
 .panel-empty .link { background: none; border: none; color: var(--link); cursor: pointer; padding: 0; text-decoration: underline; }
 .search-box { padding: 4px 8px 8px; }
@@ -157,7 +165,7 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .search-count { color: var(--fg-muted); font-weight: normal; margin-left: 4px; }
 .search-results li li button { display: block; width: 100%; text-align: left; background: none; border: none; padding: 3px 10px 3px 16px; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
 .search-results li li button:hover { background: var(--line-highlight); }
-.search-line { color: var(--fg-muted); font-family: var(--mono); font-size: 11px; margin-right: 6px; }
+.search-line { display: inline-block; min-width: 2.4em; text-align: right; color: var(--fg-muted); font-family: var(--mono); font-size: 11px; margin-right: 6px; }
 .tree, .tree ul, .outline ul { list-style: none; margin: 0; padding: 0; }
 .tree-dir, .tree-file, .outline li button {
   display: block; width: 100%; text-align: left; background: none; border: none; padding: 3px 8px;
@@ -202,7 +210,7 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .focus-exit {
   position: fixed; z-index: 60; top: calc(10px + env(safe-area-inset-top)); right: 14px;
   background: var(--bg-alt); color: var(--fg-muted); border: 1px solid var(--border); border-radius: 999px;
-  padding: 5px 12px; font-size: 12px; cursor: pointer; opacity: 0.35; transition: opacity 0.15s;
+  padding: 5px 12px; font-size: 12px; cursor: pointer; opacity: 0.6; transition: opacity 0.15s;
 }
 .focus-exit:hover, .focus-exit:focus-visible { opacity: 1; color: var(--fg); }
 @media (hover: none) { .focus-exit { opacity: 0.8; padding: 8px 14px; font-size: 13px; } }
@@ -229,14 +237,14 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .panes[hidden] { display: none; }
 .diff-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 6px 12px; background: var(--bg-alt); border-bottom: 1px solid var(--border); font-size: 13px; }
 .diff-file { color: var(--fg-muted); }
-.diff-count { color: var(--fg-muted); margin-left: auto; white-space: nowrap; }
+.diff-count { color: var(--fg-muted); white-space: nowrap; margin-right: 4px; }
 .diff-head .segmented { flex-shrink: 0; }
 /* Same look as the view switch in the toolbar: only the chosen side is filled. */
 .diff-head .segmented button { padding: 3px 10px; cursor: pointer; }
 .diff-head .segmented button:not(.active) { background: none; }
 .diff-head .segmented button, .diff-head strong { white-space: nowrap; }
 .diff-file { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.diff-nav { display: inline-flex; align-items: center; gap: 6px; }
+.diff-nav { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
 .diff-nav button, .diff-close { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 2px 9px; cursor: pointer; }
 .diff-nav button:disabled { opacity: 0.4; cursor: default; }
 .diff-nav .diff-close { border: none; font-size: 16px; padding: 0 6px; }
@@ -260,6 +268,11 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .diff-revert { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; width: 1.7em; height: 1.5em; line-height: 1; padding: 0; cursor: pointer; color: var(--fg); font-size: 12px; position: absolute; left: 0.2em; }
 /* The merge view places the button from the top of the text, not counting the padding above it (16px); the rest centres it on the first line. */
 .diff-revert { margin-top: 18px; }
+/* One-column changes view (phones): the button that puts the old text back. The merge view's own style would make it white on white. */
+.diff-body .cm-chunkButtons button.diff-revert-inline { margin: 2px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 4px 10px; font-family: var(--sans); font-size: 12px; color: var(--fg); cursor: pointer; }
+.diff-body .cm-chunkButtons button[hidden] { display: none; }
+.diff-cols[hidden] { display: none; }
+.diff-body > .cm-editor { height: 100%; }
 .diff-revert:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .update-check { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; margin-top: 6px; }
 .modal-footer .update-check { margin-top: 0; }
@@ -292,6 +305,7 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .modal label input[type="number"] { width: 70px; }
 .modal label select { max-width: 100%; margin-left: auto; }
 .modal label.check { justify-content: flex-start; flex-wrap: nowrap; }
+.modal label.check > input[type="checkbox"] { margin-left: 0; }
 .modal label.check.sub { padding-left: 26px; }
 .modal label.check:has(input:disabled) { color: var(--fg-muted); }
 .modal button.secondary { margin-top: 6px; border: 1px solid var(--border); background: var(--bg-alt); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
@@ -325,7 +339,7 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .picker-list { list-style: none; margin: 0; padding: 4px 0; overflow: auto; flex: 1; min-height: 160px; }
 .picker-list li button { display: block; width: 100%; text-align: left; background: none; border: none; padding: 10px 16px; cursor: pointer; font-size: 14px; }
 .picker-list li button:hover { background: var(--bg-alt); }
-.picker-save { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+.picker-save { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
 .picker-save input { flex: 1; font-size: 16px; }
 /* The border (in the button's own colour) keeps it the same height as the bordered button next to it. */
 .picker-save button.primary, .modal button.primary { background: var(--accent); color: #fff; border: 1px solid var(--accent); border-radius: 6px; padding: 6px 16px; cursor: pointer; }
@@ -335,13 +349,16 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 
 /* ---------- Prompt dialog ---------- */
 .modal.prompt, .modal.confirm { width: min(420px, 92vw); }
-.confirm-message { margin: 10px 0 4px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* "pretty" keeps a last line from being a single stranded word or character. */
+.confirm-message { margin: 10px 0 4px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty; word-break: auto-phrase; }
 .modal.confirm .prompt-actions { flex-wrap: wrap; }
 .modal.confirm .prompt-actions button { margin-top: 0; padding: 6px 14px; border-radius: 6px; }
 .modal.confirm button.danger { color: var(--code); }
+.modal.confirm button.danger.solid { background: var(--code); border-color: var(--code); color: #fff; }
 .modal.confirm button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .modal.prompt label { flex-direction: column; align-items: stretch; gap: 6px; }
 .modal.prompt input { font-size: 15px; }
+.modal.prompt label input[type="text"] { max-width: none; }
 .prompt-error { color: var(--code); font-size: 12px; margin-top: 4px; }
 .prompt-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 12px; }
 .modal .prompt-actions button { margin-top: 0; }
@@ -390,6 +407,11 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
   .toolbar-group > button, .toolbar-group > .dropdown > button { height: 34px; }
   .toolbar-group.segmented > button { height: 32px; }
   .workbench { position: relative; }
+  /* Rows and icons big enough for a finger. */
+  .tree-dir, .tree-file, .outline li button { padding-top: 9px; padding-bottom: 9px; font-size: 14px; }
+  .search-results li li button { padding-top: 8px; padding-bottom: 8px; font-size: 13px; }
+  .panel-actions > button, .panel-actions .dropdown > button, .tree-menu .dropdown > button, .panel-actions .tree-menu .dropdown > button { padding: 6px 10px; font-size: 15px; }
+  .tab-close { padding: 4px 9px; }
   /* The panels are overlays here: nothing to drag. */
   .splitter { display: none; }
   .panes.mode-split .pane-editor { flex: 1 1 0; }

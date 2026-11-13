@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDocStore, isDirty } from "../store/useDocStore";
 import { closeDocument, newDocument } from "../features/files/fileOps";
 import { tabLabels } from "../features/files/names";
@@ -13,6 +13,11 @@ export function TabBar() {
   const [dragging, setDragging] = useState<string | null>(null);
   // Set when a press turned into a drag, so the click that ends it does not also select a tab.
   const dragged = useRef(false);
+  const bar = useRef<HTMLDivElement>(null);
+  // With more tabs than fit, bring the one in front into view.
+  useEffect(() => {
+    bar.current?.querySelector(".tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeId, docs.length]);
 
   /** Press on a tab; once the pointer has moved a little, the tab follows it over the others. */
   const startDrag = (id: string, e: React.PointerEvent) => {
@@ -45,7 +50,7 @@ export function TabBar() {
     window.addEventListener("pointercancel", up);
   };
   return (
-    <div className="tabbar" role="tablist">
+    <div className="tabbar" role="tablist" ref={bar}>
       {docs.map((d, i) => (
         <div
           key={d.id}

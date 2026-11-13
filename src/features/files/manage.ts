@@ -109,6 +109,7 @@ export async function deletePath(path: string, isDir: boolean): Promise<void> {
     kind: "warning",
     okLabel: platform.deleteIsTrash ? t("ゴミ箱へ") : t("削除する"),
     cancelLabel: t("キャンセル"),
+    danger: true,
   });
   if (!ok) return;
   try {

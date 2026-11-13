@@ -3,12 +3,25 @@ import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { MergeView, getChunks } from "@codemirror/merge";
+import { MergeView, getChunks, unifiedMergeView } from "@codemirror/merge";
 import { useDocStore, selectActiveDoc, fileName } from "../store/useDocStore";
 import { editorRef, goToLine } from "../editor/Editor";
 import { baseTheme, markdownHighlight } from "../editor/theme";
 import { Splitter } from "./Splitter";
 import { t } from "../i18n";
+
+/** True on screens too narrow for two columns of text (the phone layout). */
+function useNarrowScreen(): boolean {
+  const query = "(max-width: 767px)";
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const onChange = () => setNarrow(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+  return narrow;
+}
 
 type Base = "opened" | "saved";
 
@@ -31,83 +44,128 @@ export function DiffPanel() {
   const [changes, setChanges] = useState(0);
   const host = useRef<HTMLDivElement>(null);
   const merge = useRef<MergeView | null>(null);
+  /** The editor that holds the current text (the right side, or the only one on a narrow screen). */
+  const current = useRef<EditorView | null>(null);
   const root = useRef<HTMLElement>(null);
+  const narrow = useNarrowScreen();
 
   const oldText = base === "opened" ? doc.originalContent : doc.savedContent;
 
-  // Build the two editors; rebuilt when the document or the base text changes.
+  // Build the editors; rebuilt when the document, the base text or the layout (side by side / one column) changes.
   useEffect(() => {
     if (!host.current) return;
+    const parent = host.current;
     const count = (state: EditorState) => setChanges(getChunks(state)?.chunks.length ?? 0);
-    const view = new MergeView({
-      parent: host.current,
-      a: { doc: oldText, extensions: [...shared, EditorState.readOnly.of(true), EditorView.editable.of(false)] },
-      b: {
-        doc: useDocStore.getState().docs.find((d) => d.id === doc.id)?.content ?? "",
+    const startDoc = useDocStore.getState().docs.find((d) => d.id === doc.id)?.content ?? "";
+    // The editor with the current text. What is typed here is passed on to the main editor.
+    const currentSide = [
+      ...shared,
+      highlightActiveLine(),
+      history(),
+      keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap]),
+      EditorView.updateListener.of((u) => {
+        count(u.state);
+        if (!u.docChanged) return;
+        const main = editorRef.view;
+        if (!main || main.state.doc.eq(u.state.doc)) return; // came from the main editor
+        // Same edit on the main editor, so it lands in the document and in its undo history.
+        if (main.state.doc.eq(u.startState.doc)) main.dispatch({ changes: u.changes, userEvent: "input" });
+        else main.dispatch({ changes: { from: 0, to: main.state.doc.length, insert: u.state.doc.toString() } });
+      }),
+    ];
+    let view: EditorView;
+    let dispose: () => void;
+    if (narrow) {
+      // Too narrow for two columns (a phone): one column, with the old text shown above each change.
+      view = new EditorView({
+        parent,
+        doc: startDoc,
         extensions: [
-          ...shared,
-          highlightActiveLine(),
-          history(),
-          keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap]),
-          EditorView.updateListener.of((u) => {
-            count(u.state);
-            if (!u.docChanged) return;
-            const main = editorRef.view;
-            if (!main || main.state.doc.eq(u.state.doc)) return; // came from the main editor
-            // Same edit on the main editor, so it lands in the document and in its undo history.
-            if (main.state.doc.eq(u.startState.doc)) main.dispatch({ changes: u.changes, userEvent: "input" });
-            else main.dispatch({ changes: { from: 0, to: main.state.doc.length, insert: u.state.doc.toString() } });
+          ...currentSide,
+          unifiedMergeView({
+            original: oldText,
+            gutter: true,
+            highlightChanges: true,
+            mergeControls: (type, action) => {
+              const b = document.createElement("button");
+              // "Accept" would change what is compared against; only putting the old text back makes sense here.
+              if (type === "accept") {
+                b.hidden = true;
+                return b;
+              }
+              b.className = "diff-revert-inline";
+              b.textContent = t("この変更を元に戻す");
+              b.onmousedown = action;
+              return b;
+            },
           }),
         ],
-      },
-      revertControls: "a-to-b",
-      renderRevertControl: () => {
-        const b = document.createElement("button");
-        b.className = "diff-revert";
-        b.textContent = "→";
-        b.title = t("この変更を元に戻す");
-        return b;
-      },
-      highlightChanges: true,
-      gutter: true,
-    });
-    merge.current = view;
-    count(view.b.state);
-    // Where the strip between the two sides is, so the column headings and the divider line up with it.
-    // Written straight to CSS variables: it then follows a resize within the same frame, with no render in between.
-    const measure = () => {
-      const strip = host.current?.querySelector<HTMLElement>(".cm-merge-revert")?.getBoundingClientRect();
-      const box = host.current?.getBoundingClientRect();
-      if (!strip || !box || !root.current) return;
-      root.current.style.setProperty("--strip-left", `${strip.left - box.left}px`);
-      root.current.style.setProperty("--strip-width", `${strip.width}px`);
-    };
-    const observer = new ResizeObserver(measure);
-    observer.observe(host.current);
-    observer.observe(view.a.dom);
-    const strip = host.current.querySelector(".cm-merge-revert");
-    if (strip) observer.observe(strip);
-    measure();
+      });
+      dispose = () => view.destroy();
+    } else {
+      const both = new MergeView({
+        parent,
+        a: { doc: oldText, extensions: [...shared, EditorState.readOnly.of(true), EditorView.editable.of(false)] },
+        b: { doc: startDoc, extensions: currentSide },
+        revertControls: "a-to-b",
+        renderRevertControl: () => {
+          const b = document.createElement("button");
+          b.className = "diff-revert";
+          b.textContent = "→";
+          b.title = t("この変更を元に戻す");
+          return b;
+        },
+        highlightChanges: true,
+        gutter: true,
+      });
+      merge.current = both;
+      view = both.b;
+      // Where the strip between the two sides is, so the column headings and the divider line up with it.
+      // Written straight to CSS variables: it then follows a resize within the same frame, with no render in between.
+      const measure = () => {
+        const strip = parent.querySelector<HTMLElement>(".cm-merge-revert")?.getBoundingClientRect();
+        const box = parent.getBoundingClientRect();
+        if (!strip || !root.current) return;
+        root.current.style.setProperty("--strip-left", `${strip.left - box.left}px`);
+        root.current.style.setProperty("--strip-width", `${strip.width}px`);
+      };
+      const observer = new ResizeObserver(measure);
+      observer.observe(parent);
+      observer.observe(both.a.dom);
+      const strip = parent.querySelector(".cm-merge-revert");
+      if (strip) observer.observe(strip);
+      measure();
+      dispose = () => {
+        observer.disconnect();
+        both.destroy();
+      };
+    }
+    current.current = view;
+    count(view.state);
     // Start at the first change.
-    const first = getChunks(view.b.state)?.chunks[0];
-    if (first) view.b.dispatch({ selection: { anchor: Math.min(first.fromB, view.b.state.doc.length) }, effects: EditorView.scrollIntoView(Math.min(first.fromB, view.b.state.doc.length), { y: "center" }) });
-    view.b.focus();
+    const first = getChunks(view.state)?.chunks[0];
+    if (first) {
+      const pos = Math.min(first.fromB, view.state.doc.length);
+      view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "center" }) });
+    }
+    // Not on a phone: focusing would bring up the keyboard over what the user came to look at.
+    if (!narrow) view.focus();
     return () => {
-      observer.disconnect();
-      view.destroy();
+      dispose();
+      current.current = null;
       merge.current = null;
     };
-  }, [doc.id, oldText]);
+  }, [doc.id, oldText, narrow]);
 
   // Changes made elsewhere while this is open (toolbar commands, reload from disk) show up on the right.
   useEffect(() => {
-    const b = merge.current?.b;
+    const b = current.current;
     if (!b || b.state.doc.toString() === doc.content) return;
     b.dispatch({ changes: { from: 0, to: b.state.doc.length, insert: doc.content }, annotations: Transaction.addToHistory.of(false) });
   }, [doc.content]);
 
   const step = (dir: 1 | -1) => {
-    const b = merge.current?.b;
+    const b = current.current;
     const chunks = b && getChunks(b.state)?.chunks;
     if (!b || !chunks || chunks.length === 0) return;
     const head = b.state.selection.main.head;
@@ -119,7 +177,7 @@ export function DiffPanel() {
 
   const close = () => {
     // Go back to the main editor at the line the cursor is on here.
-    const b = merge.current?.b;
+    const b = current.current;
     const line = b ? b.state.doc.lineAt(b.state.selection.main.head).number : null;
     toggle("diffOpen");
     if (line != null) requestAnimationFrame(() => requestAnimationFrame(() => goToLine(line)));
@@ -138,22 +196,23 @@ export function DiffPanel() {
             {t("保存済みの内容と比較")}
           </button>
         </div>
-        <span className="diff-count">{changes === 0 ? t("違いはありません") : changes === 1 ? t("変更 1 箇所") : t("変更 {0} 箇所", changes)}</span>
+        {/* The count, the arrows and the close button stay together, so a narrow header wraps them as one group. */}
         <span className="diff-nav">
+          <span className="diff-count">{changes === 0 ? t("違いはありません") : changes === 1 ? t("変更 1 箇所") : t("変更 {0} 箇所", changes)}</span>
           <button onClick={() => step(-1)} disabled={changes === 0} title={t("前の変更")}>↑</button>
           <button onClick={() => step(1)} disabled={changes === 0} title={t("次の変更")}>↓</button>
           {/* Kept with the arrows so it never wraps onto a line of its own. */}
           <button className="diff-close" onClick={close} title={t("閉じる (Esc)")}>×</button>
         </span>
       </div>
-      <div className="diff-cols">
+      <div className="diff-cols" hidden={narrow}>
         <span>{base === "opened" ? t("最初に開いたとき") : t("保存済み")}</span>
         <span className="diff-cols-strip" />
         <span>{t("現在 (編集できます)")}</span>
       </div>
       <div className="diff-main">
         <div className="diff-body" ref={host} />
-        <Splitter
+        {!narrow && <Splitter
           panel="diff"
           grow={1}
           edge="after"
@@ -162,7 +221,7 @@ export function DiffPanel() {
             const b = merge.current?.b.dom.parentElement?.getBoundingClientRect();
             return a && b ? { left: a.left, width: a.width + b.width } : null;
           }}
-        />
+        />}
       </div>
     </section>
   );

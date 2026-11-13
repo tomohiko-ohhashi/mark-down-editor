@@ -6,7 +6,8 @@ export interface Choice {
   id: string;
   label: string;
   /** "primary" is the default action (Enter); "danger" marks a destructive one. */
-  kind?: "primary" | "danger";
+  /** "danger-primary": the main action, and a destructive one (delete). */
+  kind?: "primary" | "danger" | "danger-primary";
 }
 
 interface ChoiceRequest {
@@ -67,6 +68,7 @@ export function ConfirmDialog() {
   if (!request) return null;
   const focusIndex = Math.max(
     0,
+    // A destructive main action is not pre-selected: Enter must not delete by accident.
     request.choices.findIndex((c) => c.kind === "primary"),
   );
   return (
@@ -83,7 +85,7 @@ export function ConfirmDialog() {
               <button
                 key={c.id}
                 ref={i === focusIndex ? primaryRef : undefined}
-                className={c.kind === "primary" ? "primary" : c.kind === "danger" ? "secondary danger" : "secondary"}
+                className={c.kind === "primary" ? "primary" : c.kind === "danger-primary" ? "secondary danger solid" : c.kind === "danger" ? "secondary danger" : "secondary"}
                 onClick={() => finish(c.id)}
               >
                 {c.label}
