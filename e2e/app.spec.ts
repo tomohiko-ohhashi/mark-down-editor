@@ -465,3 +465,57 @@ test("menus: nothing wraps, and switched-on items are ticked", async ({ page }) 
   await expect(items.filter({ hasText: "チートシート / ショートカット" }).locator(".menu-check")).toHaveText("");
   await expect(items.filter({ hasText: "タイプライターモード" })).toHaveAttribute("aria-checked", "true");
 });
+
+test("layout holds in a smaller window, in Japanese and English", async ({ browser }) => {
+  for (const locale of ["ja-JP", "en-US"]) {
+    const context = await browser.newContext({ locale, viewport: { width: 960, height: 700 } });
+    const page = await context.newPage();
+    await start(page);
+    await openFile(page, "hello.md");
+
+    // The toolbar stays one row, with nothing cut off at the right.
+    const bar = await page.locator(".toolbar").boundingBox();
+    expect(bar?.height, `${locale}: toolbar height`).toBeLessThan(45);
+    const lastGroup = await page.locator(".toolbar .tg-more").boundingBox();
+    expect((lastGroup?.x ?? 0) + (lastGroup?.width ?? 0), `${locale}: toolbar right edge`).toBeLessThanOrEqual(960);
+
+    // With every side panel open, the text area keeps a usable width.
+    await page.keyboard.press("Control+Shift+O");
+    await page.keyboard.press("F1");
+    await expect(page.locator(".cheatsheet")).toBeVisible();
+    expect((await page.locator(".panes").boundingBox())?.width, `${locale}: text area`).toBeGreaterThanOrEqual(359);
+
+    // The search panel: the close button sits on the first row, level with the find box.
+    await editor(page).click();
+    await page.keyboard.press("Control+F");
+    const find = await page.locator(".cm-search input[name=search]").boundingBox();
+    const close = await page.locator(".cm-search button[name=close]").boundingBox();
+    if (!find || !close) throw new Error("no search panel");
+    expect(Math.abs(find.y + find.height / 2 - (close.y + close.height / 2)), `${locale}: search close button`).toBeLessThan(2);
+    await page.keyboard.press("Escape");
+
+    // Settings: no option of a drop-down is wider than the drop-down itself.
+    await page.keyboard.press("Control+Comma");
+    await page.waitForSelector(".modal-footer");
+    const cut = await page.locator(".modal select").evaluateAll((selects) =>
+      selects.flatMap((el) => {
+        const select = el as HTMLSelectElement;
+        const style = getComputedStyle(select);
+        const ctx = document.createElement("canvas").getContext("2d");
+        if (!ctx) return [];
+        ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        const widest = Math.max(...Array.from(select.options).map((o) => ctx.measureText(o.textContent ?? "").width));
+        return widest + 30 > select.getBoundingClientRect().width + 1 ? [select.options[0].textContent] : [];
+      }),
+    );
+    expect(cut, `${locale}: drop-downs with cut-off text`).toEqual([]);
+    await page.keyboard.press("Escape");
+
+    // The dialog that asks for a name: both buttons on one line, same height.
+    await page.locator(".sidebar .panel-title .dropdown > button").click();
+    await page.locator(".dropdown-menu .menu-item").first().click();
+    const buttons = await page.locator(".modal .prompt-actions button").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.height)]; }));
+    expect(new Set(buttons.map((b) => b.join("/"))).size, `${locale}: prompt buttons ${JSON.stringify(buttons)}`).toBe(1);
+    await context.close();
+  }
+});

@@ -132,8 +132,8 @@ export function SettingsDialog() {
             <label>
               {t("リスト・引用の継続")}
               <select value={s.listContinuation} onChange={(e) => s.preview({ listContinuation: e.target.value as ListContinuation })}>
-                <option value="shift">{t("Shift+Enter で継続 (Enter は通常の改行)")}</option>
-                <option value="enter">{t("Enter で継続 (空の項目で解除)")}</option>
+                <option value="shift">{t("Shift+Enter で継続")}</option>
+                <option value="enter">{t("Enter で継続")}</option>
                 <option value="off">{t("しない")}</option>
               </select>
             </label>

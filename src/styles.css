@@ -129,7 +129,9 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .editor { height: 100%; }
 .editor .cm-editor { height: 100%; }
 
-.sidebar, .outline { width: var(--sidebar-w, 240px); max-width: 60vw; flex-shrink: 0; overflow: auto; background: var(--bg-alt); font-size: 12.5px; }
+/* The text area keeps a usable width; in a small window the side panels give way first. */
+.workbench > .panes, .workbench > .diff { min-width: min(360px, 100%); }
+.sidebar, .outline { width: var(--sidebar-w, 240px); max-width: 60vw; flex-shrink: 1; min-width: 120px; overflow: auto; background: var(--bg-alt); font-size: 12.5px; }
 .sidebar { border-right: 1px solid var(--border); }
 .outline { width: var(--outline-w, 240px); border-left: 1px solid var(--border); }
 /* Dividers between the panels: a thin strip over the border that can be dragged. */
@@ -227,7 +229,10 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .panes[hidden] { display: none; }
 .diff-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 6px 12px; background: var(--bg-alt); border-bottom: 1px solid var(--border); font-size: 13px; }
 .diff-file { color: var(--fg-muted); }
-.diff-count { color: var(--fg-muted); margin-left: auto; }
+.diff-count { color: var(--fg-muted); margin-left: auto; white-space: nowrap; }
+.diff-head .segmented { flex-shrink: 0; }
+.diff-head .segmented button, .diff-head strong { white-space: nowrap; }
+.diff-file { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .diff-nav { display: inline-flex; align-items: center; gap: 6px; }
 .diff-nav button, .diff-close { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 2px 9px; cursor: pointer; }
 .diff-nav button:disabled { opacity: 0.4; cursor: default; }
@@ -278,18 +283,19 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .modal .modal-footer button.secondary { margin-top: 0; padding: 6px 14px; border-radius: 6px; }
 .modal section { margin-top: 12px; }
 .modal h3 { font-size: 12px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 8px 0 6px; }
-.modal label { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; }
+/* When the name and the control do not fit side by side, the control moves to the next line instead of being cut off. */
+.modal label { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 5px 0; }
 .modal label input[type="text"] { flex: 1; max-width: 300px; }
 .modal label input[type="number"] { width: 70px; }
-.modal label select { max-width: min(300px, 60%); }
-.modal label.check { justify-content: flex-start; }
+.modal label select { max-width: 100%; margin-left: auto; }
+.modal label.check { justify-content: flex-start; flex-wrap: nowrap; }
 .modal label.check.sub { padding-left: 26px; }
 .modal label.check:has(input:disabled) { color: var(--fg-muted); }
 .modal button.secondary { margin-top: 6px; border: 1px solid var(--border); background: var(--bg-alt); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
 /* ---------- Cheat sheet side panel ---------- */
-.cheatsheet { width: var(--cheatsheet-w, 300px); max-width: 60vw; flex-shrink: 0; overflow: auto; background: var(--bg-alt); border-left: 1px solid var(--border); font-size: 12.5px; }
+.cheatsheet { width: var(--cheatsheet-w, 300px); max-width: 60vw; flex-shrink: 1; min-width: 190px; overflow: auto; background: var(--bg-alt); border-left: 1px solid var(--border); font-size: 12.5px; }
 .cheat-tabs { display: flex; margin: 0 10px 8px; }
-.cheat-tabs button { flex: 1; background: none; border: none; padding: 4px 6px; cursor: pointer; font-size: 12px; }
+.cheat-tabs button { flex: 1; background: none; border: none; padding: 4px 6px; cursor: pointer; font-size: 12px; white-space: nowrap; }
 .cheat-list { margin: 0; padding: 0 10px 16px; }
 .cheat-row { padding: 7px 0; border-bottom: 1px solid var(--border); }
 .cheat-row dt { margin: 0 0 3px; }
@@ -334,12 +340,27 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .modal.prompt label { flex-direction: column; align-items: stretch; gap: 6px; }
 .modal.prompt input { font-size: 15px; }
 .prompt-error { color: var(--code); font-size: 12px; margin-top: 4px; }
-.prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.prompt-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 12px; }
+.modal .prompt-actions button { margin-top: 0; }
+.modal .prompt-actions button.secondary { padding: 6px 14px; border-radius: 6px; }
 .prompt-actions .secondary { border: 1px solid var(--border); background: var(--bg-alt); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
 
 /* ---------- Phones / narrow windows ----------
    `screen` only: a printed page is narrower than 768px too, and must not get
    the phone layout (bottom bar, extra preview padding) in the PDF export. */
+/* Smaller windows (a window on half a screen is about 960px): the toolbar tightens in steps instead of breaking into two rows. */
+@media screen and (min-width: 768px) and (max-width: 1240px) {
+  .toolbar-title { min-width: 0; }
+}
+@media screen and (min-width: 768px) and (max-width: 1120px) {
+  .toolbar { gap: 4px; padding-left: 6px; padding-right: 6px; }
+  .toolbar-group { gap: 0; }
+  .toolbar-group > button, .toolbar-group > .dropdown > button { padding-left: 6px; padding-right: 6px; min-width: 24px; }
+}
+@media screen and (min-width: 768px) and (max-width: 940px) {
+  .toolbar-group > button, .toolbar-group > .dropdown > button { padding-left: 4px; padding-right: 4px; min-width: 20px; }
+  .tg-format .tb-heading { display: none; }
+}
 @media screen and (max-width: 767px) {
   .statusbar, .tg-panels, .tg-view, .tg-more { display: none !important; }
   .app.focus .mobilebar { display: none; }
@@ -369,7 +390,7 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
   /* The panels are overlays here: nothing to drag. */
   .splitter { display: none; }
   .panes.mode-split .pane-editor { flex: 1 1 0; }
-  .sidebar, .outline, .cheatsheet { position: absolute; top: 0; bottom: 0; z-index: 40; width: min(82vw, 320px); max-width: none; box-shadow: 0 0 24px rgba(0, 0, 0, 0.25); }
+  .sidebar, .outline, .cheatsheet { position: absolute; top: 0; bottom: 0; z-index: 40; width: min(82vw, 320px); max-width: none; min-width: 0; box-shadow: 0 0 24px rgba(0, 0, 0, 0.25); }
   .sidebar { left: 0; }
   .outline, .cheatsheet { right: 0; }
   .cheatsheet { z-index: 41; }

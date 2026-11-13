@@ -128,9 +128,9 @@ export function Toolbar() {
       </div>
 
       <div className="toolbar-group tg-format">
-        <button onClick={() => runInEditor(setHeading(1))} title={t("見出し1 ({0}1)", mod)}>H1</button>
-        <button onClick={() => runInEditor(setHeading(2))} title={t("見出し2 ({0}2)", mod)}>H2</button>
-        <button onClick={() => runInEditor(setHeading(3))} title={t("見出し3 ({0}3)", mod)}>H3</button>
+        <button className="tb-heading" onClick={() => runInEditor(setHeading(1))} title={t("見出し1 ({0}1)", mod)}>H1</button>
+        <button className="tb-heading" onClick={() => runInEditor(setHeading(2))} title={t("見出し2 ({0}2)", mod)}>H2</button>
+        <button className="tb-heading" onClick={() => runInEditor(setHeading(3))} title={t("見出し3 ({0}3)", mod)}>H3</button>
         <button onClick={() => runInEditor(toggleBold)} title={t("太字 ({0}B)", mod)}><b>B</b></button>
         <button onClick={() => runInEditor(toggleItalic)} title={t("斜体 ({0}I)", mod)}><i>I</i></button>
         <button onClick={() => runInEditor(toggleCode)} title={t("コード ({0}E)", mod)}><code>{"<>"}</code></button>
