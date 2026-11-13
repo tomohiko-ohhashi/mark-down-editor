@@ -6,6 +6,9 @@ import { useScrollSync } from "./useScrollSync";
 import { openDocument } from "../features/files/fileOps";
 import { joinPath, isAbsolutePath } from "./paths";
 import { platform } from "../platform";
+import { scrollPreviewToLine } from "../features/reveal";
+import { pauseScrollSync } from "./useScrollSync";
+import { cursorLine } from "../editor/Editor";
 
 /**
  * Links in the rendered HTML must not navigate the webview itself:
@@ -45,6 +48,12 @@ export function Preview() {
   const theme = useSettings((s) => s.theme);
   const previewFontSize = useSettings((s) => s.previewFontSize);
   const [html, setHtml] = useState("");
+  /** Bumped after every finished render; `rendered` is the text that render was for. */
+  const [renderTick, setRenderTick] = useState(0);
+  const rendered = useRef<string | null>(null);
+  const reveal = useDocStore((s) => s.reveal);
+  const viewMode = useDocStore((s) => s.viewMode);
+  const prevMode = useRef(viewMode);
   const ref = useRef<HTMLDivElement>(null);
   useScrollSync("preview", ref);
   const [systemDark, setSystemDark] = useState(() => isDarkTheme());
@@ -60,12 +69,17 @@ export function Preview() {
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(() => {
-      renderMarkdown(doc.content, {
+      const content = doc.content;
+      renderMarkdown(content, {
         docDir: doc.path != null ? dirName(doc.path) : null,
+        sourceLines: true,
         mermaid: true,
         dark: isDarkTheme(),
       }).then((h) => {
-        if (!cancelled) setHtml(h);
+        if (cancelled) return;
+        setHtml(h);
+        rendered.current = content;
+        setRenderTick((t) => t + 1);
       });
     }, 120);
     return () => {
@@ -73,6 +87,28 @@ export function Preview() {
       clearTimeout(t);
     };
   }, [doc.content, doc.path, theme, systemDark]);
+
+  // Jump requested by the outline / search: wait until this document's HTML is on screen.
+  useEffect(() => {
+    if (!reveal || !ref.current) return;
+    if (rendered.current !== doc.content) return;
+    pauseScrollSync(400);
+    scrollPreviewToLine(ref.current, reveal.line);
+    useDocStore.setState({ reveal: null });
+  }, [reveal, renderTick, doc.content]);
+
+  // Coming from editor-only: the preview was hidden, so show the block the cursor is in.
+  useEffect(() => {
+    const was = prevMode.current;
+    prevMode.current = viewMode;
+    if (was !== "editor" || viewMode === "editor") return;
+    const id = requestAnimationFrame(() => {
+      if (!ref.current) return;
+      pauseScrollSync(400);
+      scrollPreviewToLine(ref.current, cursorLine());
+    });
+    return () => cancelAnimationFrame(id);
+  }, [viewMode]);
 
   return (
     <div

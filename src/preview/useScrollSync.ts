@@ -10,9 +10,16 @@ type Listener = (from: Side, ratio: number) => void;
 const listeners = new Set<Listener>();
 let lastSource: Side | null = null;
 let lastSourceAt = 0;
+let pausedUntil = 0;
+
+/** Stop the panes from following each other for a moment (while both are scrolled to an exact target). */
+export function pauseScrollSync(ms: number) {
+  pausedUntil = performance.now() + ms;
+}
 
 export function publishScroll(from: Side, el: HTMLElement) {
   const now = performance.now();
+  if (now < pausedUntil) return;
   // Ignore scroll events caused by our own programmatic scroll on the other pane.
   if (lastSource && lastSource !== from && now - lastSourceAt < 100) return;
   lastSource = from;

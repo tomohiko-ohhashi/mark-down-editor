@@ -24,6 +24,11 @@ function bumpTree() {
   useDocStore.setState((s) => ({ treeVersion: s.treeVersion + 1 }));
 }
 
+/** Show the folder something was just created in (the workspace root is always shown). */
+function expand(dir: string) {
+  if (dir !== useDocStore.getState().workspace) useSettings.getState().setDirExpanded(dir, true);
+}
+
 function isWithin(path: string, dir: string): boolean {
   return path === dir || path.startsWith(dir + "/") || path.startsWith(dir + "\\");
 }
@@ -36,6 +41,7 @@ export async function createFileIn(dir: string): Promise<void> {
   const path = childPath(dir, withExt);
   try {
     await platform.writeFile(path, "");
+    expand(dir);
     bumpTree();
     await openDocument(path);
   } catch (e) {
@@ -48,6 +54,7 @@ export async function createFolderIn(dir: string): Promise<void> {
   if (!name) return;
   try {
     await platform.createDir(childPath(dir, name));
+    expand(dir);
     bumpTree();
   } catch (e) {
     await platform.message(String(e), { title: "作成できませんでした", kind: "error" });
@@ -77,7 +84,10 @@ export async function renamePath(path: string, isDir: boolean): Promise<void> {
     workspace: s.workspace != null ? remap(s.workspace) : s.workspace,
   }));
   const settings = useSettings.getState();
-  settings.update({ recentFiles: settings.recentFiles.map((p) => remap(p) as string) });
+  settings.update({
+    recentFiles: settings.recentFiles.map((p) => remap(p) as string),
+    expandedDirs: settings.expandedDirs.map((p) => remap(p) as string),
+  });
   bumpTree();
   flashStatus(`「${oldName}」を「${name}」に変更しました`);
 }
@@ -106,7 +116,10 @@ export async function deletePath(path: string, isDir: boolean): Promise<void> {
     docs: s.docs.map((d) => (affected(d.path) ? { ...d, path: null, mtime: null, savedContent: isDirty(d) ? d.savedContent : "" } : d)),
   }));
   const settings = useSettings.getState();
-  settings.update({ recentFiles: settings.recentFiles.filter((p) => !affected(p)) });
+  settings.update({
+    recentFiles: settings.recentFiles.filter((p) => !affected(p)),
+    expandedDirs: settings.expandedDirs.filter((p) => !affected(p)),
+  });
   bumpTree();
   flashStatus(platform.deleteIsTrash ? `「${name}」をゴミ箱に移動しました` : `「${name}」を削除しました`);
 }

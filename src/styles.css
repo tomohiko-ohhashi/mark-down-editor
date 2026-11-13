@@ -122,6 +122,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .sidebar { border-right: 1px solid var(--border); }
 .outline { border-left: 1px solid var(--border); }
 .panel-title { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-weight: 600; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-muted); position: sticky; top: 0; background: var(--bg-alt); }
+.panel-actions { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .panel-actions button { background: none; border: none; cursor: pointer; padding: 0 4px; color: var(--fg-muted); }
 .panel-actions button:hover { color: var(--fg); }
 .panel-empty { padding: 8px 12px; color: var(--fg-muted); line-height: 1.6; }
@@ -142,6 +143,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .tree-dir:hover, .tree-file:hover, .outline li button:hover { background: var(--line-highlight); }
 .tree-file.active { color: var(--accent); font-weight: 600; }
 .tree-arrow { display: inline-block; width: 12px; color: var(--fg-muted); }
+.tree-dirty { color: var(--accent); font-size: 9px; margin-left: 6px; vertical-align: middle; }
 .tree-row { display: flex; align-items: center; }
 .tree-row > .tree-dir, .tree-row > .tree-file { flex: 1; min-width: 0; }
 .tree-menu { position: relative; flex-shrink: 0; }

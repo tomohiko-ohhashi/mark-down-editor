@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useDocStore, selectActiveDoc } from "../store/useDocStore";
-import { goToLine } from "../editor/Editor";
+import { revealLine } from "../features/reveal";
 
 interface Heading {
   level: number;
@@ -8,12 +8,20 @@ interface Heading {
   line: number;
 }
 
-/** Extract ATX headings, skipping fenced code blocks. */
+const SETEXT_RE = /^\s{0,3}(=+|-+)\s*$/;
+const NOT_SETEXT_TEXT = /^\s*([-*+>#|]|\d+[.)]\s|```|~~~)/;
+
+/** Extract ATX (`# x`) and single-line setext (`x` over `===` / `---`) headings, skipping code fences and front matter. */
 export function extractHeadings(src: string): Heading[] {
   const out: Heading[] = [];
   let fence: string | null = null;
   const lines = src.split("\n");
-  for (let i = 0; i < lines.length; i++) {
+  let start = 0;
+  if (/^(---|\+\+\+)\s*$/.test(lines[0] ?? "")) {
+    const close = lines.findIndex((l, i) => i > 0 && l.trim() === lines[0].trim());
+    if (close > 0) start = close + 1;
+  }
+  for (let i = start; i < lines.length; i++) {
     const line = lines[i];
     const f = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
     if (f) {
@@ -23,7 +31,16 @@ export function extractHeadings(src: string): Heading[] {
     }
     if (fence) continue;
     const m = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
-    if (m) out.push({ level: m[1].length, text: m[2] || "(無題)", line: i + 1 });
+    if (m) {
+      out.push({ level: m[1].length, text: m[2] || "(無題)", line: i + 1 });
+      continue;
+    }
+    const s = SETEXT_RE.exec(line);
+    const prev = i > start ? lines[i - 1] : "";
+    const before = i - 2 >= start ? lines[i - 2] : "";
+    if (s && prev.trim() !== "" && before.trim() === "" && !NOT_SETEXT_TEXT.test(prev)) {
+      out.push({ level: s[1][0] === "=" ? 1 : 2, text: prev.trim(), line: i });
+    }
   }
   return out;
 }
@@ -40,7 +57,14 @@ export function Outline() {
         <ul>
           {headings.map((h, i) => (
             <li key={i} style={{ paddingLeft: 8 + (h.level - 1) * 12 }} className={`h${h.level}`}>
-              <button onClick={() => goToLine(h.line)} title={`${h.line} 行目`}>
+              <button
+                onClick={() => {
+                  revealLine(h.line);
+                  // On phones the outline covers the text; get out of the way.
+                  if (window.innerWidth < 768) useDocStore.getState().set({ showOutline: false });
+                }}
+                title={`${h.line} 行目へ移動`}
+              >
                 {h.text}
               </button>
             </li>
