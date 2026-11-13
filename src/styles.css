@@ -232,12 +232,12 @@ body.resizing, body.resizing * { cursor: col-resize !important; user-select: non
 .diff-nav button, .diff-close { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 2px 9px; cursor: pointer; }
 .diff-nav button:disabled { opacity: 0.4; cursor: default; }
 .diff-nav .diff-close { border: none; font-size: 16px; padding: 0 6px; }
-.diff-cols { display: grid; grid-template-columns: 1fr 2.2em 1fr; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); border-bottom: 1px solid var(--border); }
+.diff-cols { display: grid; grid-template-columns: var(--strip-left, 1fr) var(--strip-width, 2.2em) 1fr; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); border-bottom: 1px solid var(--border); }
 .diff-cols span { padding: 3px 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* Continues the strip between the two sides up into the headings, so the lines meet. */
 .diff-cols .diff-cols-strip { padding: 0; background: var(--bg-alt); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 .diff-main { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
-.diff-main > .splitter { position: absolute; top: 0; bottom: 0; width: 6px; margin: 0; }
+.diff-main > .splitter { position: absolute; top: 0; bottom: 0; left: calc(var(--strip-left, 50%) - 3px); width: 6px; margin: 0; }
 .diff-body .cm-mergeViewEditor:first-child { flex-grow: calc(var(--diff-split, 0.5) * 100); }
 .diff-body .cm-mergeViewEditor:last-child { flex-grow: calc((1 - var(--diff-split, 0.5)) * 100); }
 .diff-body { flex: 1; min-height: 0; overflow: auto; }

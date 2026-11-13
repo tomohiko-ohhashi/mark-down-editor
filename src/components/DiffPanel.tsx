@@ -31,8 +31,7 @@ export function DiffPanel() {
   const [changes, setChanges] = useState(0);
   const host = useRef<HTMLDivElement>(null);
   const merge = useRef<MergeView | null>(null);
-  // Where the strip between the two sides is, so the column headings and the divider line up with it.
-  const [gutter, setGutter] = useState<{ left: number; width: number } | null>(null);
+  const root = useRef<HTMLElement>(null);
 
   const oldText = base === "opened" ? doc.originalContent : doc.savedContent;
 
@@ -74,16 +73,20 @@ export function DiffPanel() {
     });
     merge.current = view;
     count(view.b.state);
+    // Where the strip between the two sides is, so the column headings and the divider line up with it.
+    // Written straight to CSS variables: it then follows a resize within the same frame, with no render in between.
     const measure = () => {
       const strip = host.current?.querySelector<HTMLElement>(".cm-merge-revert")?.getBoundingClientRect();
       const box = host.current?.getBoundingClientRect();
-      if (!strip || !box) return;
-      const next = { left: Math.round((strip.left - box.left) * 10) / 10, width: Math.round(strip.width * 10) / 10 };
-      setGutter((cur) => (cur && cur.left === next.left && cur.width === next.width ? cur : next));
+      if (!strip || !box || !root.current) return;
+      root.current.style.setProperty("--strip-left", `${strip.left - box.left}px`);
+      root.current.style.setProperty("--strip-width", `${strip.width}px`);
     };
     const observer = new ResizeObserver(measure);
     observer.observe(host.current);
     observer.observe(view.a.dom);
+    const strip = host.current.querySelector(".cm-merge-revert");
+    if (strip) observer.observe(strip);
     measure();
     // Start at the first change.
     const first = getChunks(view.b.state)?.chunks[0];
@@ -123,7 +126,7 @@ export function DiffPanel() {
   };
 
   return (
-    <section className="diff" aria-label={t("変更箇所")}>
+    <section className="diff" aria-label={t("変更箇所")} ref={root}>
       <div className="diff-head">
         <strong>{t("変更箇所")}</strong>
         <span className="diff-file">{fileName(doc.path)}</span>
@@ -143,26 +146,23 @@ export function DiffPanel() {
           <button className="diff-close" onClick={close} title={t("閉じる (Esc)")}>×</button>
         </span>
       </div>
-      <div className="diff-cols" style={gutter ? { gridTemplateColumns: `${gutter.left}px ${gutter.width}px 1fr` } : undefined}>
+      <div className="diff-cols">
         <span>{base === "opened" ? t("最初に開いたとき") : t("保存済み")}</span>
         <span className="diff-cols-strip" />
         <span>{t("現在 (編集できます)")}</span>
       </div>
       <div className="diff-main">
         <div className="diff-body" ref={host} />
-        {gutter && (
-          <Splitter
-            panel="diff"
-            grow={1}
-            edge="after"
-            style={{ left: gutter.left - 3 }}
-            track={() => {
-              const a = merge.current?.a.dom.parentElement?.getBoundingClientRect();
-              const b = merge.current?.b.dom.parentElement?.getBoundingClientRect();
-              return a && b ? { left: a.left, width: a.width + b.width } : null;
-            }}
-          />
-        )}
+        <Splitter
+          panel="diff"
+          grow={1}
+          edge="after"
+          track={() => {
+            const a = merge.current?.a.dom.parentElement?.getBoundingClientRect();
+            const b = merge.current?.b.dom.parentElement?.getBoundingClientRect();
+            return a && b ? { left: a.left, width: a.width + b.width } : null;
+          }}
+        />
       </div>
     </section>
   );

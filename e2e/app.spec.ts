@@ -432,8 +432,8 @@ test("the changes view: its middle line can be dragged, and the headings and arr
   await page.waitForSelector(".cm-mergeView .diff-revert");
   const left = async (selector: string) => (await page.locator(selector).first().boundingBox())?.x ?? -1;
 
-  // The strip between the two sides continues into the headings above it.
-  expect(Math.abs((await left(".diff-cols-strip")) - (await left(".cm-merge-revert")))).toBeLessThan(1);
+  // The strip between the two sides continues into the headings above it (it follows within a frame of any layout change).
+  await expect.poll(async () => Math.abs((await left(".diff-cols-strip")) - (await left(".cm-merge-revert")))).toBeLessThan(1);
 
   // The arrow of a change sits on the changed line, not above it.
   const arrow = await page.locator(".diff-revert").first().boundingBox();

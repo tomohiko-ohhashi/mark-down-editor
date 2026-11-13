@@ -15,14 +15,12 @@ export function Splitter({
   grow,
   track,
   edge,
-  style,
 }: {
   panel: PanelKey;
   grow: 1 | -1;
   track?: () => { left: number; width: number } | null;
   /** Which border the divider stands for: the one of the panel before it or after it (default: the panel it resizes). */
   edge?: "before" | "after";
-  style?: React.CSSProperties;
 }) {
   const sizes = normalizePanelSizes(useSettings((s) => s.panelSizes));
   const [dragging, setDragging] = useState(false);
@@ -88,7 +86,6 @@ export function Splitter({
       aria-orientation="vertical"
       aria-label={t("幅を変更")}
       aria-valuenow={Math.round(isRatio(panel) ? sizes[panel] * 100 : sizes[panel])}
-      style={style}
       tabIndex={0}
       title={t("ドラッグで幅を変更 (ダブルクリックで元の幅に戻す)")}
       onPointerDown={onPointerDown}
