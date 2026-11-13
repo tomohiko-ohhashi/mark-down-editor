@@ -1,10 +1,10 @@
-# systemd unit for the Markdown Editor web server.
+# systemd unit for the Toucan Markdown Editor web server.
 # Installed by deploy/install-service.sh, which fills in __USER__ and __ROOT__
 # and writes /etc/markdown-editor.env (MDE_TOKEN, MDE_ROOT, MDE_PORT).
 
 [Unit]
-Description=Markdown Editor web server
-Documentation=https://github.com/tomohiko-ohhashi/mark-down-editor
+Description=Toucan Markdown Editor web server
+Documentation=https://github.com/tomohiko-ohhashi/toucan-markdown-editor
 After=network-online.target
 Wants=network-online.target
 

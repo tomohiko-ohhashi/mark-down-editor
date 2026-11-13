@@ -6,7 +6,7 @@ import { t } from "../i18n";
 import { version } from "../../package.json";
 import { useEffect, useState } from "react";
 
-const REPO = "https://github.com/tomohiko-ohhashi/mark-down-editor";
+const REPO = "https://github.com/tomohiko-ohhashi/toucan-markdown-editor";
 
 /** The main libraries the app is built on (each under its own license). */
 const BUILT_WITH = ["Tauri", "React", "CodeMirror", "unified (remark / rehype)", "KaTeX", "Mermaid", "highlight.js", "zustand"];
@@ -70,7 +70,7 @@ export function AboutDialog() {
           <button onClick={close} title={t("閉じる (Esc)")}>×</button>
         </div>
         <div className="modal-body">
-          <div className="about-name">Markdown Editor</div>
+          <div className="about-name">Toucan Markdown Editor</div>
           <div className="about-version">
             {t("バージョン {0}", version)} · {inTauri ? t("デスクトップ版") : t("Web 版")}
           </div>
@@ -85,7 +85,7 @@ export function AboutDialog() {
             </label>
           )}
           <h3>{t("権利表記")}</h3>
-          <p>Copyright © 2026 tomohiko-ohhashi. All rights reserved.</p>
+          <p>Copyright © 2026 BigBridge Digital. All rights reserved.</p>
           <p className="about-note">
             {t("オープンソースライセンスでは公開していません。許可なく使用・複製・改変・再配布することはできません。")}
           </p>

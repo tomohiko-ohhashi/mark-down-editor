@@ -1,4 +1,4 @@
-# Markdown Editor
+# Toucan Markdown Editor
 
 macOS / Linux / Windows で動く、単独で動作する Markdown エディタです。
 (A standalone Markdown editor for macOS, Linux and Windows. The UI is available in Japanese and English; this README is in Japanese.)
@@ -170,6 +170,6 @@ docs/SUMMARY.md      経緯、環境構築のトラブル対処、リリース�
 
 ## ライセンス
 
-Copyright (c) 2026 tomohiko-ohhashi. All rights reserved.
+Copyright (c) 2026 BigBridge Digital. All rights reserved.
 
 オープンソースライセンスでは公開していません。リポジトリは参照用の公開で、許可なく使用・複製・改変・再配布することはできません。詳細は [LICENSE](LICENSE) を参照してください。利用している第三者のライブラリには、それぞれのライセンスが適用されます。

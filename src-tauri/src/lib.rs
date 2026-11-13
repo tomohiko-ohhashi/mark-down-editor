@@ -37,10 +37,10 @@ pub fn run() {
                 use tauri::menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
                 // A custom Quit item (instead of the predefined one, which terminates the
                 // process directly) so the frontend can ask about unsaved changes first.
-                let quit = MenuItemBuilder::with_id("quit", "Quit Markdown Editor")
+                let quit = MenuItemBuilder::with_id("quit", "Quit Toucan Markdown Editor")
                     .accelerator("CmdOrCtrl+Q")
                     .build(app)?;
-                let app_menu = SubmenuBuilder::new(app, "Markdown Editor")
+                let app_menu = SubmenuBuilder::new(app, "Toucan Markdown Editor")
                     .about(Some(AboutMetadata::default()))
                     .separator()
                     .services()

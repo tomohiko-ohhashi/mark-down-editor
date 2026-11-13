@@ -72,7 +72,7 @@ export default function App() {
 
   // Window title reflects the document and its dirty state.
   useEffect(() => {
-    const title = `${dirty ? "● " : ""}${fileName(doc.path)} - Markdown Editor`;
+    const title = `${dirty ? "● " : ""}${fileName(doc.path)} - Toucan Markdown Editor`;
     document.title = title;
     if (inTauri) getCurrentWindow().setTitle(title).catch(() => {});
   }, [doc.path, dirty, language]);

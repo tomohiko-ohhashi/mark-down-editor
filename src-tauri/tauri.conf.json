@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Markdown Editor",
+  "productName": "Toucan Markdown Editor",
   "version": "0.3.5",
   "identifier": "dev.tomohiko-ohhashi.markdown-editor",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Markdown Editor",
+        "title": "Toucan Markdown Editor",
         "width": 1200,
         "height": 800,
         "minWidth": 600,
@@ -31,7 +31,8 @@
   },
   "bundle": {
     "active": true,
-    "copyright": "Copyright (c) 2026 tomohiko-ohhashi. All rights reserved.",
+    "copyright": "Copyright (c) 2026 BigBridge Digital. All rights reserved.",
+    "publisher": "BigBridge Digital",
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -57,7 +58,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENGRDdDRjU1NEQ1NkJCMEYKUldRUHUxWk5WYy9YejFheERJOXUyK3lhTEg5N2FTMlJDTGVEZjlzTWhVMWozRVNDUG9aRTdRTmoK",
       "endpoints": [
-        "https://github.com/tomohiko-ohhashi/mark-down-editor/releases/latest/download/latest.json"
+        "https://github.com/tomohiko-ohhashi/toucan-markdown-editor/releases/latest/download/latest.json"
       ]
     }
   }

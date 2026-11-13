@@ -1,4 +1,4 @@
-//! HTTP front end for the Markdown Editor.
+//! HTTP front end for Toucan Markdown Editor.
 //!
 //! Serves the same web UI as the desktop app (embedded at build time) and
 //! exposes file operations over a small JSON API, so the editor can be used
@@ -31,7 +31,7 @@ struct Assets;
 #[command(
     name = "markdown-editor-server",
     version,
-    about = "Serve the Markdown Editor UI over HTTP for use from a browser"
+    about = "Serve the Toucan Markdown Editor UI over HTTP for use from a browser"
 )]
 struct Args {
     /// Folder whose Markdown files are exposed. Nothing outside it is reachable.
@@ -113,7 +113,7 @@ async fn main() {
         .await
         .unwrap_or_else(|e| fatal(&format!("{addr} で待ち受けできません: {e}")));
 
-    println!("Markdown Editor server");
+    println!("Toucan Markdown Editor server");
     println!("  公開フォルダ: {}", root.display());
     match &token {
         Some(t) => {
@@ -233,12 +233,12 @@ fn asset_response(path: &str, bytes: Vec<u8>) -> Response {
 }
 
 const LOGIN_PAGE: &str = r#"<!doctype html><html lang="ja"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Markdown Editor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Toucan Markdown Editor</title>
 <style>body{font-family:-apple-system,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:#f6f7f9;color:#1f2328}
 form{background:#fff;padding:24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.08);width:min(360px,90vw)}
 input{width:100%;box-sizing:border-box;font-size:16px;padding:10px;border:1px solid #d8dee4;border-radius:8px;margin:12px 0}
 button{width:100%;font-size:16px;padding:10px;border:none;border-radius:8px;background:#0969da;color:#fff}</style></head>
-<body><form method="get" action="/"><h2>Markdown Editor</h2><p>サーバー起動時に表示されたトークンを入力してください。<br>Enter the token shown when the server was started.</p>
+<body><form method="get" action="/"><h2>Toucan Markdown Editor</h2><p>サーバー起動時に表示されたトークンを入力してください。<br>Enter the token shown when the server was started.</p>
 <input name="token" placeholder="token" autocomplete="off" autofocus><button type="submit">開く / Open</button></form></body></html>"#;
 
 fn serde_urlencoded_parse(q: &str) -> HashMap<String, String> {

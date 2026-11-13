@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install (or update) the Markdown Editor web server as a systemd service.
+# Install (or update) the Toucan Markdown Editor web server as a systemd service.
 #
 #   sudo ./deploy/install-service.sh --root /home/you/notes [--port 36660] [--token <str>] [--user you]
 #

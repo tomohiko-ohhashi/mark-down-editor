@@ -203,6 +203,14 @@ GitHub の Settings → Branches → Add branch ruleset (または Add classic b
 | アップデートまわり | 「今すぐ更新を確認」と「起動時にアップデートを確認する」はバージョン情報だけに置く。確認の結果はボタンの横に出す |
 | ライセンス一覧の作り直しコマンド | `pnpm licenses` は pnpm 自体のコマンドと名前が重なっていたため、`pnpm update-licenses` に変更 |
 
+## 7l. 名前の変更: Toucan Markdown Editor (v0.3.5 のあと)
+
+- アプリ名を **Toucan Markdown Editor**、作成者を **BigBridge Digital** に変更。リポジトリは `tomohiko-ohhashi/toucan-markdown-editor` (旧名 `mark-down-editor` からは GitHub が転送する)
+- 変えたもの: 製品名とウィンドウタイトル、バージョン情報、著作権表記 (`LICENSE` / README / インストーラの情報)、発行元、macOS のメニュー、リリース名、Web 版のタイトルとホーム画面用の名前、アプリ内のリンクと更新確認の URL
+- **変えていないもの** (変えると既存の環境が壊れるため): アプリの識別子 `dev.tomohiko-ohhashi.markdown-editor` (設定ファイルの保存場所と自動アップデートの引き継ぎに使われる)、実行ファイル名 `markdown-editor`、サーバーの実行ファイル名とサービス名 `markdown-editor-server` / `markdown-editor.service`
+- アイコン: オオハシのシルエット (くちばしだけオレンジと黄色の 2 色) と「md」の文字。元データは `src-tauri/icons-src/icon.svg` (文字は線で描いてあり、フォントに依存しない)。作り直すときは `pnpm tauri icon src-tauri/icons-src/icon.svg` を実行し、`src-tauri/icons/android` と `ios` は消す。Web 版用の `public/*.png` は同じ SVG から作る
+- 注意: Windows では製品名が変わるため、旧名「Markdown Editor」からの自動アップデート後に、旧名のアプリが別に残る可能性がある (未確認)。残った場合は旧名のほうをアンインストールする
+
 ## 8. 残っている作業・候補
 
 - macOS / Windows の実機で v0.2 を確認する
@@ -217,7 +225,7 @@ GitHub の Settings → Branches → Add branch ruleset (または Add classic b
 ### おうちサーバー (Ubuntu) で Web モードを動かす
 
 ```bash
-cd ~/dev/mark-down-editor && git checkout main && git pull origin main
+cd ~/dev/toucan-markdown-editor && git checkout main && git pull origin main
 source "$HOME/.cargo/env"
 pnpm install --config.minimum-release-age=0   # pnpm 12 の公開日制限を回避
 pnpm server:build                             # target/release/markdown-editor-server ができる
@@ -233,7 +241,7 @@ pnpm server:build                             # target/release/markdown-editor-s
 ### Mac で最新を動かす
 
 ```bash
-cd ~/dev/mark-down-editor && git checkout main && git pull origin main
+cd ~/dev/toucan-markdown-editor && git checkout main && git pull origin main
 pnpm install && pnpm tauri dev      # 開発モード
 pnpm tauri build                    # .app / .dmg を作る (src-tauri/target/release/bundle/)
 ```
