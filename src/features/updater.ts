@@ -1,5 +1,6 @@
 import { flashStatus } from "../store/useDocStore";
 import { platform, inTauri } from "../platform";
+import { t } from "../i18n";
 
 const { ask, message } = platform;
 
@@ -13,25 +14,25 @@ export async function checkForUpdates(silent = false): Promise<void> {
     const { check } = await import("@tauri-apps/plugin-updater");
     const update = await check();
     if (!update) {
-      if (!silent) flashStatus("最新バージョンです");
+      if (!silent) flashStatus(t("最新バージョンです"));
       return;
     }
     const go = await ask(
-      `新しいバージョン ${update.version} が利用できます（現在: ${update.currentVersion}）。\n今すぐダウンロードして更新しますか？`,
-      { title: "アップデート", kind: "info", okLabel: "更新する", cancelLabel: "あとで" },
+      t("新しいバージョン {0} が利用できます（現在: {1}）。\n今すぐダウンロードして更新しますか？", update.version, update.currentVersion),
+      { title: t("アップデート"), kind: "info", okLabel: t("更新する"), cancelLabel: t("あとで") },
     );
     if (!go) return;
-    flashStatus("ダウンロード中…", 60000);
+    flashStatus(t("ダウンロード中…"), 60000);
     await update.downloadAndInstall();
     const { relaunch } = await import("@tauri-apps/plugin-process");
-    const restart = await ask("更新をインストールしました。再起動しますか？", {
-      title: "アップデート",
+    const restart = await ask(t("更新をインストールしました。再起動しますか？"), {
+      title: t("アップデート"),
       kind: "info",
-      okLabel: "再起動",
-      cancelLabel: "あとで",
+      okLabel: t("再起動"),
+      cancelLabel: t("あとで"),
     });
     if (restart) await relaunch();
   } catch (e) {
-    if (!silent) await message(`更新を確認できませんでした: ${e}`, { title: "アップデート", kind: "warning" });
+    if (!silent) await message(t("更新を確認できませんでした: {0}", String(e)), { title: t("アップデート"), kind: "warning" });
   }
 }

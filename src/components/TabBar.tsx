@@ -1,6 +1,7 @@
 import { useDocStore, isDirty } from "../store/useDocStore";
 import { closeDocument, newDocument } from "../features/files/fileOps";
 import { tabLabels } from "../features/files/names";
+import { t } from "../i18n";
 
 export function TabBar() {
   const docs = useDocStore((s) => s.docs);
@@ -15,7 +16,7 @@ export function TabBar() {
           role="tab"
           aria-selected={d.id === activeId}
           className={`tab ${d.id === activeId ? "active" : ""}`}
-          title={d.path ?? "未保存のドキュメント"}
+          title={d.path ?? t("未保存のドキュメント")}
           onClick={() => setActive(d.id)}
           onAuxClick={(e) => {
             if (e.button === 1) void closeDocument(d.id);
@@ -27,7 +28,7 @@ export function TabBar() {
           </span>
           <button
             className="tab-close"
-            title="閉じる"
+            title={t("閉じる")}
             onClick={(e) => {
               e.stopPropagation();
               void closeDocument(d.id);
@@ -37,7 +38,7 @@ export function TabBar() {
           </button>
         </div>
       ))}
-      <button className="tab-new" title="新規タブ (Ctrl/⌘+N)" onClick={() => newDocument()}>
+      <button className="tab-new" title={t("新規タブ (Ctrl/⌘+N)")} onClick={() => newDocument()}>
         +
       </button>
     </div>

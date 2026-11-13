@@ -18,6 +18,7 @@ import { Dropdown } from "./Dropdown";
 import { formatDocument } from "../editor/format";
 import { flashStatus } from "../store/useDocStore";
 import type { StateCommand } from "@codemirror/state";
+import { t } from "../i18n";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl+";
@@ -28,7 +29,7 @@ function runFormat() {
   const view = editorRef.view;
   if (!view) return;
   void formatDocument(view).then((changed) => {
-    flashStatus(changed ? "ドキュメントを整形しました" : "整形の必要はありませんでした");
+    flashStatus(changed ? t("ドキュメントを整形しました") : t("整形の必要はありませんでした"));
     view.focus();
   });
 }
@@ -40,10 +41,11 @@ function runInEditor(cmd: StateCommand) {
   view.focus();
 }
 
-const VIEW_MODES: { mode: ViewMode; label: string; title: string }[] = [
-  { mode: "editor", label: "編集", title: `エディタのみ (${mod}${shift}1)` },
-  { mode: "split", label: "分割", title: `分割表示 (${mod}${shift}2)` },
-  { mode: "preview", label: "プレビュー", title: `プレビューのみ (${mod}${shift}3)` },
+// A function, so the labels follow the UI language.
+const viewModes = (): { mode: ViewMode; label: string; title: string }[] => [
+  { mode: "editor", label: t("編集"), title: t("エディタのみ ({0}{1}1)", mod, shift) },
+  { mode: "split", label: t("分割"), title: t("分割表示 ({0}{1}2)", mod, shift) },
+  { mode: "preview", label: t("プレビュー"), title: t("プレビューのみ ({0}{1}3)", mod, shift) },
 ];
 
 function TableInsert({ close }: { close: () => void }) {
@@ -51,15 +53,15 @@ function TableInsert({ close }: { close: () => void }) {
   const [cols, setCols] = useState(3);
   return (
     <div className="table-insert">
-      <label>行 <input type="number" min={1} max={50} value={rows} onChange={(e) => setRows(Number(e.target.value) || 1)} /></label>
-      <label>列 <input type="number" min={1} max={20} value={cols} onChange={(e) => setCols(Number(e.target.value) || 1)} /></label>
+      <label>{t("行")} <input type="number" min={1} max={50} value={rows} onChange={(e) => setRows(Number(e.target.value) || 1)} /></label>
+      <label>{t("列")} <input type="number" min={1} max={20} value={cols} onChange={(e) => setCols(Number(e.target.value) || 1)} /></label>
       <button
         onClick={() => {
           if (editorRef.view) insertTable(editorRef.view, rows, cols);
           close();
         }}
       >
-        挿入
+        {t("挿入")}
       </button>
     </div>
   );
@@ -81,12 +83,12 @@ export function Toolbar() {
   return (
     <header className="toolbar">
       <div className="toolbar-group tg-file">
-        <button onClick={() => newDocument()} title={`新規 (${mod}N)`}>新規</button>
-        <button onClick={() => openDocument()} title={`開く (${mod}O)`}>開く</button>
-        <Dropdown label="最近" title="最近使ったファイル">
+        <button onClick={() => newDocument()} title={t("新規 ({0}N)", mod)}>{t("新規")}</button>
+        <button onClick={() => openDocument()} title={t("開く ({0}O)", mod)}>{t("開く")}</button>
+        <Dropdown label={t("最近")} title={t("最近使ったファイル")}>
           {(close) => (
             <>
-              {recent.length === 0 && <div className="menu-empty">履歴はありません</div>}
+              {recent.length === 0 && <div className="menu-empty">{t("履歴はありません")}</div>}
               {recent.map((p) => (
                 <button key={p} className="menu-item" title={p} onClick={() => { close(); void openDocument(p); }}>
                   <span className="menu-main">{fileName(p)}</span>
@@ -96,47 +98,47 @@ export function Toolbar() {
               {recent.length > 0 && (
                 <>
                   <hr />
-                  <button className="menu-item" onClick={() => { close(); clearRecent(); }}>履歴を消去</button>
+                  <button className="menu-item" onClick={() => { close(); clearRecent(); }}>{t("履歴を消去")}</button>
                 </>
               )}
             </>
           )}
         </Dropdown>
-        <button onClick={() => saveDocument()} title={`保存 (${mod}S)`}>保存</button>
-        <Dropdown label="書き出し" title="書き出し">
+        <button onClick={() => saveDocument()} title={t("保存 ({0}S)", mod)}>{t("保存")}</button>
+        <Dropdown label={t("書き出し")} title={t("書き出し")}>
           {(close) => (
             <>
-              <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}>名前を付けて保存… <kbd>{mod}{shift}S</kbd></button>
-              <button className="menu-item" onClick={() => { close(); void exportHtml(); }}>HTML として書き出す… <kbd>{mod}{shift}H</kbd></button>
-              <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>印刷 / PDF… <kbd>{mod}P</kbd></button>
+              <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}>{t("名前を付けて保存…")} <kbd>{mod}{shift}S</kbd></button>
+              <button className="menu-item" onClick={() => { close(); void exportHtml(); }}>{t("HTML として書き出す…")} <kbd>{mod}{shift}H</kbd></button>
+              <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>{t("印刷 / PDF…")} <kbd>{mod}P</kbd></button>
             </>
           )}
         </Dropdown>
       </div>
 
       <div className="toolbar-group tg-format">
-        <button onClick={() => runInEditor(setHeading(1))} title={`見出し1 (${mod}1)`}>H1</button>
-        <button onClick={() => runInEditor(setHeading(2))} title={`見出し2 (${mod}2)`}>H2</button>
-        <button onClick={() => runInEditor(setHeading(3))} title={`見出し3 (${mod}3)`}>H3</button>
-        <button onClick={() => runInEditor(toggleBold)} title={`太字 (${mod}B)`}><b>B</b></button>
-        <button onClick={() => runInEditor(toggleItalic)} title={`斜体 (${mod}I)`}><i>I</i></button>
-        <button onClick={() => runInEditor(toggleCode)} title={`コード (${mod}E)`}><code>{"<>"}</code></button>
-        <button onClick={() => runInEditor(insertLink)} title={`リンク (${mod}K)`}>🔗</button>
-        <button onClick={runFormat} title={`ドキュメント全体を整形 (${shift}${alt}F)`}>整形</button>
-        <Dropdown label="表" title="表の挿入と編集">
+        <button onClick={() => runInEditor(setHeading(1))} title={t("見出し1 ({0}1)", mod)}>H1</button>
+        <button onClick={() => runInEditor(setHeading(2))} title={t("見出し2 ({0}2)", mod)}>H2</button>
+        <button onClick={() => runInEditor(setHeading(3))} title={t("見出し3 ({0}3)", mod)}>H3</button>
+        <button onClick={() => runInEditor(toggleBold)} title={t("太字 ({0}B)", mod)}><b>B</b></button>
+        <button onClick={() => runInEditor(toggleItalic)} title={t("斜体 ({0}I)", mod)}><i>I</i></button>
+        <button onClick={() => runInEditor(toggleCode)} title={t("コード ({0}E)", mod)}><code>{"<>"}</code></button>
+        <button onClick={() => runInEditor(insertLink)} title={t("リンク ({0}K)", mod)}>🔗</button>
+        <button onClick={runFormat} title={t("ドキュメント全体を整形 ({0}{1}F)", shift, alt)}>{t("整形")}</button>
+        <Dropdown label={t("表")} title={t("表の挿入と編集")}>
           {(close) => (
             <>
-              <div className="menu-label">新しい表を挿入</div>
+              <div className="menu-label">{t("新しい表を挿入")}</div>
               <TableInsert close={close} />
               <hr />
-              <div className="menu-label">カーソル位置の表</div>
-              <button className="menu-item" onClick={() => { close(); runInEditor(tableFormat); }}>列幅を整える</button>
-              <button className="menu-item" onClick={() => { close(); runInEditor(tableAddRowBelow); }}>下に行を追加</button>
-              <button className="menu-item" onClick={() => { close(); runInEditor(tableDeleteRow); }}>この行を削除</button>
-              <button className="menu-item" onClick={() => { close(); runInEditor(tableAddColumnRight); }}>右に列を追加</button>
-              <button className="menu-item" onClick={() => { close(); runInEditor(tableDeleteColumn); }}>この列を削除</button>
-              <button className="menu-item" onClick={() => { close(); runInEditor(tableCycleAlign); }}>列の配置を切替 (左/中央/右)</button>
-              <div className="menu-hint">表の中では Tab / Shift+Tab でセルを移動できます。最後のセルで Tab を押すと行が増えます。</div>
+              <div className="menu-label">{t("カーソル位置の表")}</div>
+              <button className="menu-item" onClick={() => { close(); runInEditor(tableFormat); }}>{t("列幅を整える")}</button>
+              <button className="menu-item" onClick={() => { close(); runInEditor(tableAddRowBelow); }}>{t("下に行を追加")}</button>
+              <button className="menu-item" onClick={() => { close(); runInEditor(tableDeleteRow); }}>{t("この行を削除")}</button>
+              <button className="menu-item" onClick={() => { close(); runInEditor(tableAddColumnRight); }}>{t("右に列を追加")}</button>
+              <button className="menu-item" onClick={() => { close(); runInEditor(tableDeleteColumn); }}>{t("この列を削除")}</button>
+              <button className="menu-item" onClick={() => { close(); runInEditor(tableCycleAlign); }}>{t("列の配置を切替 (左/中央/右)")}</button>
+              <div className="menu-hint">{t("表の中では Tab / Shift+Tab でセルを移動できます。最後のセルで Tab を押すと行が増えます。")}</div>
             </>
           )}
         </Dropdown>
@@ -148,26 +150,26 @@ export function Toolbar() {
       </div>
 
       <div className="toolbar-group tg-panels">
-        <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={`サイドバー (ファイル一覧) の表示切替 (${mod}${shift}E)`}>📁</button>
-        <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={`アウトラインの表示切替 (${mod}${shift}O)`}>☰</button>
-        <button className={cheatSheetOpen ? "active" : ""} onClick={() => toggle("cheatSheetOpen")} title="チートシートの表示切替 (F1)">？</button>
+        <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={t("サイドバー (ファイル一覧) の表示切替 ({0}{1}E)", mod, shift)}>📁</button>
+        <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={t("アウトラインの表示切替 ({0}{1}O)", mod, shift)}>☰</button>
+        <button className={cheatSheetOpen ? "active" : ""} onClick={() => toggle("cheatSheetOpen")} title={t("チートシートの表示切替 (F1)")}>？</button>
       </div>
       <div className="toolbar-group segmented tg-view">
-        {VIEW_MODES.map((v) => (
+        {viewModes().map((v) => (
           <button key={v.mode} className={viewMode === v.mode ? "active" : ""} onClick={() => setViewMode(v.mode)} title={v.title}>
             {v.label}
           </button>
         ))}
       </div>
       <div className="toolbar-group tg-more">
-        <Dropdown label="⋯" title="その他" align="right">
+        <Dropdown label="⋯" title={t("その他")} align="right">
           {(close) => (
             <>
-              <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>フォーカスモード <kbd>{mod}{shift}D</kbd></button>
-              <button className="menu-item" onClick={() => { close(); toggle("typewriterMode"); }}>タイプライターモード <kbd>{mod}{shift}T</kbd></button>
+              <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>{t("フォーカスモード")} <kbd>{mod}{shift}D</kbd></button>
+              <button className="menu-item" onClick={() => { close(); toggle("typewriterMode"); }}>{t("タイプライターモード")} <kbd>{mod}{shift}T</kbd></button>
               <hr />
-              <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>チートシート <kbd>F1</kbd></button>
-              <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>設定… <kbd>{mod},</kbd></button>
+              <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>{t("チートシート")} <kbd>F1</kbd></button>
+              <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>{t("設定…")} <kbd>{mod},</kbd></button>
             </>
           )}
         </Dropdown>
@@ -189,29 +191,29 @@ export function MobileBar() {
   const dirty = useDocStore(selectActiveIsDirty);
   return (
     <nav className="mobilebar">
-      <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title="フォルダ">📁</button>
-      <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title="アウトライン">☰</button>
+      <button className={showSidebar ? "active" : ""} onClick={() => toggle("showSidebar")} title={t("フォルダ")}>📁</button>
+      <button className={showOutline ? "active" : ""} onClick={() => toggle("showOutline")} title={t("アウトライン")}>☰</button>
       <div className="segmented">
-        {VIEW_MODES.map((v) => (
+        {viewModes().map((v) => (
           <button key={v.mode} className={viewMode === v.mode ? "active" : ""} onClick={() => setViewMode(v.mode)} title={v.title}>
-            {v.mode === "preview" ? "閲覧" : v.label}
+            {v.mode === "preview" ? t("閲覧") : v.label}
           </button>
         ))}
       </div>
-      <button className={dirty ? "attention" : ""} onClick={() => saveDocument()} title="保存">
-        {dirty ? "● 保存" : "保存"}
+      <button className={dirty ? "attention" : ""} onClick={() => saveDocument()} title={t("保存")}>
+        {dirty ? t("● 保存") : t("保存")}
       </button>
-      <Dropdown label="⋯" title="その他" align="right" up>
+      <Dropdown label="⋯" title={t("その他")} align="right" up>
         {(close) => (
           <>
-            <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}>名前を付けて保存…</button>
-            <button className="menu-item" onClick={() => { close(); void exportHtml(); }}>HTML として書き出す…</button>
-            <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>印刷 / PDF…</button>
+            <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}>{t("名前を付けて保存…")}</button>
+            <button className="menu-item" onClick={() => { close(); void exportHtml(); }}>{t("HTML として書き出す…")}</button>
+            <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>{t("印刷 / PDF…")}</button>
             <hr />
-            <button className="menu-item" onClick={() => { close(); runFormat(); }}>ドキュメント全体を整形</button>
-            <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>フォーカスモード</button>
-            <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>チートシート</button>
-            <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>設定…</button>
+            <button className="menu-item" onClick={() => { close(); runFormat(); }}>{t("ドキュメント全体を整形")}</button>
+            <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>{t("フォーカスモード")}</button>
+            <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>{t("チートシート")}</button>
+            <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>{t("設定…")}</button>
           </>
         )}
       </Dropdown>

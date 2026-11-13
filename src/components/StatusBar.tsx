@@ -1,4 +1,5 @@
 import { useDocStore, selectActiveDoc } from "../store/useDocStore";
+import { t } from "../i18n";
 
 function countStats(text: string) {
   // An empty document still has its one (empty) line, where the cursor is.
@@ -18,15 +19,15 @@ export function StatusBar() {
   const { lines, chars, words } = countStats(doc.content);
   return (
     <footer className="statusbar">
-      <span className="statusbar-path">{doc.path ?? "未保存のドキュメント"}</span>
-      {typewriter && <span>タイプライター</span>}
-      {cursor.selected > 0 && <span>{cursor.selected} 文字を選択中</span>}
-      <span title="カーソル位置">
-        {cursor.line} 行目 {cursor.col} 列
+      <span className="statusbar-path">{doc.path ?? t("未保存のドキュメント")}</span>
+      {typewriter && <span>{t("タイプライター")}</span>}
+      {cursor.selected > 0 && <span>{t("{0} 文字を選択中", cursor.selected)}</span>}
+      <span title={t("カーソル位置")}>
+        {t("{0} 行目 {1} 列", cursor.line, cursor.col)}
       </span>
-      <span>全 {lines} 行</span>
-      <span>{words} 語</span>
-      <span>{chars} 文字</span>
+      <span>{t("全 {0} 行", lines)}</span>
+      <span>{t("{0} 語", words)}</span>
+      <span>{t("{0} 文字", chars)}</span>
     </footer>
   );
 }

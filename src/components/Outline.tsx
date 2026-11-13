@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useDocStore, selectActiveDoc } from "../store/useDocStore";
 import { revealLine } from "../features/reveal";
+import { t } from "../i18n";
 
 interface Heading {
   level: number;
@@ -32,7 +33,7 @@ export function extractHeadings(src: string): Heading[] {
     if (fence) continue;
     const m = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
     if (m) {
-      out.push({ level: m[1].length, text: m[2] || "(無題)", line: i + 1 });
+      out.push({ level: m[1].length, text: m[2] || t("(無題)"), line: i + 1 });
       continue;
     }
     const s = SETEXT_RE.exec(line);
@@ -50,9 +51,9 @@ export function Outline() {
   const headings = useMemo(() => extractHeadings(content), [content]);
   return (
     <aside className="outline">
-      <div className="panel-title">アウトライン</div>
+      <div className="panel-title">{t("アウトライン")}</div>
       {headings.length === 0 ? (
-        <div className="panel-empty">見出しがありません</div>
+        <div className="panel-empty">{t("見出しがありません")}</div>
       ) : (
         <ul>
           {headings.map((h, i) => (
@@ -63,7 +64,7 @@ export function Outline() {
                   // On phones the outline covers the text; get out of the way.
                   if (window.innerWidth < 768) useDocStore.getState().set({ showOutline: false });
                 }}
-                title={`${h.line} 行目へ移動`}
+                title={t("{0} 行目へ移動", h.line)}
               >
                 {h.text}
               </button>

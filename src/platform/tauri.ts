@@ -1,11 +1,13 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open, save, ask, message } from "@tauri-apps/plugin-dialog";
 import type { Platform } from "./types";
+import { t } from "../i18n";
 
-export const MD_FILTERS = [
+/** File-type filters for the native dialogs (built per call so the names follow the UI language). */
+export const mdFilters = () => [
   { name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd"] },
-  { name: "テキスト", extensions: ["txt"] },
-  { name: "すべてのファイル", extensions: ["*"] },
+  { name: t("テキスト"), extensions: ["txt"] },
+  { name: t("すべてのファイル"), extensions: ["*"] },
 ];
 
 export const tauriPlatform: Platform = {
@@ -27,8 +29,8 @@ export const tauriPlatform: Platform = {
 
   importImage: (docPath, source) => invoke("import_image", { docPath, source }),
 
-  pickOpenPath: () => open({ multiple: false, directory: false, filters: MD_FILTERS }),
-  pickSavePath: (defaultPath, filters = MD_FILTERS) => save({ defaultPath, filters }),
+  pickOpenPath: () => open({ multiple: false, directory: false, filters: mdFilters() }),
+  pickSavePath: (defaultPath, filters = mdFilters()) => save({ defaultPath, filters }),
   pickDirectory: () => open({ directory: true, multiple: false }),
 
   ask: (msg, opts) => ask(msg, opts),

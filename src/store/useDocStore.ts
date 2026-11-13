@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { t } from "../i18n";
 
 export type ViewMode = "editor" | "split" | "preview";
 
@@ -139,7 +140,7 @@ export const selectActiveDoc = (s: DocState): Doc =>
 export const selectActiveIsDirty = (s: DocState) => isDirty(selectActiveDoc(s));
 
 export function fileName(path: string | null): string {
-  if (!path) return "無題";
+  if (!path) return t("無題");
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] || path;
 }

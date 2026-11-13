@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { platform } from "../platform";
 import type { DirEntry } from "../platform";
 import { dirName, fileName } from "../store/useDocStore";
+import { t, tError } from "../i18n";
 
 interface PickerRequest {
   mode: "open" | "save";
@@ -62,7 +63,7 @@ export function FilePicker() {
       .catch((e) => {
         if (!cancelled) {
           setEntries([]);
-          setError(String(e));
+          setError(tError(e));
         }
       });
     return () => {
@@ -80,12 +81,12 @@ export function FilePicker() {
     if (!n) return;
     if (ext && ext !== "*" && !/\.[A-Za-z0-9]+$/.test(n)) n += `.${ext}`;
     if (/[\\/]/.test(n)) {
-      setError("ファイル名にスラッシュは使えません");
+      setError(t("ファイル名にスラッシュは使えません"));
       return;
     }
     const target = join(dir, n);
     const exists = entries?.some((e) => !e.is_dir && e.name === n);
-    if (exists && !window.confirm(`「${n}」は既にあります。上書きしますか？`)) return;
+    if (exists && !window.confirm(t("「{0}」は既にあります。上書きしますか？", n))) return;
     finish(target);
   };
 
@@ -93,8 +94,8 @@ export function FilePicker() {
     <div className="modal-backdrop" onMouseDown={() => finish(null)}>
       <div className="modal picker" onMouseDown={(e) => e.stopPropagation()} role="dialog">
         <div className="modal-header">
-          <h2>{request.mode === "open" ? "ファイルを開く" : "名前を付けて保存"}</h2>
-          <button onClick={() => finish(null)} title="閉じる">×</button>
+          <h2>{request.mode === "open" ? t("ファイルを開く") : t("名前を付けて保存")}</h2>
+          <button onClick={() => finish(null)} title={t("閉じる")}>×</button>
         </div>
         <div className="picker-crumbs">
           <button onClick={() => setDir("")}>🏠</button>
@@ -106,7 +107,7 @@ export function FilePicker() {
           ))}
         </div>
         <ul className="picker-list">
-          {entries === null && <li className="panel-empty">読み込み中…</li>}
+          {entries === null && <li className="panel-empty">{t("読み込み中…")}</li>}
           {error && <li className="panel-empty">{error}</li>}
           {entries?.map((e) => (
             <li key={e.path}>
@@ -122,7 +123,7 @@ export function FilePicker() {
               </button>
             </li>
           ))}
-          {entries && entries.length === 0 && !error && <li className="panel-empty">(空のフォルダ)</li>}
+          {entries && entries.length === 0 && !error && <li className="panel-empty">{t("(空のフォルダ)")}</li>}
         </ul>
         {request.mode === "save" && (
           <div className="picker-save">
@@ -132,10 +133,10 @@ export function FilePicker() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") submitSave();
               }}
-              placeholder="ファイル名"
+              placeholder={t("ファイル名")}
               autoFocus
             />
-            <button className="primary" onClick={submitSave}>保存</button>
+            <button className="primary" onClick={submitSave}>{t("保存")}</button>
           </div>
         )}
       </div>

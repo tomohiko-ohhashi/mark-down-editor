@@ -238,8 +238,8 @@ const LOGIN_PAGE: &str = r#"<!doctype html><html lang="ja"><head><meta charset="
 form{background:#fff;padding:24px;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.08);width:min(360px,90vw)}
 input{width:100%;box-sizing:border-box;font-size:16px;padding:10px;border:1px solid #d8dee4;border-radius:8px;margin:12px 0}
 button{width:100%;font-size:16px;padding:10px;border:none;border-radius:8px;background:#0969da;color:#fff}</style></head>
-<body><form method="get" action="/"><h2>Markdown Editor</h2><p>サーバー起動時に表示されたトークンを入力してください。</p>
-<input name="token" placeholder="token" autocomplete="off" autofocus><button type="submit">開く</button></form></body></html>"#;
+<body><form method="get" action="/"><h2>Markdown Editor</h2><p>サーバー起動時に表示されたトークンを入力してください。<br>Enter the token shown when the server was started.</p>
+<input name="token" placeholder="token" autocomplete="off" autofocus><button type="submit">開く / Open</button></form></body></html>"#;
 
 fn serde_urlencoded_parse(q: &str) -> HashMap<String, String> {
     q.split('&')

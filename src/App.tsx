@@ -21,6 +21,7 @@ import { Preview } from "./preview/Preview";
 import { useDocStore, selectActiveDoc, selectActiveIsDirty, fileName } from "./store/useDocStore";
 import { useSettings, applyTheme, loadSettings } from "./store/useSettings";
 import { restoreSession, saveSessionNow } from "./features/session";
+import { resolveLanguage, setLanguage } from "./i18n";
 import {
   newDocument,
   openDocument,
@@ -45,6 +46,9 @@ export default function App() {
   const cheatSheetOpen = useDocStore((s) => s.cheatSheetOpen);
   const focusMode = useDocStore((s) => s.focusMode);
   const theme = useSettings((s) => s.theme);
+  // Set while rendering, so everything below reads the chosen language in this same pass.
+  const language = resolveLanguage(useSettings((s) => s.language));
+  setLanguage(language);
   const autosaveSeconds = useSettings((s) => s.autosaveSeconds);
 
   // Load settings, then restore the previous session and check for updates.
@@ -69,7 +73,7 @@ export default function App() {
     const title = `${dirty ? "● " : ""}${fileName(doc.path)} - Markdown Editor`;
     document.title = title;
     if (inTauri) getCurrentWindow().setTitle(title).catch(() => {});
-  }, [doc.path, dirty]);
+  }, [doc.path, dirty, language]);
 
   // Global shortcuts.
   useEffect(() => {

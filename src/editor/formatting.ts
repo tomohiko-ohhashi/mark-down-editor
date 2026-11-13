@@ -1,4 +1,5 @@
 import { EditorSelection, type StateCommand } from "@codemirror/state";
+import { t } from "../i18n";
 
 /** Wrap each selection range with `marker` (toggle off when already wrapped). */
 function wrapWith(marker: string): StateCommand {
@@ -60,7 +61,7 @@ export function setHeading(level: number): StateCommand {
 
 export const insertLink: StateCommand = ({ state, dispatch }) => {
   const tr = state.changeByRange((range) => {
-    const text = state.sliceDoc(range.from, range.to) || "リンクテキスト";
+    const text = state.sliceDoc(range.from, range.to) || t("リンクテキスト");
     const insert = `[${text}](url)`;
     const urlStart = range.from + text.length + 3;
     return {

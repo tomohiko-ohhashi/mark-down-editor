@@ -1,6 +1,7 @@
 import type { Platform, FileContent, DirEntry, SearchHit } from "./types";
 import { choose } from "../components/ConfirmDialog";
 import { openPicker } from "../components/FilePicker";
+import { t } from "../i18n";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init);
@@ -12,7 +13,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* non-JSON error body */
     }
-    if (res.status === 401) msg = "認証が切れました。ページを再読み込みしてトークンを入力してください。";
+    if (res.status === 401) msg = t("認証が切れました。ページを再読み込みしてトークンを入力してください。");
     throw new Error(msg);
   }
   return res.json() as Promise<T>;
@@ -57,7 +58,7 @@ export const webPlatform: Platform = {
 
   // A browser hands over dropped files as data, never as paths.
   importImage: async () => {
-    throw new Error("この環境ではファイルのパスから画像を取り込めません");
+    throw new Error(t("この環境ではファイルのパスから画像を取り込めません"));
   },
 
   pickOpenPath: () => openPicker({ mode: "open" }),
@@ -71,15 +72,15 @@ export const webPlatform: Platform = {
   // In-app dialogs: confirm() / alert() cannot show the button labels the callers ask for.
   ask: async (msg, opts) =>
     (await choose({
-      title: opts?.title ?? "確認",
+      title: opts?.title ?? t("確認"),
       message: msg,
       choices: [
-        { id: "cancel", label: opts?.cancelLabel ?? "キャンセル" },
+        { id: "cancel", label: opts?.cancelLabel ?? t("キャンセル") },
         { id: "ok", label: opts?.okLabel ?? "OK", kind: "primary" },
       ],
     })) === "ok",
   message: async (msg, opts) => {
-    await choose({ title: opts?.title ?? "お知らせ", message: msg, choices: [{ id: "ok", label: "OK", kind: "primary" }] });
+    await choose({ title: opts?.title ?? t("お知らせ"), message: msg, choices: [{ id: "ok", label: "OK", kind: "primary" }] });
   },
 
   assetUrl: (path) => `/api/raw${q({ path })}`,

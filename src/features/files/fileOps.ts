@@ -12,6 +12,7 @@ import { useSettings } from "../../store/useSettings";
 import { choose } from "../../components/ConfirmDialog";
 import { suggestFileName } from "./names";
 import { joinPath } from "../../preview/paths";
+import { t, tError } from "../../i18n";
 
 const { readFile, writeFile, fileMtime, ask, message } = platform;
 export { readFile, writeFile, fileMtime };
@@ -27,12 +28,12 @@ function docById(id: string): Doc | undefined {
 export async function confirmDiscardChanges(doc: Doc): Promise<boolean> {
   if (!isDirty(doc)) return true;
   const answer = await choose({
-    title: "未保存の変更",
-    message: `「${fileName(doc.path)}」には保存されていない変更があります。保存しますか？`,
+    title: t("未保存の変更"),
+    message: t("「{0}」には保存されていない変更があります。保存しますか？", fileName(doc.path)),
     choices: [
-      { id: "cancel", label: "キャンセル" },
-      { id: "discard", label: "保存しない", kind: "danger" },
-      { id: "save", label: "保存する", kind: "primary" },
+      { id: "cancel", label: t("キャンセル") },
+      { id: "discard", label: t("保存しない"), kind: "danger" },
+      { id: "save", label: t("保存する"), kind: "primary" },
     ],
   });
   if (answer === "save") return saveDocument(doc.id);
@@ -82,7 +83,7 @@ export async function openDocument(presetPath?: string, opts: { silent?: boolean
     useSettings.getState().addRecent(path);
   } catch (e) {
     // Restoring the last session: a file that has gone away is not worth a dialog.
-    if (!opts.silent) await message(String(e), { title: "開けませんでした", kind: "error" });
+    if (!opts.silent) await message(tError(e), { title: t("開けませんでした"), kind: "error" });
     const s = useSettings.getState();
     s.update({ recentFiles: s.recentFiles.filter((p) => p !== path) });
   }
@@ -129,10 +130,10 @@ async function writeTo(id: string, path: string): Promise<boolean> {
     const mtime = await writeFile(path, diskText(doc));
     useDocStore.getState().markSaved(id, path, mtime, written);
     useSettings.getState().addRecent(path);
-    flashStatus("保存しました");
+    flashStatus(t("保存しました"));
     return true;
   } catch (e) {
-    await message(String(e), { title: "保存できませんでした", kind: "error" });
+    await message(tError(e), { title: t("保存できませんでした"), kind: "error" });
     return false;
   }
 }
@@ -172,7 +173,7 @@ export async function checkExternalChanges(): Promise<void> {
       if (!isDirty(doc)) {
         const file = await readFile(doc.path);
         useDocStore.getState().loadInto(doc.id, doc.path, file.content, file.mtime);
-        flashStatus(`「${fileName(doc.path)}」の外部の変更を読み込みました`);
+        flashStatus(t("「{0}」の外部の変更を読み込みました", fileName(doc.path)));
         continue;
       }
 
@@ -182,8 +183,8 @@ export async function checkExternalChanges(): Promise<void> {
       }));
       useDocStore.getState().setActive(doc.id);
       const reload = await ask(
-        `「${fileName(doc.path)}」は別のプログラムによって変更されました。再読込しますか？\n未保存の変更は失われます。`,
-        { title: "ファイルが変更されました", kind: "warning", okLabel: "再読込", cancelLabel: "そのまま" },
+        t("「{0}」は別のプログラムによって変更されました。再読込しますか？\n未保存の変更は失われます。", fileName(doc.path)),
+        { title: t("ファイルが変更されました"), kind: "warning", okLabel: t("再読込"), cancelLabel: t("そのまま") },
       );
       if (reload) {
         const file = await readFile(doc.path);

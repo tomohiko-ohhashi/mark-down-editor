@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDocStore } from "../store/useDocStore";
 import { editorRef } from "../editor/Editor";
+import { t } from "../i18n";
 
 interface MenuPos {
   x: number;
@@ -85,8 +86,8 @@ export function FocusControls() {
 
   return (
     <>
-      <button className="focus-exit" onClick={() => toggle("focusMode")} title="フォーカスモードを終了 (Esc)">
-        ✕ <span>フォーカス解除</span>
+      <button className="focus-exit" onClick={() => toggle("focusMode")} title={t("フォーカスモードを終了 (Esc)")}>
+        ✕ <span>{t("フォーカス解除")}</span>
       </button>
       {menu && (
         <div
@@ -100,24 +101,24 @@ export function FocusControls() {
           }}
         >
           <button className="menu-item" role="menuitem" onClick={run(() => toggle("focusMode"))}>
-            フォーカスモードを終了 <kbd>Esc</kbd>
+            {t("フォーカスモードを終了")} <kbd>Esc</kbd>
           </button>
           <button className="menu-item" role="menuitem" onClick={run(() => toggle("typewriterMode"))}>
-            {typewriter ? "✓ " : ""}タイプライターモード
+            {typewriter ? "✓ " : ""}{t("タイプライターモード")}
           </button>
           <hr />
           <button className="menu-item" role="menuitem" disabled={!menu.hasSelection} onClick={clipboard("cut")}>
-            切り取り
+            {t("切り取り")}
           </button>
           <button className="menu-item" role="menuitem" disabled={!menu.hasSelection} onClick={clipboard("copy")}>
-            コピー
+            {t("コピー")}
           </button>
           {canPaste && (
             <button className="menu-item" role="menuitem" onClick={paste}>
-              貼り付け
+              {t("貼り付け")}
             </button>
           )}
-          <div className="menu-hint">Shift+右クリックで通常のメニュー</div>
+          <div className="menu-hint">{t("Shift+右クリックで通常のメニュー")}</div>
         </div>
       )}
     </>

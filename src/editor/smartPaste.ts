@@ -1,6 +1,7 @@
 import type { EditorView } from "@codemirror/view";
 import { useSettings } from "../store/useSettings";
 import { platform } from "../platform";
+import { t } from "../i18n";
 
 const URL_RE = /^(https?:\/\/|mailto:)[^\s<>"']+$/i;
 
@@ -33,10 +34,10 @@ export function handleSmartPaste(event: ClipboardEvent, view: EditorView): boole
     return true;
   }
   void platform
-    .ask(`「${selected}」をこの URL へのリンクにしますか？\n${text}`, {
-      title: "スマートペースト",
-      okLabel: "リンクにする",
-      cancelLabel: "そのまま貼り付け",
+    .ask(t("「{0}」をこの URL へのリンクにしますか？\n{1}", selected, text), {
+      title: t("スマートペースト"),
+      okLabel: t("リンクにする"),
+      cancelLabel: t("そのまま貼り付け"),
     })
     .then((yes) => {
       if (yes) insertLink();

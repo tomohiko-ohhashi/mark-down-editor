@@ -33,8 +33,9 @@ import { handleSmartPaste } from "./smartPaste";
 import { fontFamilyCss, MONO_FALLBACK } from "../features/fonts";
 import { noteCursor, takeRestoredCursor, lineOffset } from "../features/session";
 import type { ListContinuation } from "../store/useSettings";
+import { t, getLanguage } from "../i18n";
 
-/** Japanese labels for CodeMirror's own UI (search panel, go-to-line). */
+/** Japanese labels for CodeMirror's own UI (search panel, go-to-line). Its built-in text is English. */
 const JA_PHRASES: Record<string, string> = {
   Find: "検索",
   Replace: "置換後の文字列",
@@ -55,6 +56,12 @@ const JA_PHRASES: Record<string, string> = {
   go: "移動",
 };
 
+/** Everything in the editor that is written in the UI language. */
+const languageExtensions = () => [
+  EditorState.phrases.of(getLanguage() === "ja" ? JA_PHRASES : {}),
+  placeholder(t("ここに Markdown を書きます。書き方は F1 のチートシートで確認できます。")),
+];
+
 /** Shared view so toolbar buttons and the outline can reach the editor. */
 export const editorRef: { view: EditorView | null } = { view: null };
 
@@ -63,6 +70,7 @@ const tabSize = new Compartment();
 const typewriter = new Compartment();
 const listKeys = new Compartment();
 const preview = new Compartment();
+const uiLanguage = new Compartment();
 
 /** Editor state (undo history, selection, scroll) is kept per tab. */
 const states = new Map<string, EditorState>();
@@ -85,8 +93,7 @@ function baseExtensions(opts: {
     crosshairCursor(),
     bracketMatching(),
     indentOnInput(),
-    EditorState.phrases.of(JA_PHRASES),
-    placeholder("ここに Markdown を書きます。書き方は F1 のチートシートで確認できます。"),
+    uiLanguage.of(languageExtensions()),
     highlightSelectionMatches(),
     lineWrap.of(opts.lineWrap ? EditorView.lineWrapping : []),
     tabSize.of([tabSizeExt(opts.tabSize), indentUnit.of(" ".repeat(opts.tabSize))]),
@@ -112,7 +119,7 @@ function baseExtensions(opts: {
         key: "Shift-Alt-f",
         run: (view) => {
           void formatDocument(view).then((changed) => {
-            if (changed) flashStatus("ドキュメントを整形しました");
+            if (changed) flashStatus(t("ドキュメントを整形しました"));
           });
           return true;
         },
@@ -198,6 +205,7 @@ export function Editor() {
   const prevMode = useRef(viewMode);
   const listContinuation = useSettings((s) => s.listContinuation);
   const livePreviewOn = useSettings((s) => s.livePreview);
+  const language = useSettings((s) => s.language);
 
   // Create the view once.
   useEffect(() => {
@@ -235,6 +243,7 @@ export function Editor() {
           typewriter.reconfigure(useDocStore.getState().typewriterMode ? typewriterScrolling : []),
           listKeys.reconfigure(keymap.of(listKeymap(s.listContinuation))),
           preview.reconfigure(s.livePreview ? livePreview : []),
+          uiLanguage.reconfigure(languageExtensions()),
         ],
       });
     } else {
@@ -294,6 +303,10 @@ export function Editor() {
   useEffect(() => {
     editorRef.view?.dispatch({ effects: preview.reconfigure(livePreviewOn ? livePreview : []) });
   }, [livePreviewOn]);
+
+  useEffect(() => {
+    editorRef.view?.dispatch({ effects: uiLanguage.reconfigure(languageExtensions()) });
+  }, [language]);
 
   // A different font changes the character metrics the editor has cached.
   useEffect(() => {
