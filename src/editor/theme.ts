@@ -39,17 +39,32 @@ export const baseTheme = EditorView.theme({
     borderRadius: "4px",
   },
   // The search panel's default controls are tiny; make them readable and easy to hit.
-  ".cm-panel.cm-search": { padding: "8px 10px", fontFamily: "var(--sans)", fontSize: "13px", lineHeight: "2.1" },
-  ".cm-panel.cm-search input.cm-textfield": { fontSize: "13px", padding: "4px 8px", width: "min(16em, calc(100% - 34px))", margin: "0 6px 0 0", boxSizing: "border-box" },
+  // Laid out as three rows that stay tidy at any width: find + its buttons + close, the options, replace + its buttons.
+  // (The panel's own markup is one run of controls with a line break in it, which wraps raggedly.)
+  // The close button keeps its corner (top right, level with the find box) however the rest wraps in a narrow pane.
+  ".cm-panel.cm-search": { padding: "8px 40px 8px 10px", position: "relative", fontFamily: "var(--sans)", fontSize: "13px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px" },
+  ".cm-panel.cm-search br": { display: "none" },
+  ".cm-panel.cm-search::before": { content: '""', flexBasis: "100%", height: "0", order: "20" },
+  ".cm-panel.cm-search::after": { content: '""', flexBasis: "100%", height: "0", order: "40" },
+  ".cm-panel.cm-search input.cm-textfield": { fontSize: "13px", padding: "4px 8px", flex: "1 1 120px", minWidth: "90px", maxWidth: "24em", width: "auto", margin: "0", boxSizing: "border-box" },
+  ".cm-panel.cm-search input[name=search]": { order: "10" },
+  ".cm-panel.cm-search button[name=next]": { order: "11" },
+  ".cm-panel.cm-search button[name=prev]": { order: "12" },
+  ".cm-panel.cm-search button[name=select]": { order: "13" },
+  ".cm-panel.cm-search label": { order: "30", fontSize: "12.5px", margin: "0 6px 0 0", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "4px" },
+  ".cm-panel.cm-search input[name=replace]": { order: "50" },
+  ".cm-panel.cm-search button[name=replace]": { order: "51" },
+  ".cm-panel.cm-search button[name=replaceAll]": { order: "52" },
   ".cm-panel.cm-search button.cm-button": {
     fontSize: "12.5px",
     padding: "4px 10px",
-    margin: "0 6px 0 0",
+    margin: "0",
     backgroundImage: "none",
     cursor: "pointer",
+    whiteSpace: "nowrap",
+    flex: "0 0 auto",
   },
-  ".cm-panel.cm-search label": { fontSize: "12.5px", margin: "0 10px 0 0", whiteSpace: "nowrap" },
-  ".cm-panel.cm-search button[name=close]": { fontSize: "18px", padding: "0 8px", border: "none", backgroundColor: "transparent", cursor: "pointer" },
+  ".cm-panel.cm-search button[name=close]": { position: "absolute", top: "8px", right: "6px", height: "28px", width: "28px", fontSize: "18px", lineHeight: "1", padding: "0", margin: "0", border: "none", backgroundColor: "transparent", cursor: "pointer" },
 });
 
 export const markdownHighlight = syntaxHighlighting(
