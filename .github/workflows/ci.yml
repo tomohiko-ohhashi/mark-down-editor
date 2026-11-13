@@ -1,9 +1,16 @@
 name: CI
 
+# Changes reach main through a pull request from develop, so the pull request run is the check
+# for work on develop. Running on pushes to develop as well only repeated the same three jobs.
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
   pull_request:
+
+# A newer commit on the same pull request (or branch) replaces the run for the older one.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
