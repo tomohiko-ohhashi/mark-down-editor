@@ -10,7 +10,7 @@
 ## 変更するときに忘れやすいこと
 
 - 画面の文言は `t("日本語の文")` で書き、英訳を `src/i18n/en.ts` に足す (足し忘れると `pnpm test` が落ちる)。`t()` はモジュールの読み込み時ではなく描画時に呼ぶ
-- 依存ライブラリを変えたら `pnpm licenses` を実行して `public/THIRD-PARTY-LICENSES.txt` を更新する
+- 依存ライブラリを変えたら `pnpm update-licenses` を実行して `public/THIRD-PARTY-LICENSES.txt` を更新する
 - 確認は `pnpm build`、`pnpm test`、`pnpm e2e` (先に `pnpm server:build`)、Rust を触ったら `cargo fmt --all -- --check` と `cargo clippy --workspace -- -D warnings`
 
 ## リリース

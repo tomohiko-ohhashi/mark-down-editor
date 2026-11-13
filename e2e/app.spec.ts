@@ -245,7 +245,7 @@ test("on a phone the bottom bar drives the app", async ({ browser }) => {
   await context.close();
 });
 
-test("the changes view compares with the first-opened text and with the saved file", async ({ page }) => {
+test("the changes view compares with the first-opened text and with the saved file, and can be edited", async ({ page }) => {
   await start(page);
   await openFile(page, "long.md");
   await editor(page).click();
@@ -257,35 +257,52 @@ test("the changes view compares with the first-opened text and with the saved fi
   await page.keyboard.press("Control+End");
   await page.keyboard.type("\n追加した最後の行");
 
-  await page.keyboard.press("Control+Shift+G");
+  // Opened from the view switch, next to Edit / Split / Preview.
+  await page.click('.tg-view button:has-text("差分")');
   const count = page.locator(".diff-count");
+  const left = page.locator(".diff-body .cm-mergeViewEditor").first();
+  const right = page.locator(".diff-body .cm-mergeViewEditor").last();
   // Since first opened: the saved heading change and the unsaved last line.
-  await expect(count).toContainText("2 箇所");
-  await expect(page.locator(".diff-change .diff-left").first()).toHaveText("# 長い文書");
-  await expect(page.locator(".diff-change .diff-right mark").first()).toHaveText(" (改)");
-  await expect(page.locator(".diff-add .diff-right")).toHaveText("追加した最後の行");
+  await expect(count).toHaveText("変更 2 箇所");
+  await expect(left).toContainText("# 長い文書");
+  await expect(right.locator(".cm-changedText").first()).toHaveText(" (改)");
+  // The second change is at the far end of a long file: go there.
+  await page.click('.diff-nav button[title="次の変更"]');
+  await expect(right).toContainText("追加した最後の行");
 
   // Against the saved file: only the unsaved line.
   await page.click('.diff-head button:has-text("保存済みの内容と比較")');
-  await expect(count).toContainText("1 箇所");
-  await expect(page.locator(".diff-change")).toHaveCount(0);
-  await expect(page.locator(".diff-add")).toBeInViewport();
+  await expect(count).toHaveText("変更 1 箇所");
 
-  // Double-click goes to that line in the editor.
-  await page.locator(".diff-add").dblclick();
+  // The current side can be edited here; the document follows.
+  await right.locator(".cm-content").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(" を編集");
+  await expect(right).toContainText("追加した最後の行 を編集");
+  await expect(page).toHaveTitle(/^● long\.md/);
+
+  // Putting the old text back for the change removes it.
+  await page.locator(".diff-revert").first().click();
+  await expect(count).toHaveText("違いはありません");
+  await expect(page).toHaveTitle(/^long\.md/);
+
+  // Back in the main editor the text is what the changes view left, and undo brings the edit back.
+  await page.keyboard.press("Escape");
   await expect(page.locator(".diff")).toHaveCount(0);
-  await expect(page.locator(".cm-activeLine")).toHaveText("追加した最後の行");
+  await expect(editor(page)).not.toContainText("追加した最後の行");
+  await editor(page).click();
+  await page.keyboard.press("Control+Z");
+  await expect(editor(page)).toContainText("追加した最後の行 を編集");
+  await page.keyboard.press("Control+Shift+Z");
 
   // Closing and reopening the file keeps the first-opened text as the base.
-  await page.keyboard.press("Control+S");
-  await expect(page).toHaveTitle(/^long\.md/);
   await page.keyboard.press("Control+W");
   await openFile(page, "long.md");
   await page.keyboard.press("Control+Shift+G");
-  await expect(count).toContainText("2 箇所");
+  await expect(count).toHaveText("変更 1 箇所");
   await page.click('.diff-head button:has-text("保存済みの内容と比較")');
   await expect(count).toHaveText("違いはありません");
-  await page.keyboard.press("Escape");
+  await page.click('.tg-view button:has-text("分割")');
   await expect(page.locator(".diff")).toHaveCount(0);
 });
 

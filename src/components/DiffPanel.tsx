@@ -1,73 +1,110 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { EditorState, Transaction } from "@codemirror/state";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { MergeView, getChunks } from "@codemirror/merge";
 import { useDocStore, selectActiveDoc, fileName } from "../store/useDocStore";
-import { sideBySide, changedSpan, changeStarts, type DiffRow } from "../features/diff";
-import { goToLine } from "../editor/Editor";
+import { editorRef, goToLine } from "../editor/Editor";
+import { baseTheme, markdownHighlight } from "../editor/theme";
 import { t } from "../i18n";
 
 type Base = "opened" | "saved";
 
-/** One side of a changed line with the differing part marked. */
-function Marked({ text, from, to }: { text: string; from: number; to: number }) {
-  if (from >= to) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, from)}
-      <mark>{text.slice(from, to)}</mark>
-      {text.slice(to)}
-    </>
-  );
-}
-
-function Row({ row, index, onJump }: { row: DiffRow; index: number; onJump: (line: number) => void }) {
-  const [start, endOld, endNew] = row.kind === "change" ? changedSpan(row.leftText, row.rightText) : [0, 0, 0];
-  const target = row.right ?? row.left ?? 1;
-  return (
-    <div className={`diff-row diff-${row.kind}`} data-row={index} onDoubleClick={() => onJump(target)} title={t("ダブルクリックでエディタのこの行へ移動")}>
-      <span className="diff-no">{row.left ?? ""}</span>
-      <span className="diff-text diff-left">{row.kind === "change" ? <Marked text={row.leftText} from={start} to={endOld} /> : row.leftText}</span>
-      <span className="diff-no">{row.right ?? ""}</span>
-      <span className="diff-text diff-right">{row.kind === "change" ? <Marked text={row.rightText} from={start} to={endNew} /> : row.rightText}</span>
-    </div>
-  );
-}
+const shared = [lineNumbers(), drawSelection(), EditorView.lineWrapping, markdown({ base: markdownLanguage, addKeymap: false }), baseTheme, markdownHighlight];
 
 /**
- * Side-by-side view of what changed in the active document: against the text
- * it had when first opened since the app started, or against the saved file.
- * Old text on the left, current text on the right, like a merge tool.
+ * Side-by-side view of what changed in the active document, like a merge
+ * tool: on the left the text it had when first opened since the app started
+ * (or the saved file), on the right the current text, which can be edited
+ * here. Each change has a button to put the old text back.
+ *
+ * The right side is its own editor. What is typed there is passed on to the
+ * main editor as ordinary edits, so the document, its unsaved mark and the
+ * main editor's undo history stay in step.
  */
 export function DiffPanel() {
   const doc = useDocStore(selectActiveDoc);
   const toggle = useDocStore((s) => s.toggle);
   const [base, setBase] = useState<Base>("opened");
-  const [current, setCurrent] = useState(-1);
-  const body = useRef<HTMLDivElement>(null);
+  const [changes, setChanges] = useState(0);
+  const host = useRef<HTMLDivElement>(null);
+  const merge = useRef<MergeView | null>(null);
 
   const oldText = base === "opened" ? doc.originalContent : doc.savedContent;
-  const rows = useMemo(() => sideBySide(oldText, doc.content), [oldText, doc.content]);
-  const starts = useMemo(() => changeStarts(rows), [rows]);
-  const added = rows.filter((r) => r.kind === "add" || r.kind === "change").length;
-  const removed = rows.filter((r) => r.kind === "del" || r.kind === "change").length;
 
-  const show = (i: number) => {
-    if (starts.length === 0) return;
-    const n = (i + starts.length) % starts.length;
-    setCurrent(n);
-    body.current?.querySelector(`[data-row="${starts[n]}"]`)?.scrollIntoView({ block: "center" });
-  };
-  // Start at the first change whenever the comparison changes.
+  // Build the two editors; rebuilt when the document or the base text changes.
   useEffect(() => {
-    setCurrent(-1);
-    if (starts.length > 0) requestAnimationFrame(() => show(0));
-    else if (body.current) body.current.scrollTop = 0;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, doc.id]);
+    if (!host.current) return;
+    const count = (state: EditorState) => setChanges(getChunks(state)?.chunks.length ?? 0);
+    const view = new MergeView({
+      parent: host.current,
+      a: { doc: oldText, extensions: [...shared, EditorState.readOnly.of(true), EditorView.editable.of(false)] },
+      b: {
+        doc: useDocStore.getState().docs.find((d) => d.id === doc.id)?.content ?? "",
+        extensions: [
+          ...shared,
+          highlightActiveLine(),
+          history(),
+          keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap]),
+          EditorView.updateListener.of((u) => {
+            count(u.state);
+            if (!u.docChanged) return;
+            const main = editorRef.view;
+            if (!main || main.state.doc.eq(u.state.doc)) return; // came from the main editor
+            // Same edit on the main editor, so it lands in the document and in its undo history.
+            if (main.state.doc.eq(u.startState.doc)) main.dispatch({ changes: u.changes, userEvent: "input" });
+            else main.dispatch({ changes: { from: 0, to: main.state.doc.length, insert: u.state.doc.toString() } });
+          }),
+        ],
+      },
+      revertControls: "a-to-b",
+      renderRevertControl: () => {
+        const b = document.createElement("button");
+        b.className = "diff-revert";
+        b.textContent = "→";
+        b.title = t("この変更を元に戻す");
+        return b;
+      },
+      highlightChanges: true,
+      gutter: true,
+    });
+    merge.current = view;
+    count(view.b.state);
+    // Start at the first change.
+    const first = getChunks(view.b.state)?.chunks[0];
+    if (first) view.b.dispatch({ selection: { anchor: Math.min(first.fromB, view.b.state.doc.length) }, effects: EditorView.scrollIntoView(Math.min(first.fromB, view.b.state.doc.length), { y: "center" }) });
+    view.b.focus();
+    return () => {
+      view.destroy();
+      merge.current = null;
+    };
+  }, [doc.id, oldText]);
 
-  const close = () => toggle("diffOpen");
-  const jump = (line: number) => {
-    close();
-    // The editor is hidden while this view is open; move once it is laid out again.
-    requestAnimationFrame(() => requestAnimationFrame(() => goToLine(line)));
+  // Changes made elsewhere while this is open (toolbar commands, reload from disk) show up on the right.
+  useEffect(() => {
+    const b = merge.current?.b;
+    if (!b || b.state.doc.toString() === doc.content) return;
+    b.dispatch({ changes: { from: 0, to: b.state.doc.length, insert: doc.content }, annotations: Transaction.addToHistory.of(false) });
+  }, [doc.content]);
+
+  const step = (dir: 1 | -1) => {
+    const b = merge.current?.b;
+    const chunks = b && getChunks(b.state)?.chunks;
+    if (!b || !chunks || chunks.length === 0) return;
+    const head = b.state.selection.main.head;
+    const next = dir === 1 ? (chunks.find((c) => c.fromB > head) ?? chunks[0]) : ([...chunks].reverse().find((c) => c.fromB < head) ?? chunks[chunks.length - 1]);
+    const pos = Math.min(next.fromB, b.state.doc.length);
+    b.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: "center" }) });
+    b.focus();
+  };
+
+  const close = () => {
+    // Go back to the main editor at the line the cursor is on here.
+    const b = merge.current?.b;
+    const line = b ? b.state.doc.lineAt(b.state.selection.main.head).number : null;
+    toggle("diffOpen");
+    if (line != null) requestAnimationFrame(() => requestAnimationFrame(() => goToLine(line)));
   };
 
   return (
@@ -83,29 +120,18 @@ export function DiffPanel() {
             {t("保存済みの内容と比較")}
           </button>
         </div>
-        <span className="diff-count">
-          {starts.length === 0
-            ? t("違いはありません")
-            : starts.length === 1
-              ? t("1 箇所 (+{0} 行 / −{1} 行)", added, removed)
-              : t("{0} 箇所 (+{1} 行 / −{2} 行)", starts.length, added, removed)}
-        </span>
+        <span className="diff-count">{changes === 0 ? t("違いはありません") : changes === 1 ? t("変更 1 箇所") : t("変更 {0} 箇所", changes)}</span>
         <span className="diff-nav">
-          <button onClick={() => show(current - 1)} disabled={starts.length === 0} title={t("前の変更")}>↑</button>
-          <span>{starts.length === 0 ? "0 / 0" : `${Math.max(current, 0) + 1} / ${starts.length}`}</span>
-          <button onClick={() => show(current + 1)} disabled={starts.length === 0} title={t("次の変更")}>↓</button>
+          <button onClick={() => step(-1)} disabled={changes === 0} title={t("前の変更")}>↑</button>
+          <button onClick={() => step(1)} disabled={changes === 0} title={t("次の変更")}>↓</button>
         </span>
         <button className="diff-close" onClick={close} title={t("閉じる (Esc)")}>×</button>
       </div>
       <div className="diff-cols">
         <span>{base === "opened" ? t("最初に開いたとき") : t("保存済み")}</span>
-        <span>{t("現在")}</span>
+        <span>{t("現在 (編集できます)")}</span>
       </div>
-      <div className="diff-body" ref={body} tabIndex={0}>
-        {rows.map((row, i) => (
-          <Row key={i} row={row} index={i} onJump={jump} />
-        ))}
-      </div>
+      <div className="diff-body" ref={host} />
     </section>
   );
 }
