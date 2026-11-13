@@ -3,6 +3,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { handleDroppedPaths } from "./features/files/dropped";
+import { Splitter } from "./components/Splitter";
+import { normalizePanelSizes, panelCssVars } from "./features/layout";
 import { platform, inTauri } from "./platform";
 import { FilePicker } from "./components/FilePicker";
 import { PromptDialog } from "./components/PromptDialog";
@@ -53,6 +55,7 @@ export default function App() {
   const language = resolveLanguage(useSettings((s) => s.language));
   setLanguage(language);
   const autosaveSeconds = useSettings((s) => s.autosaveSeconds);
+  const panelSizes = useSettings((s) => s.panelSizes);
 
   // Load settings, then restore the previous session and check for updates.
   useEffect(() => {
@@ -253,19 +256,23 @@ export default function App() {
     <div className={`app ${focusMode ? "focus" : ""}`}>
       <Toolbar />
       <TabBar />
-      <div className="workbench">
+      <div className="workbench" style={panelCssVars(normalizePanelSizes(panelSizes))}>
         {showSidebar && !focusMode && <Sidebar />}
+        {showSidebar && !focusMode && <Splitter panel="sidebar" grow={1} />}
         {diffOpen && <DiffPanel />}
         {/* Kept mounted (hidden) under the changes view so the editor keeps its state. */}
         <main className={`panes mode-${effectiveMode}`} hidden={diffOpen}>
           <section className="pane pane-editor">
             <Editor />
           </section>
+          {effectiveMode === "split" && <Splitter panel="split" grow={1} />}
           <section className="pane pane-preview">
             <Preview />
           </section>
         </main>
+        {showOutline && !focusMode && <Splitter panel="outline" grow={-1} />}
         {showOutline && !focusMode && <Outline />}
+        {cheatSheetOpen && !focusMode && <Splitter panel="cheatSheet" grow={-1} />}
         {cheatSheetOpen && !focusMode && <CheatSheet />}
       </div>
       <StatusBar />

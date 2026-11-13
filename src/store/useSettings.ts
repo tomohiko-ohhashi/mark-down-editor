@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ViewMode } from "./useDocStore";
 import type { LanguageSetting } from "../i18n";
+import { DEFAULT_PANEL_SIZES, type PanelSizes } from "../features/layout";
 
 export type Theme = "system" | "light" | "dark";
 /** How Enter behaves inside lists and quotes. */
@@ -64,6 +65,8 @@ export interface Settings {
   session: SessionState | null;
   /** Folders expanded in the workspace tree; kept so the tree looks the same after hiding the sidebar or restarting. */
   expandedDirs: string[];
+  /** Widths of the side panels and the editor / preview split, set by dragging the dividers. */
+  panelSizes: PanelSizes;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -90,6 +93,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lastWorkspace: null,
   session: null,
   expandedDirs: [],
+  panelSizes: DEFAULT_PANEL_SIZES,
 };
 
 const MAX_RECENT = 12;

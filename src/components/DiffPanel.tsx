@@ -7,6 +7,7 @@ import { MergeView, getChunks } from "@codemirror/merge";
 import { useDocStore, selectActiveDoc, fileName } from "../store/useDocStore";
 import { editorRef, goToLine } from "../editor/Editor";
 import { baseTheme, markdownHighlight } from "../editor/theme";
+import { Splitter } from "./Splitter";
 import { t } from "../i18n";
 
 type Base = "opened" | "saved";
@@ -30,6 +31,7 @@ export function DiffPanel() {
   const [changes, setChanges] = useState(0);
   const host = useRef<HTMLDivElement>(null);
   const merge = useRef<MergeView | null>(null);
+  const root = useRef<HTMLElement>(null);
 
   const oldText = base === "opened" ? doc.originalContent : doc.savedContent;
 
@@ -71,11 +73,27 @@ export function DiffPanel() {
     });
     merge.current = view;
     count(view.b.state);
+    // Where the strip between the two sides is, so the column headings and the divider line up with it.
+    // Written straight to CSS variables: it then follows a resize within the same frame, with no render in between.
+    const measure = () => {
+      const strip = host.current?.querySelector<HTMLElement>(".cm-merge-revert")?.getBoundingClientRect();
+      const box = host.current?.getBoundingClientRect();
+      if (!strip || !box || !root.current) return;
+      root.current.style.setProperty("--strip-left", `${strip.left - box.left}px`);
+      root.current.style.setProperty("--strip-width", `${strip.width}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(host.current);
+    observer.observe(view.a.dom);
+    const strip = host.current.querySelector(".cm-merge-revert");
+    if (strip) observer.observe(strip);
+    measure();
     // Start at the first change.
     const first = getChunks(view.b.state)?.chunks[0];
     if (first) view.b.dispatch({ selection: { anchor: Math.min(first.fromB, view.b.state.doc.length) }, effects: EditorView.scrollIntoView(Math.min(first.fromB, view.b.state.doc.length), { y: "center" }) });
     view.b.focus();
     return () => {
+      observer.disconnect();
       view.destroy();
       merge.current = null;
     };
@@ -108,7 +126,7 @@ export function DiffPanel() {
   };
 
   return (
-    <section className="diff" aria-label={t("変更箇所")}>
+    <section className="diff" aria-label={t("変更箇所")} ref={root}>
       <div className="diff-head">
         <strong>{t("変更箇所")}</strong>
         <span className="diff-file">{fileName(doc.path)}</span>
@@ -124,14 +142,28 @@ export function DiffPanel() {
         <span className="diff-nav">
           <button onClick={() => step(-1)} disabled={changes === 0} title={t("前の変更")}>↑</button>
           <button onClick={() => step(1)} disabled={changes === 0} title={t("次の変更")}>↓</button>
+          {/* Kept with the arrows so it never wraps onto a line of its own. */}
+          <button className="diff-close" onClick={close} title={t("閉じる (Esc)")}>×</button>
         </span>
-        <button className="diff-close" onClick={close} title={t("閉じる (Esc)")}>×</button>
       </div>
       <div className="diff-cols">
         <span>{base === "opened" ? t("最初に開いたとき") : t("保存済み")}</span>
+        <span className="diff-cols-strip" />
         <span>{t("現在 (編集できます)")}</span>
       </div>
-      <div className="diff-body" ref={host} />
+      <div className="diff-main">
+        <div className="diff-body" ref={host} />
+        <Splitter
+          panel="diff"
+          grow={1}
+          edge="after"
+          track={() => {
+            const a = merge.current?.a.dom.parentElement?.getBoundingClientRect();
+            const b = merge.current?.b.dom.parentElement?.getBoundingClientRect();
+            return a && b ? { left: a.left, width: a.width + b.width } : null;
+          }}
+        />
+      </div>
     </section>
   );
 }
