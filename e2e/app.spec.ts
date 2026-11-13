@@ -376,3 +376,92 @@ test("tabs can be dragged into a different order", async ({ page }) => {
   await page.click('.tab:has-text("tasks.md")');
   await expect(page.locator(".tab.active .tab-name")).toHaveText("tasks.md");
 });
+
+test("the dividers between the panels can be dragged, and the widths are kept", async ({ page }) => {
+  await start(page);
+  await openFile(page, "hello.md");
+  const width = async (selector: string) => Math.round((await page.locator(selector).boundingBox())?.width ?? 0);
+  const drag = async (panel: string, dx: number) => {
+    const box = await page.locator(`.splitter[data-panel="${panel}"]`).boundingBox();
+    if (!box) throw new Error(`no divider for ${panel}`);
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dx, y, { steps: 5 });
+    await page.mouse.up();
+  };
+
+  // Sidebar: wider by 100px.
+  expect(await width(".sidebar")).toBe(240);
+  await drag("sidebar", 100);
+  expect(await width(".sidebar")).toBe(340);
+
+  // Editor / preview: move the line to the left, the editor gets narrower and the preview wider.
+  const editorBefore = await width(".pane-editor");
+  const previewBefore = await width(".pane-preview");
+  await drag("split", -150);
+  expect(await width(".pane-editor")).toBeLessThan(editorBefore - 120);
+  expect(await width(".pane-preview")).toBeGreaterThan(previewBefore + 120);
+
+  // Outline (on the right): dragging to the left makes it wider.
+  await page.keyboard.press("Control+Shift+O");
+  await expect(page.locator(".outline")).toBeVisible();
+  await drag("outline", -60);
+  expect(await width(".outline")).toBe(300);
+
+  // Kept after a reload.
+  await expect.poll(async () => ((await stored(page)).panelSizes as Record<string, number> | undefined)?.outline).toBe(300);
+  await page.reload();
+  await page.waitForSelector(".sidebar .tree");
+  expect(await width(".sidebar")).toBe(340);
+  expect(await width(".outline")).toBe(300);
+
+  // Double-click puts the default width back.
+  await page.locator('.splitter[data-panel="sidebar"]').dblclick();
+  expect(await width(".sidebar")).toBe(240);
+});
+
+test("the changes view: its middle line can be dragged, and the headings and arrows line up with the text", async ({ page }) => {
+  await start(page);
+  await openFile(page, "tasks.md");
+  await editor(page).click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("追記");
+  await page.keyboard.press("Control+Shift+G");
+  await page.waitForSelector(".cm-mergeView .diff-revert");
+  const left = async (selector: string) => (await page.locator(selector).first().boundingBox())?.x ?? -1;
+
+  // The strip between the two sides continues into the headings above it.
+  expect(Math.abs((await left(".diff-cols-strip")) - (await left(".cm-merge-revert")))).toBeLessThan(1);
+
+  // The arrow of a change sits on the changed line, not above it.
+  const arrow = await page.locator(".diff-revert").first().boundingBox();
+  const line = await page.locator(".cm-mergeViewEditor:last-child .cm-changedLine").first().boundingBox();
+  if (!arrow || !line) throw new Error("no change shown");
+  expect(arrow.y).toBeGreaterThanOrEqual(line.y);
+  expect(arrow.y + arrow.height).toBeLessThanOrEqual(line.y + line.height + 1);
+
+  // Drag the line between the two sides to the left: both the strip and the headings follow.
+  const before = await left(".cm-merge-revert");
+  const bar = await page.locator('.splitter[data-panel="diff"]').boundingBox();
+  if (!bar) throw new Error("no divider in the changes view");
+  await page.mouse.move(bar.x + bar.width / 2, bar.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(bar.x + bar.width / 2 - 120, bar.y + 100, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => Math.round(before - (await left(".cm-merge-revert")))).toBe(120);
+  await expect.poll(async () => Math.abs((await left(".diff-cols-strip")) - (await left(".cm-merge-revert")))).toBeLessThan(1);
+});
+
+test("menus: nothing wraps, and switched-on items are ticked", async ({ page }) => {
+  await start(page);
+  await page.keyboard.press("Control+Shift+T"); // typewriter mode on
+  await page.locator(".toolbar .tg-more .dropdown > button").click();
+  const items = page.locator(".toolbar .tg-more .menu-item");
+  const heights = await items.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  expect(new Set(heights).size).toBe(1); // every item is one line high
+  await expect(items.filter({ hasText: "タイプライターモード" }).locator(".menu-check")).toHaveText("✓");
+  await expect(items.filter({ hasText: "チートシート / ショートカット" }).locator(".menu-check")).toHaveText("");
+  await expect(items.filter({ hasText: "タイプライターモード" })).toHaveAttribute("aria-checked", "true");
+});

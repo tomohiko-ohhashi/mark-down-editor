@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDocStore } from "../store/useDocStore";
 import { editorRef } from "../editor/Editor";
+import { MenuCheck } from "./Toolbar";
 import { t } from "../i18n";
 
 interface MenuPos {
@@ -101,21 +102,21 @@ export function FocusControls() {
           }}
         >
           <button className="menu-item" role="menuitem" onClick={run(() => toggle("focusMode"))}>
-            {t("フォーカスモードを終了")} <kbd>Esc</kbd>
+            <MenuCheck />{t("フォーカスモードを終了")} <kbd>Esc</kbd>
           </button>
-          <button className="menu-item" role="menuitem" onClick={run(() => toggle("typewriterMode"))}>
-            {typewriter ? "✓ " : ""}{t("タイプライターモード")}
+          <button className="menu-item" role="menuitemcheckbox" aria-checked={typewriter} onClick={run(() => toggle("typewriterMode"))}>
+            <MenuCheck on={typewriter} />{t("タイプライターモード")}
           </button>
           <hr />
           <button className="menu-item" role="menuitem" disabled={!menu.hasSelection} onClick={clipboard("cut")}>
-            {t("切り取り")}
+            <MenuCheck />{t("切り取り")}
           </button>
           <button className="menu-item" role="menuitem" disabled={!menu.hasSelection} onClick={clipboard("copy")}>
-            {t("コピー")}
+            <MenuCheck />{t("コピー")}
           </button>
           {canPaste && (
             <button className="menu-item" role="menuitem" onClick={paste}>
-              {t("貼り付け")}
+              <MenuCheck />{t("貼り付け")}
             </button>
           )}
           <div className="menu-hint">{t("Shift+右クリックで通常のメニュー")}</div>

@@ -67,6 +67,15 @@ function TableInsert({ close }: { close: () => void }) {
   );
 }
 
+
+/**
+ * The tick in front of a menu item that is switched on. Every item of a menu
+ * with such switches gets one (empty when it does not apply), so the labels line up.
+ */
+export function MenuCheck({ on }: { on?: boolean }) {
+  return <span className="menu-check" aria-hidden="true">{on ? "✓" : ""}</span>;
+}
+
 export function Toolbar() {
   const doc = useDocStore(selectActiveDoc);
   const dirty = useDocStore(selectActiveIsDirty);
@@ -77,6 +86,7 @@ export function Toolbar() {
   const showSidebar = useDocStore((s) => s.showSidebar);
   const showOutline = useDocStore((s) => s.showOutline);
   const cheatSheetOpen = useDocStore((s) => s.cheatSheetOpen);
+  const typewriterMode = useDocStore((s) => s.typewriterMode);
   const diffOpen = useDocStore((s) => s.diffOpen);
   const recent = useSettings((s) => s.recentFiles);
   const clearRecent = useSettings((s) => s.clearRecent);
@@ -91,7 +101,7 @@ export function Toolbar() {
             <>
               {recent.length === 0 && <div className="menu-empty">{t("履歴はありません")}</div>}
               {recent.map((p) => (
-                <button key={p} className="menu-item" title={p} onClick={() => { close(); void openDocument(p); }}>
+                <button key={p} className="menu-item two-line" title={p} onClick={() => { close(); void openDocument(p); }}>
                   <span className="menu-main">{fileName(p)}</span>
                   <span className="menu-sub">{p}</span>
                 </button>
@@ -170,12 +180,12 @@ export function Toolbar() {
         <Dropdown label="⋯" title={t("その他")} align="right">
           {(close) => (
             <>
-              <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>{t("フォーカスモード")} <kbd>{mod}{shift}D</kbd></button>
-              <button className="menu-item" onClick={() => { close(); toggle("typewriterMode"); }}>{t("タイプライターモード")} <kbd>{mod}{shift}T</kbd></button>
+              <button className="menu-item" role="menuitemcheckbox" aria-checked={false} onClick={() => { close(); toggle("focusMode"); }}><MenuCheck />{t("フォーカスモード")} <kbd>{mod}{shift}D</kbd></button>
+              <button className="menu-item" role="menuitemcheckbox" aria-checked={typewriterMode} onClick={() => { close(); toggle("typewriterMode"); }}><MenuCheck on={typewriterMode} />{t("タイプライターモード")} <kbd>{mod}{shift}T</kbd></button>
               <hr />
-              <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>{t("チートシート")} <kbd>F1</kbd></button>
-              <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>{t("設定…")} <kbd>{mod},</kbd></button>
-              <button className="menu-item" onClick={() => { close(); toggle("aboutOpen"); }}>{t("バージョン情報…")}</button>
+              <button className="menu-item" role="menuitemcheckbox" aria-checked={cheatSheetOpen} onClick={() => { close(); toggle("cheatSheetOpen"); }}><MenuCheck on={cheatSheetOpen} />{t("チートシート / ショートカット")} <kbd>F1</kbd></button>
+              <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}><MenuCheck />{t("設定…")} <kbd>{mod},</kbd></button>
+              <button className="menu-item" onClick={() => { close(); toggle("aboutOpen"); }}><MenuCheck />{t("バージョン情報…")}</button>
             </>
           )}
         </Dropdown>
@@ -194,6 +204,9 @@ export function MobileBar() {
   const toggle = useDocStore((s) => s.toggle);
   const showSidebar = useDocStore((s) => s.showSidebar);
   const showOutline = useDocStore((s) => s.showOutline);
+  const diffOpen = useDocStore((s) => s.diffOpen);
+  const typewriterMode = useDocStore((s) => s.typewriterMode);
+  const cheatSheetOpen = useDocStore((s) => s.cheatSheetOpen);
   const dirty = useDocStore(selectActiveIsDirty);
   return (
     <nav className="mobilebar">
@@ -212,16 +225,17 @@ export function MobileBar() {
       <Dropdown label="⋯" title={t("その他")} align="right" up>
         {(close) => (
           <>
-            <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}>{t("名前を付けて保存…")}</button>
-            <button className="menu-item" onClick={() => { close(); void exportHtml(); }}>{t("HTML として書き出す…")}</button>
-            <button className="menu-item" onClick={() => { close(); void exportPdf(); }}>{t("印刷 / PDF…")}</button>
+            <button className="menu-item" onClick={() => { close(); void saveDocumentAs(); }}><MenuCheck />{t("名前を付けて保存…")}</button>
+            <button className="menu-item" onClick={() => { close(); void exportHtml(); }}><MenuCheck />{t("HTML として書き出す…")}</button>
+            <button className="menu-item" onClick={() => { close(); void exportPdf(); }}><MenuCheck />{t("印刷 / PDF…")}</button>
             <hr />
-            <button className="menu-item" onClick={() => { close(); runFormat(); }}>{t("ドキュメント全体を整形")}</button>
-            <button className="menu-item" onClick={() => { close(); toggle("diffOpen"); }}>{t("変更箇所を表示")}</button>
-            <button className="menu-item" onClick={() => { close(); toggle("focusMode"); }}>{t("フォーカスモード")}</button>
-            <button className="menu-item" onClick={() => { close(); toggle("cheatSheetOpen"); }}>{t("チートシート")}</button>
-            <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}>{t("設定…")}</button>
-            <button className="menu-item" onClick={() => { close(); toggle("aboutOpen"); }}>{t("バージョン情報…")}</button>
+            <button className="menu-item" onClick={() => { close(); runFormat(); }}><MenuCheck />{t("ドキュメント全体を整形")}</button>
+            <button className="menu-item" role="menuitemcheckbox" aria-checked={diffOpen} onClick={() => { close(); toggle("diffOpen"); }}><MenuCheck on={diffOpen} />{t("変更箇所を表示")}</button>
+            <button className="menu-item" role="menuitemcheckbox" aria-checked={false} onClick={() => { close(); toggle("focusMode"); }}><MenuCheck />{t("フォーカスモード")}</button>
+            <button className="menu-item" role="menuitemcheckbox" aria-checked={typewriterMode} onClick={() => { close(); toggle("typewriterMode"); }}><MenuCheck on={typewriterMode} />{t("タイプライターモード")}</button>
+            <button className="menu-item" role="menuitemcheckbox" aria-checked={cheatSheetOpen} onClick={() => { close(); toggle("cheatSheetOpen"); }}><MenuCheck on={cheatSheetOpen} />{t("チートシート / ショートカット")}</button>
+            <button className="menu-item" onClick={() => { close(); toggle("settingsOpen"); }}><MenuCheck />{t("設定…")}</button>
+            <button className="menu-item" onClick={() => { close(); toggle("aboutOpen"); }}><MenuCheck />{t("バージョン情報…")}</button>
           </>
         )}
       </Dropdown>

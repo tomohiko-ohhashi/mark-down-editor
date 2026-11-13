@@ -66,6 +66,9 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--fg-muted); margin-
   background: transparent; border: 1px solid transparent; border-radius: 5px;
   padding: 4px 8px; cursor: pointer; min-width: 28px; white-space: nowrap;
 }
+/* One height for every button in the bar: text, letters and symbols come from different fonts and would differ by a pixel or two. */
+.toolbar-group > button, .toolbar-group > .dropdown > button { height: 28px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.toolbar-group.segmented > button { height: 26px; }
 .toolbar button:hover, .dropdown > button:hover { background: var(--bg); border-color: var(--border); }
 .toolbar button.active { background: var(--accent); color: #fff; }
 .toolbar button code { font-family: var(--mono); font-size: 11px; }
@@ -78,7 +81,7 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--fg-muted); margin-
 /* dropdown */
 .dropdown { position: relative; }
 .dropdown-menu {
-  position: absolute; top: 100%; left: 0; z-index: 50; min-width: 220px; max-width: 420px;
+  position: absolute; top: 100%; left: 0; z-index: 50; min-width: 220px; max-width: min(420px, 94vw); width: max-content;
   margin-top: 4px; padding: 4px; background: var(--bg); border: 1px solid var(--border);
   border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
@@ -87,8 +90,12 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--fg-muted); margin-
 .dropdown-menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
 .menu-item {
   display: flex; align-items: center; width: 100%; text-align: left; background: none; border: none;
-  padding: 6px 10px; border-radius: 5px; cursor: pointer; gap: 8px; flex-wrap: wrap;
+  padding: 6px 10px; border-radius: 5px; cursor: pointer; gap: 8px; white-space: nowrap;
 }
+/* A name with a second line under it (recent files). */
+.menu-item.two-line { flex-wrap: wrap; }
+/* Room for a tick in front of the items of a menu that has switches in it. */
+.menu-check { flex: 0 0 14px; text-align: center; color: var(--accent); font-weight: 700; }
 .menu-item:hover { background: var(--bg-alt); }
 .menu-item .menu-main { flex-basis: 100%; }
 .menu-item .menu-sub { flex-basis: 100%; font-size: 11px; color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -122,9 +129,19 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .editor { height: 100%; }
 .editor .cm-editor { height: 100%; }
 
-.sidebar, .outline { width: 240px; flex-shrink: 0; overflow: auto; background: var(--bg-alt); font-size: 12.5px; }
+.sidebar, .outline { width: var(--sidebar-w, 240px); max-width: 60vw; flex-shrink: 0; overflow: auto; background: var(--bg-alt); font-size: 12.5px; }
 .sidebar { border-right: 1px solid var(--border); }
-.outline { border-left: 1px solid var(--border); }
+.outline { width: var(--outline-w, 240px); border-left: 1px solid var(--border); }
+/* Dividers between the panels: a thin strip over the border that can be dragged. */
+/* 6px wide with -3px margins: it takes no room of its own, so nothing shifts when a panel opens. */
+.splitter { flex: 0 0 6px; margin: 0 -3px; position: relative; z-index: 6; cursor: col-resize; touch-action: none; outline: none; }
+/* The highlight sits exactly on the 1px border it stands for: the right edge of the panel before it ... */
+.splitter::after { content: ""; position: absolute; top: 0; bottom: 0; left: 1px; width: 3px; background: transparent; transition: background 0.12s; }
+/* ... or the left edge of the panel after it. */
+.splitter[data-edge="after"]::after { left: 2px; }
+.splitter:hover::after, .splitter.dragging::after, .splitter:focus-visible::after { background: var(--accent); }
+.panes.mode-split .pane-editor { flex: 0 0 var(--split, 50%); }
+body.resizing, body.resizing * { cursor: col-resize !important; user-select: none !important; }
 .panel-title { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-weight: 600; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-muted); position: sticky; top: 0; background: var(--bg-alt); }
 .panel-actions { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .panel-actions button { background: none; border: none; cursor: pointer; padding: 0 4px; color: var(--fg-muted); }
@@ -214,10 +231,15 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .diff-nav { display: inline-flex; align-items: center; gap: 6px; }
 .diff-nav button, .diff-close { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 2px 9px; cursor: pointer; }
 .diff-nav button:disabled { opacity: 0.4; cursor: default; }
-.diff-close { border: none; font-size: 16px; }
-.diff-cols { display: grid; grid-template-columns: 1fr 1fr; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); border-bottom: 1px solid var(--border); }
-.diff-cols span { padding: 3px 12px; }
-.diff-cols span + span { border-left: 1px solid var(--border); }
+.diff-nav .diff-close { border: none; font-size: 16px; padding: 0 6px; }
+.diff-cols { display: grid; grid-template-columns: 1fr 2.2em 1fr; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); border-bottom: 1px solid var(--border); }
+.diff-cols span { padding: 3px 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Continues the strip between the two sides up into the headings, so the lines meet. */
+.diff-cols .diff-cols-strip { padding: 0; background: var(--bg-alt); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.diff-main { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.diff-main > .splitter { position: absolute; top: 0; bottom: 0; width: 6px; margin: 0; }
+.diff-body .cm-mergeViewEditor:first-child { flex-grow: calc(var(--diff-split, 0.5) * 100); }
+.diff-body .cm-mergeViewEditor:last-child { flex-grow: calc((1 - var(--diff-split, 0.5)) * 100); }
 .diff-body { flex: 1; min-height: 0; overflow: auto; }
 .diff-body .cm-mergeView { height: 100%; overflow: auto; }
 .diff-body .cm-editor { font-size: 13px; }
@@ -228,6 +250,8 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .diff-body .cm-deletedChunk { background: var(--diff-del); }
 .diff-body .cm-merge-revert { width: 2.2em; background: var(--bg-alt); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 .diff-revert { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; width: 1.7em; height: 1.5em; line-height: 1; padding: 0; cursor: pointer; color: var(--fg); font-size: 12px; position: absolute; left: 0.2em; }
+/* The merge view places the button from the top of the text, not counting the padding above it (16px); the rest centres it on the first line. */
+.diff-revert { margin-top: 18px; }
 .diff-revert:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .update-check { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; margin-top: 6px; }
 .modal-footer .update-check { margin-top: 0; }
@@ -263,7 +287,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .modal label.check:has(input:disabled) { color: var(--fg-muted); }
 .modal button.secondary { margin-top: 6px; border: 1px solid var(--border); background: var(--bg-alt); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
 /* ---------- Cheat sheet side panel ---------- */
-.cheatsheet { width: 300px; flex-shrink: 0; overflow: auto; background: var(--bg-alt); border-left: 1px solid var(--border); font-size: 12.5px; }
+.cheatsheet { width: var(--cheatsheet-w, 300px); max-width: 60vw; flex-shrink: 0; overflow: auto; background: var(--bg-alt); border-left: 1px solid var(--border); font-size: 12.5px; }
 .cheat-tabs { display: flex; margin: 0 10px 8px; }
 .cheat-tabs button { flex: 1; background: none; border: none; padding: 4px 6px; cursor: pointer; font-size: 12px; }
 .cheat-list { margin: 0; padding: 0 10px 16px; }
@@ -277,7 +301,7 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 @media print {
   html, body, #root { height: auto; overflow: visible; background: #fff; color: #1f2328; }
   :root { color-scheme: light; --bg: #fff; --bg-alt: #f6f7f9; --fg: #1f2328; --fg-muted: #6e7781; --border: #d8dee4; --link: #0969da; --code: #cf222e; }
-  .toolbar, .tabbar, .statusbar, .sidebar, .outline, .cheatsheet, .mobilebar, .pane-editor, .modal-backdrop, .diff { display: none !important; }
+  .toolbar, .tabbar, .statusbar, .sidebar, .outline, .cheatsheet, .mobilebar, .pane-editor, .modal-backdrop, .diff, .splitter { display: none !important; }
   .panes[hidden] { display: block !important; }
   .app, .workbench, .panes, .pane { display: block; height: auto; overflow: visible; }
   .pane-preview { display: block !important; }
@@ -294,7 +318,8 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
 .picker-list li button:hover { background: var(--bg-alt); }
 .picker-save { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
 .picker-save input { flex: 1; font-size: 16px; }
-.picker-save button.primary, .modal button.primary { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 6px 16px; cursor: pointer; }
+/* The border (in the button's own colour) keeps it the same height as the bordered button next to it. */
+.picker-save button.primary, .modal button.primary { background: var(--accent); color: #fff; border: 1px solid var(--accent); border-radius: 6px; padding: 6px 16px; cursor: pointer; }
 
 /* ---------- Mobile bottom bar (hidden on desktop) ---------- */
 .mobilebar { display: none; }
@@ -338,8 +363,13 @@ input, select { font: inherit; color: var(--fg); background: var(--bg); border: 
   /* Files, save and view switch first; formatting last (reachable by scrolling). */
   .tg-panels { order: 1; } .tg-file { order: 2; } .tg-view { order: 3; } .tg-more { order: 4; } .tg-format { order: 5; }
   .toolbar button, .dropdown > button { padding: 6px 8px; }
+  .toolbar-group > button, .toolbar-group > .dropdown > button { height: 34px; }
+  .toolbar-group.segmented > button { height: 32px; }
   .workbench { position: relative; }
-  .sidebar, .outline, .cheatsheet { position: absolute; top: 0; bottom: 0; z-index: 40; width: min(82vw, 320px); box-shadow: 0 0 24px rgba(0, 0, 0, 0.25); }
+  /* The panels are overlays here: nothing to drag. */
+  .splitter { display: none; }
+  .panes.mode-split .pane-editor { flex: 1 1 0; }
+  .sidebar, .outline, .cheatsheet { position: absolute; top: 0; bottom: 0; z-index: 40; width: min(82vw, 320px); max-width: none; box-shadow: 0 0 24px rgba(0, 0, 0, 0.25); }
   .sidebar { left: 0; }
   .outline, .cheatsheet { right: 0; }
   .cheatsheet { z-index: 41; }
