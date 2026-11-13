@@ -5,7 +5,7 @@
       <path d="M512 232 C650 120 880 170 930 420 C870 372 740 372 548 420 Z"/>
     </clipPath>
   </defs>
-  <rect x="32" y="32" width="960" height="960" rx="210" fill="#1D8A84"/>
+  <rect x="32" y="32" width="960" height="960" rx="210" fill="#2470C2"/>
   <!-- tail -->
   <path d="M250 700 L150 930 L262 950 L372 742 Z" fill="#111417"/>
   <!-- body -->
