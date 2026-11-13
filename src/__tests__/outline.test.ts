@@ -50,6 +50,13 @@ describe("line endings", () => {
     expect(eol).toBe("\r\n");
     expect(diskText({ content: text + "c\n", eol })).toBe("a\r\nb\r\nc\r\n");
     expect(diskText({ content: "x\ny", eol: "\n" })).toBe("x\ny");
+    // A file that mixes line endings keeps the one it uses most.
+    expect(splitEol("a\nb\nc\r\nd\n").eol).toBe("\n");
+    expect(splitEol("a\r\nb\r\nc\nd").eol).toBe("\r\n");
+    // A file with bare carriage returns (old Mac text) is written back that way.
+    const mac = splitEol("a\rb\rc");
+    expect(mac).toEqual({ text: "a\nb\nc", eol: "\r" });
+    expect(diskText({ content: mac.text + "\nd", eol: mac.eol })).toBe("a\rb\rc\rd");
   });
 });
 

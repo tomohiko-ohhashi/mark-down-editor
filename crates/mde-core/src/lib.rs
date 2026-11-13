@@ -112,9 +112,11 @@ pub fn mtime_of(path: &Path) -> Result<u64, String> {
 
 /// Read a text file and return its content, encoding and modification time (ms since epoch).
 pub fn read_file(path: &Path) -> Result<FileContent, String> {
+    // The time is taken before reading. Taken afterwards, a change made while the file was being
+    // read would carry the new time with the old text, and would never be noticed.
+    let mtime = mtime_of(path)?;
     let bytes = fs::read(path).map_err(|e| format!("読み込みに失敗しました: {e}"))?;
     let (content, encoding) = decode_text(&bytes)?;
-    let mtime = mtime_of(path)?;
     Ok(FileContent {
         content,
         mtime,
@@ -125,21 +127,84 @@ pub fn read_file(path: &Path) -> Result<FileContent, String> {
 /// Write content atomically (temp file in the same directory, then rename).
 /// Creates missing parent directories. `encoding` is the one `read_file`
 /// reported for the file (UTF-8 when absent or unknown).
+///
+/// What the file was is kept: a link stays a link (the file it points at is
+/// written), the permissions stay, and a read-only file is refused.
 pub fn write_file(path: &Path, content: &str, encoding: Option<&str>) -> Result<u64, String> {
     let bytes = encode_text(content, encoding.unwrap_or("UTF-8"))?;
-    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-        fs::create_dir_all(parent).map_err(|e| format!("フォルダを作成できません: {e}"))?;
+    let fail = |e: std::io::Error| format!("保存に失敗しました: {e}");
+    let is_link = fs::symlink_metadata(path)
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false);
+    let target = if is_link {
+        fs::canonicalize(path).map_err(fail)?
+    } else {
+        path.to_path_buf()
+    };
+    let existing = fs::metadata(&target).ok();
+    if let Some(meta) = &existing {
+        if meta.is_dir() {
+            return Err("同じ名前のフォルダがあるため保存できません".to_string());
+        }
+        if meta.permissions().readonly() {
+            return Err("読み取り専用のファイルのため保存できません".to_string());
+        }
     }
-    let tmp = path.with_extension(format!(
-        "{}.tmp",
-        path.extension().and_then(|e| e.to_str()).unwrap_or("")
-    ));
-    fs::write(&tmp, &bytes).map_err(|e| format!("保存に失敗しました: {e}"))?;
-    fs::rename(&tmp, path).map_err(|e| {
+    let dir = match target.parent().filter(|p| !p.as_os_str().is_empty()) {
+        Some(parent) => {
+            fs::create_dir_all(parent).map_err(|e| format!("フォルダを作成できません: {e}"))?;
+            parent.to_path_buf()
+        }
+        None => PathBuf::from("."),
+    };
+    let tmp = dir.join(temp_name());
+    let permissions = existing.as_ref().map(|m| m.permissions());
+    let replaced = write_new(&tmp, &bytes, permissions).and_then(|()| fs::rename(&tmp, &target));
+    if let Err(e) = replaced {
         let _ = fs::remove_file(&tmp);
-        format!("保存に失敗しました: {e}")
-    })?;
-    mtime_of(path)
+        // The folder takes no new files but the file itself can be written: write into it.
+        if existing.is_some() && e.kind() == std::io::ErrorKind::PermissionDenied {
+            fs::write(&target, &bytes).map_err(fail)?;
+        } else {
+            return Err(fail(e));
+        }
+    }
+    mtime_of(&target)
+}
+
+/// A name for the temporary file of one save. It does not depend on the file's own name: two saves
+/// at the same moment must not share it, a file called "<name>.tmp" must not be hit, and a very
+/// long file name must not make it too long. It starts with a dot, so the file tree never lists it.
+fn temp_name() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    format!(
+        ".mde-{}-{}-{nanos}.tmp",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
+/// Create `path` (it must not exist) with `bytes`, give it `permissions` and make sure it is on disk.
+fn write_new(
+    path: &Path,
+    bytes: &[u8],
+    permissions: Option<fs::Permissions>,
+) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    file.write_all(bytes)?;
+    if let Some(p) = permissions {
+        file.set_permissions(p)?;
+    }
+    file.sync_all()
 }
 
 /// List a directory for the workspace tree: sub-directories, Markdown/text
@@ -151,7 +216,9 @@ pub fn read_dir(path: &Path, display: impl Fn(&Path) -> String) -> Result<Vec<Di
         .map_err(|e| format!("フォルダを読み込めません: {e}"))?
         .filter_map(|e| e.ok())
         .filter_map(|e| {
-            let name = e.file_name().to_string_lossy().into_owned();
+            // A name that is not valid Unicode cannot be handed to the UI and back; such a file
+            // could be listed but never opened.
+            let name = e.file_name().to_str()?.to_string();
             if name.starts_with('.') {
                 return None;
             }
@@ -185,16 +252,21 @@ pub fn read_dir(path: &Path, display: impl Fn(&Path) -> String) -> Result<Vec<Di
 pub fn save_image(doc_path: &Path, bytes: &[u8], ext: &str) -> Result<String, String> {
     let dir = doc_path
         .parent()
+        .filter(|_| doc_path.file_name().is_some())
         .ok_or_else(|| "保存先のフォルダが分かりません".to_string())?;
-    let assets = dir.join("assets");
-    fs::create_dir_all(&assets).map_err(|e| format!("assets フォルダを作成できません: {e}"))?;
-
     let ext = ext.trim_start_matches('.').to_ascii_lowercase();
     let ext = if ext.is_empty() {
         "png".to_string()
     } else {
         ext
     };
+    // The extension becomes part of a file name: letters and digits only (no "/", no "..").
+    if ext.len() > 8 || !ext.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err("画像の種類が不正です".to_string());
+    }
+    let assets = dir.join("assets");
+    fs::create_dir_all(&assets).map_err(|e| format!("assets フォルダを作成できません: {e}"))?;
+
     let stem = doc_path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -308,13 +380,27 @@ pub fn rename_path(from: &Path, to: &Path) -> Result<(), String> {
     if !from.exists() {
         return Err("元のファイルがありません".to_string());
     }
-    if to.exists() {
+    if to != from && to.starts_with(from) {
+        return Err("フォルダをそのフォルダ自身の中へは移動できません".to_string());
+    }
+    // Where upper and lower case are the same name (Windows, macOS), "a.md" -> "A.md" finds
+    // itself at the new name; that is the same file, not a name that is taken.
+    if to.exists() && !only_case_differs(from, to) {
         return Err("同じ名前のフォルダかファイルが既にあります".to_string());
     }
     if let Some(parent) = to.parent().filter(|p| !p.as_os_str().is_empty()) {
         fs::create_dir_all(parent).map_err(|e| format!("フォルダを作成できません: {e}"))?;
     }
     fs::rename(from, to).map_err(|e| format!("名前を変更できません: {e}"))
+}
+
+/// True when `to` is `from` under a name that differs only in upper / lower case.
+fn only_case_differs(from: &Path, to: &Path) -> bool {
+    let name = |p: &Path| p.file_name().map(|n| n.to_string_lossy().to_lowercase());
+    from != to
+        && from.parent() == to.parent()
+        && name(from) == name(to)
+        && matches!((fs::canonicalize(from), fs::canonicalize(to)), (Ok(a), Ok(b)) if a == b)
 }
 
 /// Permanently delete a file or a folder (recursively). Callers confirm first.
@@ -336,6 +422,10 @@ pub fn resolve_within(root: &Path, rel: &str) -> Result<PathBuf, String> {
     let mut out = root.to_path_buf();
     for comp in Path::new(rel).components() {
         match comp {
+            // On Windows "D:" in the middle of a path would replace everything before it.
+            Component::Normal(seg) if cfg!(windows) && seg.to_string_lossy().contains(':') => {
+                return Err("公開フォルダの外は指定できません".to_string());
+            }
             Component::Normal(seg) => out.push(seg),
             Component::CurDir => {}
             Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
@@ -390,6 +480,100 @@ mod tests {
         assert_eq!(got.content, "# hello\n日本語");
         assert_eq!(got.mtime, mtime);
         assert_eq!(mtime_of(&path).unwrap(), mtime);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn saving_leaves_no_temporary_file_and_no_neighbour_is_touched() {
+        let dir = tmp("save-clean");
+        let path = dir.join("note.md");
+        fs::write(dir.join("note.md.tmp"), "the user's own file").unwrap();
+        write_file(&path, "one", None).unwrap();
+        write_file(&path, "two", None).unwrap();
+        // A character that Shift_JIS cannot hold: the save fails and the file stays as it was.
+        assert!(write_file(&path, "😀", Some("Shift_JIS")).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "two");
+        let mut names: Vec<String> = fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["note.md", "note.md.tmp"]);
+        assert_eq!(
+            fs::read_to_string(dir.join("note.md.tmp")).unwrap(),
+            "the user's own file"
+        );
+        // A folder is not a file to save into (and nothing next to it is touched).
+        assert!(write_file(&dir, "x", None).is_err());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn saving_a_file_with_a_very_long_name_works() {
+        let dir = tmp("save-long");
+        let path = dir.join(format!("{}.md", "あ".repeat(84)));
+        write_file(&path, "text", None).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "text");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn saving_keeps_permissions_and_links_and_refuses_read_only_files() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tmp("save-meta");
+        let private = dir.join("private.md");
+        fs::write(&private, "old").unwrap();
+        fs::set_permissions(&private, fs::Permissions::from_mode(0o600)).unwrap();
+        write_file(&private, "new", None).unwrap();
+        assert_eq!(
+            fs::metadata(&private).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+
+        // Saving through a link writes the file it points at; the link stays a link.
+        let real = dir.join("real.md");
+        let link = dir.join("link.md");
+        fs::write(&real, "old").unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        write_file(&link, "through the link", None).unwrap();
+        assert!(
+            fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(fs::read_to_string(&real).unwrap(), "through the link");
+
+        let locked = dir.join("locked.md");
+        fs::write(&locked, "keep").unwrap();
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o444)).unwrap();
+        assert!(write_file(&locked, "changed", None).is_err());
+        assert_eq!(fs::read_to_string(&locked).unwrap(), "keep");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_image_can_only_be_saved_next_to_a_document_with_a_plain_extension() {
+        let dir = tmp("img-safe");
+        let doc = dir.join("doc.md");
+        fs::write(&doc, "").unwrap();
+        assert!(save_image(&doc, b"x", "png").is_ok());
+        for ext in ["/../../escaped.txt", "a/b", "../x", "p ng", "toolongext"] {
+            assert!(save_image(&doc, b"x", ext).is_err(), "{ext}");
+        }
+        assert!(save_image(Path::new("/"), b"x", "png").is_err());
+        assert!(!dir.parent().unwrap().join("escaped.txt").exists());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_folder_cannot_be_moved_into_itself() {
+        let dir = tmp("mv-self");
+        let d = dir.join("d");
+        fs::create_dir_all(&d).unwrap();
+        assert!(rename_path(&d, &d.join("new").join("inside")).is_err());
+        assert!(!d.join("new").exists());
         fs::remove_dir_all(&dir).unwrap();
     }
 

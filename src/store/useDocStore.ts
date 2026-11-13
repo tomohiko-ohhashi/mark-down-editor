@@ -20,17 +20,24 @@ export interface Doc {
   encoding: string;
 }
 
-export type Eol = "\n" | "\r\n";
+export type Eol = "\n" | "\r\n" | "\r";
 
-/** Split text loaded from disk into LF-only text and the line ending to write back. */
+/**
+ * Split text loaded from disk into LF-only text and the line ending to write back:
+ * the one the file uses, and for a file that mixes them, the one it uses most.
+ */
 export function splitEol(text: string): { text: string; eol: Eol } {
-  const eol: Eol = text.includes("\r\n") ? "\r\n" : "\n";
-  return { text: text.includes("\r") ? text.replace(/\r\n?/g, "\n") : text, eol };
+  if (!text.includes("\r")) return { text, eol: "\n" };
+  const crlf = text.split("\r\n").length - 1;
+  const lf = text.split("\n").length - 1 - crlf;
+  const cr = text.split("\r").length - 1 - crlf;
+  const eol: Eol = crlf >= lf && crlf >= cr && crlf > 0 ? "\r\n" : cr > lf ? "\r" : "\n";
+  return { text: text.replace(/\r\n?/g, "\n"), eol };
 }
 
 /** The text of a document as it should be written to disk. */
 export function diskText(doc: Pick<Doc, "content" | "eol">): string {
-  return doc.eol === "\r\n" ? doc.content.replace(/\n/g, "\r\n") : doc.content;
+  return doc.eol === "\n" ? doc.content : doc.content.replace(/\n/g, doc.eol);
 }
 
 interface DocState {
