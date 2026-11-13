@@ -1,4 +1,5 @@
 import { useDocStore } from "../store/useDocStore";
+import { useSettings } from "../store/useSettings";
 import { platform, inTauri } from "../platform";
 import { UpdateCheck } from "./UpdateCheck";
 import { t } from "../i18n";
@@ -14,6 +15,7 @@ const BUILT_WITH = ["Tauri", "React", "CodeMirror", "unified (remark / rehype)",
 export function AboutDialog() {
   const open = useDocStore((s) => s.aboutOpen);
   const toggle = useDocStore((s) => s.toggle);
+  const checkOnStartup = useSettings((s) => s.checkUpdatesOnStartup);
   // The license texts of the bundled libraries: null = not shown, "" = loading.
   const [licenses, setLicenses] = useState<string | null>(null);
   // Closed from elsewhere (Esc): start from the first page next time.
@@ -76,6 +78,12 @@ export function AboutDialog() {
           <p className="about-links">
             {link(REPO, "GitHub")} · {link(`${REPO}/releases`, t("リリース一覧"))} · {link(`${REPO}/blob/main/LICENSE`, t("ライセンス"))}
           </p>
+          {inTauri && (
+            <label className="check about-updates">
+              <input type="checkbox" checked={checkOnStartup} onChange={(e) => useSettings.getState().update({ checkUpdatesOnStartup: e.target.checked })} />
+              {t("起動時にアップデートを確認する")}
+            </label>
+          )}
           <h3>{t("権利表記")}</h3>
           <p>Copyright © 2026 tomohiko-ohhashi. All rights reserved.</p>
           <p className="about-note">
