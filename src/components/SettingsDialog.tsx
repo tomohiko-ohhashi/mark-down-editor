@@ -182,6 +182,7 @@ export function SettingsDialog() {
               <input type="checkbox" checked={s.livePreview} onChange={(e) => s.preview({ livePreview: e.target.checked })} />
               {t("カーソル行以外で Markdown 記号を隠す (WYSIWYG 風)")}
             </label>
+
             <label className="check">
               <input type="checkbox" checked={s.spellCheck} onChange={(e) => s.preview({ spellCheck: e.target.checked })} />
               {t("スペルチェック (OS の機能を使用)")}
